@@ -1,0 +1,19 @@
+{
+  "release": "Llamatron 2112 PC (1992), files dated 1996-12-25, game86.exe 8086 build",
+  "files": [
+    { "name": "f.cmp",        "size": 705,    "sha256": "a1aeb2fb45be796bb0385fa9243bd27b24789735275854340db54bdceb053081", "verify": true },
+    { "name": "fs.exe",       "size": 5467,   "sha256": "91d2a167eaeecef30667d7c2f53d95b6397c4f07b467e4e31461dff908373cff", "verify": true },
+    { "name": "g3.cmp",       "size": 6426,   "sha256": "89b4cb14316b44f5956ef32ff100648f9fec1a8787d7cfc6de6e56aa5892d942", "verify": true },
+    { "name": "game86.exe",   "size": 58315,  "sha256": "e4ca6f41aa770eb6989a9357ba048cf1f9b657425f117a351285010d5853636c", "verify": true },
+    { "name": "install.exe",  "size": 3307,   "sha256": "42f9d7ecfca1ad8586a6422798b827c759d07643eb94e117e4027e59325d57d8", "verify": true },
+    { "name": "llama.exe",    "size": 2043,   "sha256": "5c97b624be58bfe0302740fee2c4be192f2514afa74ebd7b0da82ba8b2e0d1c6", "verify": true },
+    { "name": "llama.inf",    "size": 10,     "sha256": "70cd5eb0b5884f5b3dcdc9d2e9d9d58540d433fc28398faef368aa0309ffd774", "verify": false },
+    { "name": "llatron.spl",  "size": 156813, "sha256": "8d9a5f3ad8fa527272a8b1f4fd492834d319a03d730a131733c635433ef47a31", "verify": true },
+    { "name": "newtit.lbm",   "size": 29066,  "sha256": "d7ed010ba2b0e7eeb5533c05b3db9b03d3038d41b5f9b98058f9019b43327567", "verify": true },
+    { "name": "newtit2.lbm",  "size": 27830,  "sha256": "15ff29bbded852e27f4ca682df3ac161607b534d4e4a1eeaa5f1e5aa7185ee94", "verify": true },
+    { "name": "s.cmp",        "size": 840,    "sha256": "eed86f06891531d520fb872a36abbfe2e415f26ef2659b51d7047aa114302ece", "verify": true },
+    { "name": "sblaster.bin", "size": 1895,   "sha256": "974cd3d53ba1bb6c621ba0a5168c5e5df18bd4846b58fd2b7dd856c925b1fcda", "verify": true },
+    { "name": "scores.yak",   "size": 160,    "sha256": "74ce7aea8c644e2b9cab2d430c5062e7293021daf916476cc87633d198324558", "verify": false },
+    { "name": "tronega.lbm",  "size": 44030,  "sha256": "0d8504f62d1b55d2cfb28bfabdd81836114a8b7692056a28fee03ef430688772", "verify": true }
+  ]
+}
