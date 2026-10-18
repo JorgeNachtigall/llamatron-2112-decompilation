@@ -1,0 +1,22 @@
+# Proprietary inputs and anything derived from them: never commit (docs/PLAN.md §9)
+original/
+unpacked/
+re/
+ghidra/
+build/
+build-*/
+*.lst
+*.gpr
+*.rep
+*.lock
+*.bin
+*.lbm
+*.spl
+*.cmp
+*.yak
+*.exe
+*.inf
+# Local tooling
+.venv/
+__pycache__/
+.DS_Store
