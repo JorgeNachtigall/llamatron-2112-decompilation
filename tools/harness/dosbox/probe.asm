@@ -45,9 +45,10 @@
 ;   +23 u8 timer wrap state (0 never, 1 wrapped, 2 game restored its vector)
 ;   +24 u32 timer IRQs seen  +28 u16 scripted keys applied  +30 u16 keys loaded
 ;   +32 u16 scripted pokes applied  +34 u16 pokes loaded
-; PROBE.SNP: header {'LTSN', u16 version 1, u16 count, u32 interval, u16 flags
+; PROBE.SNP: header {'LTSN', u16 version 2, u16 count, u32 interval, u16 flags
 ;   (bit0 VRAM present), u32 DGROUP bytes, u32 VRAM bytes}, then count x {u32 IRQ of
-;   the DGROUP copy, u32 IRQ of the VRAM copy (0 = none)}, then per snapshot the
+;   the DGROUP copy, u32 IRQ of the VRAM copy (0 = none), u16 CRTC start address at the
+;   VRAM copy (3D4h regs 0Ch/0Dh = the page shown), u16 0}, then per snapshot the
 ;   DGROUP bytes followed by the VRAM bytes (plane 0..3, VRAM_PLANE bytes each).
 
         cpu     8086
@@ -59,6 +60,8 @@ VRAM_SIZE       equ     4 * VRAM_PLANE
 SLOT_KB         equ     160             ; (DG_SIZE + VRAM_SIZE) rounded up to KB
 SLOT_LOW        equ     7D00h           ; slot size = 2 * 10000h + SLOT_LOW
 MAX_SNAPS       equ     200
+META_REC        equ     12
+RESIDENT_END    equ     6000h           ; offset in our segment where DOS may load game86
 MAX_KEYS        equ     4000
 KEY_REC         equ     6
 MAX_POKES       equ     256
@@ -107,10 +110,14 @@ start:
         mov     al, [tail+6]
         mov     [vga], al
 
-        ; give memory back to DOS: keep the program, its .bss and the stack
-        mov     bx, prog_end + 15
-        mov     cl, 4
-        shr     bx, cl
+        ; give memory back to DOS: keep a fixed RESIDENT_END bytes (program, .bss and
+        ; stack), so game86 always loads at the same segment: DGROUP holds far pointers
+        ; (e.g. the sound driver pointer at DS:0400), and the golden hashes must not
+        ; change whenever the probe grows
+        mov     bx, prog_end
+        cmp     bx, RESIDENT_END
+        ja      fatal
+        mov     bx, RESIDENT_END / 16
         mov     ah, 4Ah                 ; ES = our PSP
         int     21h
         jc      fatal
@@ -556,15 +563,17 @@ maybe_snapshot:                         ; DS = CS, BP = wrapper frame
         mov     ax, [xms_handle]
         mov     [xm_dst_handle], ax
         call    xms_move
-        mov     bx, [nsnaps]            ; meta: DGROUP irq, VRAM irq = 0
-        mov     cl, 3
-        shl     bx, cl
+        mov     bx, [nsnaps]            ; meta: DGROUP irq, VRAM irq = 0, CRTC start = 0
+        call    meta_offset
         mov     ax, [irq_count]
         mov     [meta + bx], ax
         mov     ax, [irq_count+2]
         mov     [meta + bx + 2], ax
-        mov     word [meta + bx + 4], 0
-        mov     word [meta + bx + 6], 0
+        xor     ax, ax
+        mov     [meta + bx + 4], ax
+        mov     [meta + bx + 6], ax
+        mov     [meta + bx + 8], ax
+        mov     [meta + bx + 10], ax
         inc     word [nsnaps]
         mov     al, [vga]
         mov     [vram_pending], al
@@ -587,6 +596,16 @@ maybe_snapshot:                         ; DS = CS, BP = wrapper frame
         call    snap_vram
         mov     byte [vram_pending], 0
 .ret:
+        ret
+
+meta_offset:                            ; BX slot -> BX = BX * META_REC
+        push    ax
+        mov     ax, bx
+        shl     bx, 1
+        add     bx, ax                  ; * 3
+        shl     bx, 1
+        shl     bx, 1                   ; * 12
+        pop     ax
         ret
 
 slot_base:                              ; BX slot -> DX:AX = BX * (20000h + SLOT_LOW)
@@ -654,12 +673,28 @@ snap_vram:                              ; VRAM of the newest slot (VGA register 
         out     dx, al
         mov     bx, [nsnaps]
         dec     bx
-        mov     cl, 3
-        shl     bx, cl
+        call    meta_offset
         mov     ax, [irq_count]
         mov     [meta + bx + 4], ax
         mov     ax, [irq_count+2]
         mov     [meta + bx + 6], ax
+        mov     dx, 3D4h                ; CRTC start address (the page shown), index restored
+        in      al, dx
+        mov     cl, al
+        mov     al, 0Ch
+        out     dx, al
+        inc     dx
+        in      al, dx
+        mov     ah, al
+        dec     dx
+        mov     al, 0Dh
+        out     dx, al
+        inc     dx
+        in      al, dx
+        dec     dx
+        mov     [meta + bx + 8], ax
+        mov     al, cl
+        out     dx, al
         ret
 
 xms_move:                               ; DS = CS, xm_* filled in
@@ -691,10 +726,9 @@ write_snapshots:
         mov     cx, snp_header_end - snp_header
         call    write_chunk
         mov     dx, meta
-        mov     cx, [nsnaps]
-        shl     cx, 1
-        shl     cx, 1
-        shl     cx, 1
+        mov     bx, [nsnaps]
+        call    meta_offset
+        mov     cx, bx
         call    write_chunk
         xor     bx, bx
 .slot:
@@ -888,7 +922,7 @@ npokes:     dw      0
 header_end:
 
 snp_header: db      "LTSN"
-            dw      1
+            dw      2
 snp_count:  dw      0
 snp_interval: dd    0
 snp_flags:  dw      0
@@ -932,7 +966,7 @@ gc_index:   resb    1
 gc_read_map: resb   1
 gc_mode:    resb    1
             alignb  2
-meta:       resb    MAX_SNAPS * 8
+meta:       resb    MAX_SNAPS * META_REC
 pokes:      resb    MAX_POKES * POKE_REC
 stack:      resb    1024
 stack_top:

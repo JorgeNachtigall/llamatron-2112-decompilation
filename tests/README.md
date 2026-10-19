@@ -64,3 +64,15 @@ Consequences:
   - It writes the port's divergence report to `<build>/tests/dosbox/replay-report-*.txt`.
   - `LLAMATRON_REPLAY_STRICT=1` makes any divergence fail. Leave it off until the game
     loop is complete.
+- Scenarios (`RUNS` in that file, one-line summary at the top of each report): `walk_vga`,
+  `walk_ega`, `attract`, `two_player` (droid), `warp`, `death_continue`,
+  `game_over_hiscore`. Keys cannot reach a warp or a quick game over, so a run can also
+  poke words into DGROUP (PROBE.POK `{u32 irq, u16 DS offset, u16 word}`, applied before
+  that IRQ's keys). `llamatron_replay --pokes` applies the same words through the adapter,
+  so only mapped offsets can be poked.
+- Golden hashes: `dgroup` leaves out game86's stack (DS:84D0..85E1), whose interrupt frames
+  depend on host speed. VGA snapshots also have `vram` (raw planes), `vram_irq`, `pages`
+  (sha256 of each page 0000/2000/4000 rasterised to 64000 indexed pixels, as
+  `EgaPlanes.rasterise`) and `shown` (the CRTC start address at capture).
+- The replay driver uses the EGA monitor's 59.92 Hz frame clock for `--ega` runs and VGA
+  mode 0Dh's 70.086 Hz otherwise.

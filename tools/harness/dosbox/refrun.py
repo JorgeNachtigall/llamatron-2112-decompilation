@@ -79,24 +79,26 @@ class ProbeResult:
 class Snapshot:
     """One periodic snapshot (PROBE.SNP): DGROUP after timer IRQ `irq` (the game's
     tick for that IRQ has run); VRAM planes 0..3 (VRAM_PLANE bytes each: pages
-    0000h/2000h/4000h) taken at IRQ `vram_irq` inside the vsync wait, or None."""
+    0000h/2000h/4000h) taken at IRQ `vram_irq` inside the vsync wait, or None;
+    `shown` = the CRTC start address read at that moment (the page on screen)."""
     irq: int
     vram_irq: int
     dgroup: bytes = field(repr=False)
     vram: list | None = field(repr=False)
+    shown: int | None = None
 
 
 def read_snapshots(path: Path) -> list[Snapshot]:
     data = path.read_bytes()
     magic, version, count, _interval, flags, dg_size, vram_size = struct.unpack_from(SNP_FMT, data)
-    if magic != b"LTSN" or version != 1:
+    if magic != b"LTSN" or version != 2:
         raise RuntimeError("bad PROBE.SNP")
     pos = struct.calcsize(SNP_FMT)
-    meta = [struct.unpack_from("<II", data, pos + 8 * i) for i in range(count)]
-    pos += 8 * count
+    meta = [struct.unpack_from("<IIHH", data, pos + 12 * i) for i in range(count)]
+    pos += 12 * count
     plane = vram_size // 4
     out = []
-    for irq, vram_irq in meta:
+    for irq, vram_irq, crtc_start, _ in meta:
         dg = data[pos:pos + dg_size]
         pos += dg_size
         vram = None
@@ -105,7 +107,7 @@ def read_snapshots(path: Path) -> list[Snapshot]:
             pos += vram_size
             if vram_irq:
                 vram = [raw[i * plane:(i + 1) * plane] for i in range(4)]
-        out.append(Snapshot(irq, vram_irq, dg, vram))
+        out.append(Snapshot(irq, vram_irq, dg, vram, crtc_start if vram else None))
     return out
 
 
