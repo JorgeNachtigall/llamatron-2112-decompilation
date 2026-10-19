@@ -3,11 +3,14 @@ think_00 hatch (43dc, also 04/07/0a), think_01 touch-only (43f1) with the player
 43f7 and entity_hits_player 4b49, think_02 fade (43c9), think_03 swarm (4ac9) with
 entity_move_bounce 4e7f, think_09 timer (4ec8), think_0b/0c/0d mother, shooter and shot
 (4ed7, 4feb with entity_aim_at_target 509b, 504f), think_10 homing (388a, mover 38a2) and
-the beam emitters think_11/12 (382d, 37fe)."""
+the beam emitters think_11/12 (382d, 37fe), the other homing users 13/1f/28/2a (256e, 2d6e,
+2d5a, 2d35), bouncers 0f/14/19/1a/1b (3cea, 25f1, 20f7, 2112, 148d) and the empty think_2b."""
 
 import pytest
 from generators import case_rng, fuzz_cases
 from think_oracle import ThinkOracle
+
+ACCEL_GROWTH = 0x0826       # think_1f, set by script op 3
 
 
 @pytest.fixture(scope="module")
@@ -97,6 +100,10 @@ CASES = {
     0x10: homing_entity,
     0x11: homing_entity,
     0x12: homing_entity,
+    0x0f: swarm_entity, 0x14: swarm_entity, 0x19: swarm_entity, 0x1a: swarm_entity,
+    0x1b: swarm_entity,
+    0x13: homing_entity, 0x1f: homing_entity, 0x28: homing_entity, 0x2a: homing_entity,
+    0x2b: None,
 }
 
 
@@ -104,5 +111,6 @@ CASES = {
 @pytest.mark.parametrize("case", fuzz_cases(48))
 def test_think(machine, oracle, think, case):
     rnd = case_rng(f"think_{think:02x}", case)
-    c = oracle.make_case(machine, rnd, think, CASES[think])
+    c = oracle.make_case(machine, rnd, think, CASES[think],
+                         extra={ACCEL_GROWTH: rnd.choice([0, 1, 0x10, rnd.randrange(0x10000)])})
     oracle.check(machine, c, think)

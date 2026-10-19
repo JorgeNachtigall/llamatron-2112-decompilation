@@ -172,3 +172,62 @@ void think_0d(GameState *game, Entity *e)
     entity_release(game, e);
     game->enemies_alive--;
 }
+
+/* Animated bouncer that dies at the first wall it hits. Also the tail of think_19.
+ * game86 1000:3cea */
+void think_0f(GameState *game, Entity *e)
+{
+    if (entity_check_touch(game, e))
+        return;
+    entity_move_bounce(game, e);
+    if (game->bounced) {
+        entity_release(game, e);
+        game->enemies_alive--;
+    }
+}
+
+/* Bouncer with a fast 4-frame animation, frozen during the wave intro. game86 1000:25f1 */
+void think_14(GameState *game, Entity *e)
+{
+    if (game->wave_intro_timer != 0)
+        return;
+    e->sprite = (int16_t)(0x95 + ((game->tick_count >> 1) & 3));
+    if (entity_check_touch(game, e))
+        return;
+    entity_move_bounce(game, e);
+}
+
+/* Two-frame variant of think_0f. game86 1000:20f7 */
+void think_19(GameState *game, Entity *e)
+{
+    if (entity_check_touch(game, e))
+        return;
+    e->sprite = (int16_t)(0xb5 + ((game->tick_count >> 2) & 1));
+    think_0f(game, e);
+}
+
+/* Four-frame bouncer. game86 1000:2112 */
+void think_1a(GameState *game, Entity *e)
+{
+    if (entity_check_touch(game, e))
+        return;
+    e->sprite = (int16_t)(0xb7 + ((game->tick_count >> 2) & 3));
+    entity_move_bounce(game, e);
+}
+
+/* Deadly bouncer: touching it kills like the deadly pickup (its flash and sound).
+ * game86 1000:148d */
+void think_1b(GameState *game, Entity *e)
+{
+    entity_move_bounce(game, e);
+    unsigned touched = entity_hits_player(game, e);
+    if (touched)
+        deadly_touch(game, touched);
+}
+
+/* Does nothing (a bare RET). game86 1000:27e6 */
+void think_2b(GameState *game, Entity *e)
+{
+    (void)game;
+    (void)e;
+}

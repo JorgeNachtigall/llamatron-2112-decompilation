@@ -55,6 +55,12 @@ void think_02(GameState *game, Entity *e);
 void think_03(GameState *game, Entity *e);
 void think_09(GameState *game, Entity *e);
 void think_0d(GameState *game, Entity *e);
+void think_0f(GameState *game, Entity *e);
+void think_14(GameState *game, Entity *e);
+void think_19(GameState *game, Entity *e);
+void think_1a(GameState *game, Entity *e);
+void think_1b(GameState *game, Entity *e);
+void think_2b(GameState *game, Entity *e);
 /* think_spawners.c */
 void think_0b(GameState *game, Entity *e);
 void think_0c(GameState *game, Entity *e);
@@ -62,6 +68,10 @@ void think_0c(GameState *game, Entity *e);
 void think_10(GameState *game, Entity *e);
 void think_11(GameState *game, Entity *e);
 void think_12(GameState *game, Entity *e);
+void think_13(GameState *game, Entity *e);
+void think_1f(GameState *game, Entity *e);
+void think_28(GameState *game, Entity *e);
+void think_2a(GameState *game, Entity *e);
 /* Steering towards game->target with inertia (16.16 fixed point in the record, see
  * think_homing.c). Tail of think_10..13, 1f, 28, 2a. game86 1000:38a2 */
 void entity_homing_move(GameState *game, Entity *e);

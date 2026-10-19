@@ -1,6 +1,6 @@
 /*
  * think_homing.c - enemies that steer towards their target ship with inertia (think_10) and
- * the beam emitters built on the same mover (think_11, think_12).
+ * the others built on the same mover (beams think_11/12, dropper think_13, think_1f/28/2a).
  *
  * The mover keeps 16.16 fixed-point values in pairs of record words:
  *   velocity x  +14/+16 (timer, aux16)      velocity y  +18/+1a (hp, aux1a)
@@ -20,6 +20,7 @@ enum {
 };
 
 static const SoundRequest SOUND_BEAM = { 0x08, 0, 7 };     /* 1000:387c */
+static const SoundRequest SOUND_DROP = { 0x0b, 1, 3 };     /* 1000:2597 */
 
 static int32_t join32(int16_t low, int16_t high)
 {
@@ -191,4 +192,77 @@ void think_11(GameState *game, Entity *e)
                                 distance16(e->y, game->ship[1].y)))
         return;
     beam_cycle(game, e);
+}
+
+/* Homing enemy that drops a projectile every period of its aux24 byte pair, aux2e times,
+ * once its start delay is over. Touching it kills like the deadly pickup.
+ * game86 1000:256e */
+void think_13(GameState *game, Entity *e)
+{
+    e->sprite = (int16_t)(0x89 + ((game->tick_count >> 2) & 7));
+    if (e->aux30 < 0) {
+        int8_t countdown = (int8_t)(high_byte(e->aux24) - 1);
+        set_high_byte(&e->aux24, (uint8_t)countdown);
+        if (countdown < 0 && --e->aux2e >= 0) {
+            set_high_byte(&e->aux24, low_byte(e->aux24));
+            enemy_shot_drop(game, e);
+            game_sound_play(SOUND_DROP.sample, SOUND_DROP.rate_index, SOUND_DROP.priority);
+        }
+    }
+    unsigned touched = entity_hits_player(game, e);
+    if (touched) {
+        deadly_touch(game, touched);
+        return;
+    }
+    entity_homing_move(game, e);
+}
+
+/* Homing enemy whose acceleration keeps growing by the level's tuning value; its sprite
+ * (base in vx) faces the target and shows a flash while aux24 counts down.
+ * game86 1000:2d6e */
+void think_1f(GameState *game, Entity *e)
+{
+    if (entity_check_touch(game, e))
+        return;
+    uint16_t growth = (uint16_t)game->tuning.p0826;
+    HomingAxis x = axis_x(e), y = axis_y(e);
+    x.accel = add32(x.accel, growth);
+    y.accel = add32(y.accel, growth);
+    split32(x.accel, &e->aux1c, &e->kill_action);
+    int16_t accel_y_high;
+    split32(y.accel, &e->sub_mode, &accel_y_high);
+    e->reload = (uint8_t)accel_y_high;
+    e->countdown = (uint8_t)((uint16_t)accel_y_high >> 8);
+
+    int16_t sprite = e->vx;
+    if ((int16_t)(uint16_t)(e->x - game->target.x) < 0)
+        sprite++;
+    if (e->aux24 >= 0) {
+        sprite += 2;
+        e->aux24--;
+    }
+    e->sprite = sprite;
+    entity_homing_move(game, e);
+}
+
+/* think_1f with its own 4-frame animation. game86 1000:2d5a */
+void think_28(GameState *game, Entity *e)
+{
+    think_1f(game, e);
+    e->sprite = (int16_t)(0x118 + ((game->tick_count >> 2) & 3));
+}
+
+/* Homing enemy that fires a child (sprite 0x12a, its own vx/vy) every period of its aux2e
+ * byte pair. game86 1000:2d35 */
+void think_2a(GameState *game, Entity *e)
+{
+    if (entity_check_touch(game, e))
+        return;
+    int8_t countdown = (int8_t)(high_byte(e->aux2e) - 1);
+    set_high_byte(&e->aux2e, (uint8_t)countdown);
+    if (countdown < 0) {
+        set_high_byte(&e->aux2e, low_byte(e->aux2e));
+        entity_spawn_child_if(game, e, 0x12a, e->vx, e->vy);
+    }
+    entity_homing_move(game, e);
 }

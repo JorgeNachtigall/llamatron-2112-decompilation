@@ -88,7 +88,7 @@ class ThinkOracle:
     # ---- state generation -------------------------------------------------------------
 
     def make_case(self, machine, rnd, think: int, entity=None, near_ship: float = 0.3,
-                  **extra: int) -> ThinkCase:
+                  extra: dict[int, int] | None = None) -> ThinkCase:
         """A random image with entity `slot` given think index `think`. `entity(rnd, rec)`
         tightens the record's handler-specific fields; `extra` = {DS offset: word}."""
         image = bytearray(machine.read_dgroup(0, 0x10000))
@@ -137,7 +137,7 @@ class ThinkOracle:
             FLASH_LIST: 0,
             BOUNCED: rnd.randrange(2),
         }
-        words.update(extra)
+        words.update(extra or {})
         for off, v in words.items():
             image[off:off + 2] = w16(v)
         return ThinkCase(self.dg.canonical(bytes(image)), slot)
