@@ -85,6 +85,17 @@ static void check_font(void)
         if (c >= 'A' && c <= 'Z')
             CHECK(g->rows > 0 && g->advance > 0 && g->bits != NULL && g->rows <= font->height);
     }
+    /* DEVIATIONS #2: one glyph, the one shared by 0x5d..0x5f and 0x7d..0x7f, claims 7 rows but
+     * f.cmp ends after 2; its 5 missing rows are blank. No other glyph is short. */
+    CHECK(LLAMA_FONT_TRUNCATED_GLYPHS == 1 && LLAMA_FONT_PADDED_ROWS == 5);
+    if (font) {
+        const GfxGlyph *last = &font->glyphs[0x5d];
+        CHECK(last->rows == 7 && last->bits != NULL);
+        for (unsigned c = 0x5d; c <= 0x7f; c += (c == 0x5f ? 0x1e : 1))
+            CHECK(font->glyphs[c].bits == last->bits && font->glyphs[c].rows == last->rows);
+        for (unsigned r = 2; last->bits && r < 7; r++)
+            CHECK(last->bits[r] == 0);
+    }
     const SineTables *sine = asset_sine();
     CHECK(sine && sine->sine8[0] == 0 && sine->sine8[64] == 126 && sine->sine8[192] == -126);
 }
@@ -182,6 +193,16 @@ static void check_samples_scores_config(void)
     for (unsigned n = 1; n <= LLAMA_SAMPLE_COUNT; n++) {
         const Sample *s = asset_sample(n);
         CHECK(s && s->pcm && s->length > 0);
+    }
+    /* DEVIATIONS #1: sample 30 alone runs past llatron.spl, by 96 bytes, padded with silence.
+     * The file's own bytes already end in 56 silent ones, so the silent tail is 152 long. */
+    CHECK(LLAMA_SAMPLES_PAST_END == 1 && LLAMA_SAMPLE_PAST_END == 30 && LLAMA_SAMPLE_PADDED_BYTES == 96);
+    const Sample *s30 = asset_sample(30);
+    if (s30 && s30->length > 96) {
+        unsigned silent = 0;
+        while (silent < s30->length && s30->pcm[s30->length - 1 - silent] == 0x80)
+            silent++;
+        CHECK(silent == 96 + 56);
     }
     for (unsigned r = 0; r < LLAMA_SAMPLE_RATE_COUNT; r++)
         CHECK(asset_sample_rate_hz(r) >= 3000 && asset_sample_rate_hz(r) <= 45000);

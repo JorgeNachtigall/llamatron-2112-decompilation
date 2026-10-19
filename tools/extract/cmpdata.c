@@ -37,7 +37,9 @@ bool load_cmp(const char *original_dir, const char *name, size_t expected_size, 
 
 /* Glyphs are drawn by game86 1000:559f: rows - 1 at +4, rows from +6, one u16 per row,
  * MSB = leftmost pixel; the pen advances by the word at +2 (1000:53a0, 552c, 555a). */
-static bool convert_font(const ByteBuf *raw, ByteBuf *out)
+/* `truncated` receives the glyphs whose rows run past the end of f.cmp, `padded_rows` the rows
+ * those are missing (DEVIATIONS #2; counted into asset_index.h for test_game_data). */
+static bool convert_font(const ByteBuf *raw, ByteBuf *out, unsigned *truncated, unsigned *padded_rows)
 {
     uint16_t glyph_offsets[FONT_CHAR_COUNT]; /* distinct original offsets, in first-use order */
     uint16_t char_map[FONT_CHAR_COUNT];
@@ -92,6 +94,10 @@ static bool convert_font(const ByteBuf *raw, ByteBuf *out)
          * blank rows instead (documented deviation, FORMATS.md). */
         for (size_t i = present; ok && i < wanted; i++)
             ok = bytebuf_push(out, 0);
+        if (present < wanted) {
+            ++*truncated;
+            *padded_rows += (unsigned)((wanted - present) / 2);
+        }
     }
     return ok;
 }
@@ -101,8 +107,12 @@ bool extract_cmp_data(ExtractContext *ctx)
     const char *original_dir = ctx->original_dir;
     OutputSet *outputs = ctx->outputs;
     ByteBuf raw = {0}, font = {0};
-    bool ok = load_cmp(original_dir, "f.cmp", F_CMP_SIZE, &raw) && convert_font(&raw, &font) &&
-              output_write(outputs, "data/font.bin", font.data, font.size);
+    unsigned truncated = 0, padded_rows = 0;
+    bool ok = load_cmp(original_dir, "f.cmp", F_CMP_SIZE, &raw) &&
+              convert_font(&raw, &font, &truncated, &padded_rows) &&
+              output_write(outputs, "data/font.bin", font.data, font.size) &&
+              index_define(ctx, "FONT_TRUNCATED_GLYPHS", truncated) &&
+              index_define(ctx, "FONT_PADDED_ROWS", padded_rows);
     /* s.cmp is already two plain little-endian arrays: s8[256] then s16[256]. */
     ok = ok && load_cmp(original_dir, "s.cmp", S_CMP_SIZE, &raw) &&
          output_write(outputs, "data/sine.bin", raw.data, SINE_COUNT * 3);

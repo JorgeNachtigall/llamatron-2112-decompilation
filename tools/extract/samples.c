@@ -45,6 +45,9 @@ bool extract_samples(ExtractContext *ctx)
          bytebuf_append(&index, driver.data + RATE_TABLE_OFFSET, RATE_COUNT) &&
          bytebuf_push(&index, 0); /* pad to even */
 
+    /* Samples whose directory entry runs past the end of llatron.spl (DEVIATIONS #1; counted
+     * into asset_index.h for test_game_data). */
+    unsigned past_end = 0, past_end_sample = 0, padded_bytes = 0;
     for (int sample = 1; ok && sample <= SAMPLE_COUNT; sample++) {
         const uint8_t *entry = driver.data + SAMPLE_TABLE_OFFSET + (sample + 1) * SAMPLE_ENTRY_SIZE;
         uint32_t offset = (uint32_t)read_u16le(entry) | (uint32_t)read_u16le(entry + 2) << 16;
@@ -61,11 +64,18 @@ bool extract_samples(ExtractContext *ctx)
              bytebuf_append(&pcm, bank.data + offset, present);
         for (size_t i = present; ok && i < length; i++)
             ok = bytebuf_push(&pcm, PCM_SILENCE);
+        if (present < length) {
+            past_end++;
+            past_end_sample = (unsigned)sample;
+            padded_bytes += (unsigned)(length - present);
+        }
     }
 
     ok = ok && output_write(ctx->outputs, "data/samples.bin", pcm.data, pcm.size) &&
          output_write(ctx->outputs, "data/samples.idx", index.data, index.size);
-    ok = ok && index_define(ctx, "SAMPLE_COUNT", SAMPLE_COUNT) && index_define(ctx, "SAMPLE_RATE_COUNT", RATE_COUNT);
+    ok = ok && index_define(ctx, "SAMPLE_COUNT", SAMPLE_COUNT) && index_define(ctx, "SAMPLE_RATE_COUNT", RATE_COUNT) &&
+         index_define(ctx, "SAMPLES_PAST_END", past_end) && index_define(ctx, "SAMPLE_PAST_END", past_end_sample) &&
+         index_define(ctx, "SAMPLE_PADDED_BYTES", padded_bytes);
     if (ok)
         printf("  %d samples, %zu bytes of PCM\n", SAMPLE_COUNT, pcm.size);
     bytebuf_free(&driver);
