@@ -257,8 +257,6 @@ typedef struct GameState {
     bool smart_bomb;                    /* 0615 hit every solid entity (pickup 0fb5, cleared 0d27) */
     int16_t death_sound_timer;          /* 0872 0x14 when < 10 enemies are left (43f7); sample 0x11 at 0 */
     int16_t swarm_count;                /* 091D think_03 entities this tick (reset 1a1f) */
-    int16_t eshot_param[5];             /* 0419..0421 enemy shot template (041B/041D aim limits);
-                                           [H] maybe only scratch: W5 to settle */
     const FlashList *flash_list;        /* 06C7 pending screen-flash list, NULL = none */
 
     /* Wave-wide enemy state (W5 handlers; [H] names are proposals) */
