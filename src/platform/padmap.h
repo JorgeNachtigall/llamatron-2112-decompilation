@@ -12,9 +12,12 @@
  *     pad 1 left stick + A/B      -> joystick 1 position + buttons
  *     pad 2 left stick + A/B      -> joystick 2; without a second pad, pad 1's right stick
  *                                    (+ X/Y) is joystick 2 (the original's twin-stick aim)
- *   both:
+ *   both, in the game:
  *     Start                       -> P (19h, pause)
  *     Back / Select               -> S (1Fh, sound on/off while paused, game86 1000:1500)
+ *   both, on the title (PadMap.title, the host's options screen, src/options):
+ *     Start                       -> Enter (1Ch: starts the game; saves the options)
+ *     Back / Select               -> F2 (3Ch: opens / cancels the options screen)
  *
  * Keys are sent as make codes when a control goes down and break codes when it comes up.
  */
@@ -31,6 +34,7 @@
 
 typedef struct PadMap {
     unsigned held;              /* PadKey bits currently sent as pressed */
+    bool title;                 /* set by the host: Start / Back are the title's keys */
 } PadMap;
 
 typedef void (*PadKeyFn)(uint8_t make_code, bool pressed, void *user);

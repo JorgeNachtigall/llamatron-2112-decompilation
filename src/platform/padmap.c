@@ -13,22 +13,24 @@ enum PadKey {
     PAD_KEY_FIRE = 1u << 4,
     PAD_KEY_PAUSE = 1u << 5,
     PAD_KEY_SOUND = 1u << 6,
-    PAD_KEY_MENU = PAD_KEY_PAUSE | PAD_KEY_SOUND,
+    PAD_KEY_ENTER = 1u << 7,
+    PAD_KEY_OPTIONS = 1u << 8,
+    PAD_KEY_MENU = PAD_KEY_PAUSE | PAD_KEY_SOUND | PAD_KEY_ENTER | PAD_KEY_OPTIONS,
 };
 
 /* PC scan code set 1 make codes, in PadKey bit order. */
-static const uint8_t PAD_KEY_CODES[] = { 0x48, 0x50, 0x4b, 0x4d, 0x39, 0x19, 0x1f };
+static const uint8_t PAD_KEY_CODES[] = { 0x48, 0x50, 0x4b, 0x4d, 0x39, 0x19, 0x1f, 0x1c, 0x3c };
 
 static const unsigned FIRE_BUTTONS =
     PLAT_PAD_BUTTON_A | PLAT_PAD_BUTTON_B | PLAT_PAD_BUTTON_X | PLAT_PAD_BUTTON_Y;
 
-static unsigned menu_keys(const PlatGamepad *pad)
+static unsigned menu_keys(const PadMap *map, const PlatGamepad *pad)
 {
     unsigned keys = 0;
     if (pad->buttons & PLAT_PAD_BUTTON_START)
-        keys |= PAD_KEY_PAUSE;
+        keys |= map->title ? PAD_KEY_ENTER : PAD_KEY_PAUSE;
     if (pad->buttons & PLAT_PAD_BUTTON_BACK)
-        keys |= PAD_KEY_SOUND;
+        keys |= map->title ? PAD_KEY_OPTIONS : PAD_KEY_SOUND;
     return keys;
 }
 
@@ -62,14 +64,14 @@ void padmap_keys(PadMap *map, const PlatGamepad *pad, PadKeyFn on_key, void *use
         bool right_stick = pad->rx * pad->rx + pad->ry * pad->ry >= PADMAP_THRESHOLD * PADMAP_THRESHOLD;
         if (right_stick || (pad->buttons & FIRE_BUTTONS))
             want |= PAD_KEY_FIRE;
-        want |= menu_keys(pad);
+        want |= menu_keys(map, pad);
     }
     send_changes(map, want, ~0u, on_key, user);
 }
 
 void padmap_menu_keys(PadMap *map, const PlatGamepad *pad, PadKeyFn on_key, void *user)
 {
-    send_changes(map, pad->connected ? menu_keys(pad) : 0, PAD_KEY_MENU, on_key, user);
+    send_changes(map, pad->connected ? menu_keys(map, pad) : 0, PAD_KEY_MENU, on_key, user);
 }
 
 void padmap_sticks(const PlatGamepad *pad1, const PlatGamepad *pad2, PadStick sticks[2])

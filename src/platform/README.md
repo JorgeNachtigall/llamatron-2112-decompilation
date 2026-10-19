@@ -18,6 +18,7 @@ Both cursor blocks act the same, as on a real keyboard.
 | while paused: S | sound on / off |
 | while paused: any other key | plays a sample |
 | X | abort the wave |
+| F2 (on the title) | options screen (port addition, `src/options`): cursor keys choose, Space / Left / Right change, Enter saves llama.inf, Esc or F2 cancels |
 | Q | quit the game |
 
 Joystick control (llama.inf `J`) uses the original's two analogue joysticks; host gamepads stand
@@ -31,8 +32,8 @@ sees no difference:
 | X, Y | Space (fire) | joystick 2 buttons (one pad only) |
 | right stick | Space while pushed | joystick 2 (one pad only: twin-stick aim) |
 | second pad, left stick + A/B | (unused) | joystick 2 |
-| Start | P (pause) | P (pause) |
-| Back / Select | S (sound toggle while paused) | S |
+| Start | P (pause); on the title Enter (start, or save the options) | the same |
+| Back / Select | S (sound toggle while paused); on the title F2 (options screen) | the same |
 
 Host-only keys (the game never sees them):
 

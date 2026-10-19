@@ -430,6 +430,7 @@ static void update_pads(App *app)
         plat_gamepad(0, &pads[0]);
         plat_gamepad(1, &pads[1]);
     }
+    app->padmap.title = app->phase == PHASE_TITLE;
     if (app->device == INPUT_DEVICE_KEYBOARD) {
         padmap_keys(&app->padmap, &pads[0], on_key, app);
         return;
