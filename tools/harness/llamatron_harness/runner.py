@@ -236,6 +236,19 @@ class Machine:
                 bytes(self.uc.mem_read(VRAM_BASE + VRAM_SIZE,
                                        MEM_SIZE - VRAM_BASE - VRAM_SIZE)))
 
+    # ---- breakpoints ----------------------------------------------------------
+
+    def add_breakpoint(self, addr: str | tuple[int, int],
+                       fn: Callable[["Machine"], None]) -> int:
+        """Call fn(machine) whenever execution reaches `addr` (before that
+        instruction runs), e.g. to change inputs mid-routine. Returns a handle for
+        remove_breakpoint."""
+        lin = linear(*parse_addr(addr))
+        return self.uc.hook_add(UC_HOOK_CODE, lambda uc, a, size, _u: fn(self), None, lin, lin)
+
+    def remove_breakpoint(self, handle: int) -> None:
+        self.uc.hook_del(handle)
+
     # ---- registers ----------------------------------------------------------
 
     def get_regs(self) -> dict[str, int]:
