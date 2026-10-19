@@ -1,7 +1,7 @@
 program,orig_addr,size,name,c_symbol,file,status,owner,range,notes
 game86,1000:0010,676,main,game_main,src/game/main_sm.c,todo,W4,A,RNG table build 007b..00ab = rng_shuffle (diff-tested in oracle.rng + dosbox.probe_rng)
 game86,1000:0309,44,hud_refresh_if_dirty,hud_refresh,src/game/hud.c,diff-tested,W6,A,test_hud.py (via level/lives/score with GameState fields; caller tests/clears g_hud_dirty); bit mask 0xff / zero latches assumed (hud.h)
-game86,1000:0335,93,score_add,score_add,src/game/player.c,todo,W4,A,
+game86,1000:0335,93,score_add,score_add,src/game/score.c,diff-tested,W4,A,tests/oracle/test_score.py
 game86,1000:0392,10,script_op7,script_run_op,src/game/script.c,ported,W4,A,scratch-checked vs unicorn (all 100 levels x loop 0..2); ctest pending
 game86,1000:039c,32,script_op6,script_run_op,src/game/script.c,ported,W4,A,scratch-checked vs unicorn (all 100 levels x loop 0..2); ctest pending
 game86,1000:03bc,19,script_op5,script_run_op,src/game/script.c,ported,W4,A,scratch-checked vs unicorn (all 100 levels x loop 0..2); ctest pending
