@@ -68,8 +68,9 @@ def test_round_trip_game86_image(dg, image):
     assert dg.canonical(canon) == canon
     # Before the game runs, the loaded image is canonical except for the never-referenced
     # player bytes, the spawn cursor (0, no list yet) and the high-score rows (zeros until
-    # scores.yak is read).
-    allowed = {SPAWN_CURSOR, SPAWN_CURSOR + 1, *range(HISCORES, HISCORES + 160)}
+    # scores.yak is read). P2's trail_head (2CF9) starts as 2 in the image, not a multiple of
+    # 8; the trail code masks it with 0x3F8 before use.
+    allowed = {SPAWN_CURSOR, SPAWN_CURSOR + 1, 0x2CF9, *range(HISCORES, HISCORES + 160)}
     diff = [i for i in range(DGROUP_SIZE)
             if canon[i] != image[i] and dg.mask[i] != MASK_DERIVED and i not in allowed]
     assert diff == [], [hex(i) for i in diff[:16]]
@@ -82,6 +83,17 @@ def test_score_digits(dg, image):
     assert dg.canonical(bytes(raw))[SCORES:SCORES + 16] == bytes(raw[SCORES:SCORES + 16])
     raw[SCORES + 7] = 12              # not a digit: carried into the number
     assert dg.canonical(bytes(raw))[SCORES:SCORES + 8] == bytes([0, 1, 2, 3, 4, 5, 7, 2])
+
+
+def test_trail_positions_are_offsets(dg, image):
+    raw = bytearray(image)
+    struct.pack_into("<HH", raw, 0x2CF7, 0x3F8, 0x0010)      # trail_head = entry index * 8
+    struct.pack_into("<HH", raw, 0x06BA, 0x0028, 0x0050)      # follower_lag = entries * 8
+    canon = dg.canonical(bytes(raw))
+    assert canon[0x2CF7:0x2CFB] == raw[0x2CF7:0x2CFB]
+    assert canon[0x06BA:0x06BE] == raw[0x06BA:0x06BE]
+    struct.pack_into("<H", raw, 0x2CF7, 0x3FF)                # low bits are not representable
+    assert struct.unpack_from("<H", dg.canonical(bytes(raw)), 0x2CF7)[0] == 0x3F8
 
 
 def test_hiscore_rows(dg, image):

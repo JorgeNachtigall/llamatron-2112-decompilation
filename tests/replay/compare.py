@@ -39,6 +39,8 @@ _SCALARS = {  # DS offset: (size, name), src/game/state.h
     0x0820: (2, "tuning.orbit_phase_step"), 0x0824: (2, "segment_sprite"),
     0x0826: (2, "tuning.p0826"), 0x0828: (4, "tuning.accum_start"), 0x082C: (2, "tuning.p082c"),
     0x082E: (2, "tuning.p082e"), 0x0830: (2, "tuning.p0830"), 0x086E: (2, "tuning.init19_vx"),
+    0x06BA: (4, "follower_lag"), 0x0870: (2, "snake_head"), 0x091F: (2, "rescue_marker_pending"),
+    0x0921: (4, "rescue_marker_y"), 0x2CF7: (4, "trail_head"),
     0x0872: (2, "death_sound_timer"), 0x0874: (2, "rude_name"), 0x0876: (2, "debris_alt"),
     0x08F8: (2, "unhatched_left"), 0x08FA: (2, "spawn_remaining"),
     0x08FC: (2, "wave_intro_timer"), 0x0900: (2, "spawn_type"), 0x0907: (2, "shield_timer"),

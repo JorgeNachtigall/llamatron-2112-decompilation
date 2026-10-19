@@ -78,6 +78,11 @@ enum {
     DS_KILLS_TOWARD_BONUS = 0x063A,
     DS_POWERUP_0652 = 0x0652,
     DS_DEBRIS_ALT = 0x0876,
+    DS_SNAKE_HEAD = 0x0870,
+    DS_TRAIL_HEAD = 0x2CF7,     /* 2 words: entry index * 8 (masked 0x3F8 by the original) */
+    DS_FOLLOWER_LAG = 0x06BA,   /* 2 words: entries * 8 */
+    DS_RESCUE_MARKER_PENDING = 0x091F,  /* word flag */
+    DS_RESCUE_MARKER_Y = 0x0921,        /* 2 words */
     DS_SNAKE_TRAIL = 0x4481,    /* 64 x 8 bytes */
     DS_SPAWN_CURSOR = 0x39EB,   /* word: DS address of the next (type, count) pair */
     DS_FLASH_LIST = 0x06C7,     /* word: DS address of a flash list, 0 = none */
@@ -145,6 +150,13 @@ static void put32(Writer w, unsigned off, uint32_t v)
 {
     put16(w, off, (uint16_t)v);
     put16(w, off + 2, (uint16_t)(v >> 16));
+}
+
+/* Trail positions: the original keeps entry counts as byte offsets into 8-byte records. */
+static int16_t getentries(Reader r, unsigned off) { return (int16_t)(gets16(r, off) / 8); }
+static void putentries(Writer w, unsigned off, int16_t entries)
+{
+    put16(w, off, (uint16_t)(entries * 8));
 }
 
 /* Flag words: the original only tests them against 0 and stores 1. */
@@ -476,6 +488,13 @@ void gamestate_from_dgroup(GameState *g, const uint8_t *dgroup)
     g->kills_toward_bonus = gets16(r, DS_KILLS_TOWARD_BONUS);
     g->powerup_0652 = gets16(r, DS_POWERUP_0652);
     g->debris_alt = gets16(r, DS_DEBRIS_ALT);
+    g->snake_head = gets16(r, DS_SNAKE_HEAD);
+    for (int i = 0; i < PLAYER_COUNT; i++) {
+        g->trail_head[i] = getentries(r, DS_TRAIL_HEAD + 2 * (unsigned)i);
+        g->follower_lag[i] = getentries(r, DS_FOLLOWER_LAG + 2 * (unsigned)i);
+        g->rescue_marker_y[i] = gets16(r, DS_RESCUE_MARKER_Y + 2 * (unsigned)i);
+    }
+    g->rescue_marker_pending = getflag16(r, DS_RESCUE_MARKER_PENDING);
     for (int i = 0; i < SNAKE_TRAIL_LENGTH; i++) {
         unsigned b = DS_SNAKE_TRAIL + 8 * (unsigned)i;
         g->snake_trail[i].x = gets16(r, b + 0);
@@ -592,6 +611,13 @@ static void write_state(const GameState *g, Writer w)
     put16(w, DS_KILLS_TOWARD_BONUS, (uint16_t)g->kills_toward_bonus);
     put16(w, DS_POWERUP_0652, (uint16_t)g->powerup_0652);
     put16(w, DS_DEBRIS_ALT, (uint16_t)g->debris_alt);
+    put16(w, DS_SNAKE_HEAD, (uint16_t)g->snake_head);
+    for (int i = 0; i < PLAYER_COUNT; i++) {
+        putentries(w, DS_TRAIL_HEAD + 2 * (unsigned)i, g->trail_head[i]);
+        putentries(w, DS_FOLLOWER_LAG + 2 * (unsigned)i, g->follower_lag[i]);
+        put16(w, DS_RESCUE_MARKER_Y + 2 * (unsigned)i, (uint16_t)g->rescue_marker_y[i]);
+    }
+    putflag16(w, DS_RESCUE_MARKER_PENDING, g->rescue_marker_pending);
     for (int i = 0; i < SNAKE_TRAIL_LENGTH; i++) {
         unsigned b = DS_SNAKE_TRAIL + 8 * (unsigned)i;
         put16(w, b + 0, (uint16_t)g->snake_trail[i].x);
