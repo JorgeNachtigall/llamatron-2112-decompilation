@@ -37,6 +37,10 @@ typedef enum MainSmTestState {
 /* Restart the flow at `state` (only MAIN_SM_TEST_GAME_OVER; anything else starts at boot). */
 void main_sm_enter(GameState *game, MainSmTestState state);
 
+/* One state's code: true when the flow goes straight on to the next state, false when it
+ * waits for the retrace (where main_sm_frame would return). */
+bool main_sm_step(GameState *game);
+
 /* Where the flow is, as far as the test points tell. */
 MainSmTestState main_sm_state(void);
 

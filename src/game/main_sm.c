@@ -61,6 +61,7 @@ typedef enum MainState {
     MS_GAME_OVER_TABLE,     /* 094f */
     MS_TABLE_SHOW,          /* hiscore_table_show 1000:5c3c */
     MS_TABLE_SCROLL,        /* 5d19 */
+    MS_TABLE_END,           /* 5d3b */
     MS_TABLE_WAIT,          /* 5d47 */
     MS_PALETTE,             /* palette_set 1000:1be6: wait, then set */
     MS_REVEAL,              /* screen_reveal_bg 1000:61ff */
@@ -173,22 +174,23 @@ static ScrollerInput scroller_input(void)
     return input;
 }
 
-/* One scroller frame; true when the run is over (and finished), false while it runs or
- * when the story run went on to the hi-score table (MS_TABLE_SHOW). */
-static bool scroller_step(void)
+/* One scroller frame. SCROLLER_DONE: the run is finished; SCROLLER_SHOW_HISCORE: the story
+ * run goes on to the hi-score table (MS_TABLE_SHOW) in this same frame, as 5941 follows the
+ * skip check (58a4) or the scroll step (5928) without a wait. */
+static ScrollerStatus scroller_step(void)
 {
     ScrollerInput input = scroller_input();
     ScrollerStatus status = scroller_frame(&flow.scroller, input);
-    if (!input.pause)
+    /* 58b8 clears the latch only on a scroll step: a pause (58aa) and a skip that ends the
+     * run (5896) keep it, so a space skip also stops the table's scroll at once (5d25). */
+    bool skipped_out = input.skip && status != SCROLLER_RUNNING;
+    if (!input.pause && !skipped_out)
         input_state()->last_scan_code = 0;
-    if (status == SCROLLER_RUNNING)
-        return false;
-    if (status == SCROLLER_SHOW_HISCORE) {          /* 5941: the pen is already below */
+    if (status == SCROLLER_SHOW_HISCORE)            /* 5941: the pen is already below */
         go(MS_TABLE_SHOW);
-        return false;
-    }
-    scroller_finish(&flow.scroller);                /* 594a */
-    return true;
+    else if (status == SCROLLER_DONE)
+        scroller_finish(&flow.scroller);            /* 594a */
+    return status;
 }
 
 /* The pictures and texts of the hi-score screens. */
@@ -264,8 +266,9 @@ static bool boot_scroll_start(GameState *game)
 
 static bool boot_scroll(GameState *game)
 {
-    if (!scroller_step())
-        return false;
+    ScrollerStatus status = scroller_step();
+    if (status != SCROLLER_DONE)
+        return status != SCROLLER_RUNNING;
     game->score[0] = game->score[1] = 0;            /* 00c5 */
     game->pulse_enable = true;                      /* 00d5 */
     go(MS_ATTRACT);
@@ -365,8 +368,9 @@ static bool title(GameState *game)
 static bool attract_scroll(GameState *game)
 {
     (void)game;
-    if (!scroller_step())
-        return false;
+    ScrollerStatus status = scroller_step();
+    if (status != SCROLLER_DONE)
+        return status != SCROLLER_RUNNING;
     go(MS_ATTRACT);                                 /* 02f3 / 0306 */
     return true;
 }
@@ -796,10 +800,20 @@ static bool table_show(GameState *game)
     return true;
 }
 
+/* 5d19: one row per frame. A skip leaves at once (5d2a); after the last row the loop's
+ * wait_vsync (5d33) still comes first. */
 static bool table_scroll(GameState *game)
 {
-    if (!hiscore_table_scroll_frame(&flow.scroller, &flow.rows_left, scroller_input().skip))
+    (void)game;
+    bool skip = scroller_input().skip;
+    if (!hiscore_table_scroll_frame(&flow.scroller, &flow.rows_left, skip))
         return false;                               /* 5d33 wait_vsync */
+    go(MS_TABLE_END);
+    return skip;
+}
+
+static bool table_end(GameState *game)
+{
     game->tune.fire_pressed = false;                /* 5d3b */
     game->tick_count = 0;
     go(MS_TABLE_WAIT);
@@ -897,6 +911,7 @@ static bool step(GameState *game)
     case MS_GAME_OVER_TABLE:        return game_over_table(game);
     case MS_TABLE_SHOW:             return table_show(game);
     case MS_TABLE_SCROLL:           return table_scroll(game);
+    case MS_TABLE_END:              return table_end(game);
     case MS_TABLE_WAIT:             return table_wait(game);
     case MS_PALETTE:                return palette(game);
     case MS_REVEAL:                 return reveal(game);
@@ -916,6 +931,11 @@ void main_sm_enter(GameState *game, MainSmTestState state)
     main_sm_start(game);
     if (state == MAIN_SM_TEST_GAME_OVER)
         go(MS_GAME_OVER);
+}
+
+bool main_sm_step(GameState *game)
+{
+    return step(game);
 }
 
 MainSmTestState main_sm_state(void)
