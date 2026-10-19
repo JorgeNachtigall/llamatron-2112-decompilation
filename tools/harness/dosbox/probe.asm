@@ -2,12 +2,13 @@
 ; Test-oracle code only, never part of src/. Our own code; it contains nothing from
 ; the original. Assemble: nasm -f bin -o PROBE.COM probe.asm
 ;
-;   PROBE tttttttt [v [f [iiiiiiii [mmmm]]]]
+;   PROBE tttttttt [v [f [iiiiiiii [mmmm [ffffffff]]]]]
 ;     tttttttt  BIOS tick count to pin (hex) = the game's RNG seed source
 ;     v         VGA flag for PSP:86h (0/1, default 1); VRAM snapshots need v=1
 ;     f         flash option for PSP:85h (0 none, 1 'P', 2 'Y'; default 0)
 ;     iiiiiiii  snapshot interval in timer IRQs (hex, 0 = no periodic snapshots)
 ;     mmmm      maximum number of snapshots (hex, at most MAX_SNAPS)
+;     ffffffff  IRQ of the first snapshot (hex; 0 or absent = iiiiiiii), then every iiiiiiii
 ;   optional PROBE.KEY in the current directory: scripted keyboard input, records of
 ;   6 bytes {u32 irq number, u8 scancode, u8 0}, sorted by irq number.
 ;   optional PROBE.POK: scripted state changes (scenarios that keys cannot reach, e.g. a
@@ -107,6 +108,14 @@ start:
         mov     ax, MAX_SNAPS
 .max_ok:
         mov     [max_snaps], ax
+        call    skip_spaces
+        call    parse_hex32
+        mov     cx, ax
+        or      cx, dx
+        jz      .first_default
+        mov     [next_snap], ax
+        mov     [next_snap+2], dx
+.first_default:
         mov     al, [tail+6]
         mov     [vga], al
 

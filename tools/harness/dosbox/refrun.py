@@ -184,7 +184,8 @@ def probe(ticks: int, original: Path = DEFAULT_ORIGINAL, workdir: Path = DEFAULT
           machine: str = "vga", flash: str = "N", cycles: int = 20000,
           time_limit: int = 60, interval: int = 0, max_snapshots: int = 0,
           keys: list[tuple[int, int]] | None = None, quit_after: int = 0,
-          pokes: list[tuple[int, int, int]] | None = None) -> ProbeResult:
+          pokes: list[tuple[int, int, int]] | None = None,
+          first_snapshot: int = 0) -> ProbeResult:
     """Run game86 under PROBE.COM with the BIOS tick pinned to `ticks` during
     start-up. Always returns the DGROUP snapshot taken right after the RNG shuffle.
 
@@ -194,7 +195,8 @@ def probe(ticks: int, original: Path = DEFAULT_ORIGINAL, workdir: Path = DEFAULT
     timing) until the game quits. With keys, q presses are appended from
     `quit_after` on (default: 50 IRQs after the last key) so the run ends
     deterministically. pokes: scripted state changes [(irq, DGROUP offset, word)], stored
-    right before that IRQ's keys (PROBE.POK)."""
+    right before that IRQ's keys (PROBE.POK). first_snapshot: IRQ of the first periodic
+    snapshot (default `interval`), e.g. interval=1, first_snapshot=600 for ticks 600, 601..."""
     exe = find_dosbox()
     if not exe:
         raise FileNotFoundError("dosbox-x not found (brew install dosbox-x)")
@@ -222,7 +224,7 @@ def probe(ticks: int, original: Path = DEFAULT_ORIGINAL, workdir: Path = DEFAULT
     conf = workdir / "probe.conf"
     write_conf(conf, drive, machine, cycles, autotype, 3, 2, [],
                program=[f"probe.com {ticks & 0xFFFFFFFF:08X} {vga} {flash_arg} "
-                        f"{interval:08X} {max_snapshots:04X}"])
+                        f"{interval:08X} {max_snapshots:04X} {first_snapshot:08X}"])
     proc = subprocess.run([exe, "-defaultconf", "-conf", str(conf), "-nolog", "-fastlaunch",
                            "-silent", "-time-limit", str(time_limit)],
                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,

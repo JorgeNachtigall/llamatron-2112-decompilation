@@ -121,3 +121,8 @@ def test_ega_runs_on_the_ega_display_clock(driver, tmp_path):
     vga, ega = frames("--vga"), frames("--ega")
     assert abs(vga - 500 * 70.086 / 50.16) <= 2
     assert abs(ega - 500 * 59.92 / 50.16) <= 2
+
+
+def test_first_snapshot_tick(driver, tmp_path):
+    port = run(driver, tmp_path, "f", "--ticks", "64", "--every", "1", "--first", "60")
+    assert sorted(port.snapshots) == [60, 61, 62, 63, 64]
