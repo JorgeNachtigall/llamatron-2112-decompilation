@@ -3,6 +3,7 @@
 # tests/cmake/TestLib.cmake builds the ctypes test library llamatron_game_testlib from this
 # target's sources and settings, so keep a single source list and keep it PIC.
 add_library(llamatron_game STATIC
+    game.c
     rng.c
     draw_page.c
     draw_rect.c

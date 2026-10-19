@@ -168,6 +168,13 @@ typedef struct HiscoreEntry {   /* scores.yak record: 8 ASCII digits + 8 name ch
 } HiscoreEntry;
 
 typedef struct GameState {
+    /* Configuration from the launcher's command tail (game86 1000:5f6b) */
+    bool vga;                           /* 058A */
+    bool joystick;                      /* 058B (058D keyboard = !joystick) */
+    bool sound;                         /* 0688/0689 driver present and on */
+    uint8_t flash_mode;                 /* 0589 0 none, 1 pulsing, 2 pulsing and flashes */
+    bool quit;                          /* leave the game (exit path 1000:5ed9) */
+
     Rng rng;                            /* DS:6AC9 table, 39E9 position, 0453 mixer */
 
     uint8_t options;                    /* 2CF6 GameOptions */
