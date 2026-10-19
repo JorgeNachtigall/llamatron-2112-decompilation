@@ -384,6 +384,20 @@ bool plat_audio_open(int rate)
     return true;
 }
 
+bool plat_audio_running(void)
+{
+    if (!g_plat.audio)
+        return false;
+#ifdef __EMSCRIPTEN__
+    /* SDL2's Emscripten audio keeps its state in Module.SDL2. */
+    return emscripten_run_script_int(
+               "(Module.SDL2 && Module.SDL2.audioContext && "
+               "Module.SDL2.audioContext.state === 'running') ? 1 : 0") != 0;
+#else
+    return SDL_GetAudioDeviceStatus(g_plat.audio) == SDL_AUDIO_PLAYING;
+#endif
+}
+
 void plat_audio_close(void)
 {
     if (g_plat.audio)

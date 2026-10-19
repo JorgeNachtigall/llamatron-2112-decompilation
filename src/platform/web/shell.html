@@ -16,6 +16,9 @@
   #canvas { position: absolute; display: block; outline: none; background: #000;
             image-rendering: pixelated; image-rendering: crisp-edges; }
   #output { display: none; }
+  #sound { position: absolute; right: 8px; bottom: 8px; padding: 4px 8px; display: none;
+           color: #ccc; background: rgba(0, 0, 0, 0.6); font: 12px/1.4 monospace;
+           border: 1px solid #555; border-radius: 3px; pointer-events: none; }
   #status { position: absolute; left: 0; right: 0; top: 45%; text-align: center;
             color: #888; font: 14px/1.4 monospace; }
 </style>
@@ -23,6 +26,7 @@
 <body>
 <canvas id="canvas" tabindex="-1" oncontextmenu="event.preventDefault()"></canvas>
 <div id="status">Loading…</div>
+<div id="sound">click for sound</div>
 <pre id="output"></pre>
 <script>
   (function () {
@@ -85,6 +89,14 @@
       monitorRunDependencies: function () {},
     };
     window.Module.setStatus('Loading…');
+
+    /* Browsers start audio suspended until a user gesture; SDL resumes it on the first click
+       (a key would also end the title screen). Show a hint while that is pending. */
+    var soundHint = document.getElementById('sound');
+    setInterval(function () {
+      var ctx = window.Module.SDL2 ? window.Module.SDL2.audioContext : null;  /* SDL2's state */
+      soundHint.style.display = (ctx && ctx.state === 'suspended') ? 'block' : 'none';
+    }, 250);
     window.addEventListener('error', function () { window.Module.setStatus('Error - see the browser console'); });
   })();
 </script>

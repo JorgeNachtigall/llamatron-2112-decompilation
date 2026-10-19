@@ -86,6 +86,10 @@ if(EMSCRIPTEN)
             --expect "title 320x400 hash=c7ab74c4 canvas 1000x750 hash=1b1b4ce3")
         add_test(NAME web_smoke_title_ega COMMAND ${Python3_EXECUTABLE} ${_smoke} --query frames=2&ega
             --expect "title 640x350 hash=d0a1684d canvas 1000x750 hash=aae527de")
+        # Title sound through the wasm build: same audio hash as native (snd_hash_title).
+        add_test(NAME web_smoke_title_sound COMMAND ${Python3_EXECUTABLE} ${_smoke} --query frames=140
+            --expect "sound ticks=100 samples=43961 hash=16d7fc03")
+        set_tests_properties(web_smoke_title_sound PROPERTIES SKIP_RETURN_CODE 77 LABELS web TIMEOUT 180)
         # One Space press + release dispatched back to back (inside one frame) through SDL's
         # browser event path must still rotate the palette once (input latch, input.h).
         set(_tp ${CMAKE_CURRENT_SOURCE_DIR}/tools/web_smoke.py --dir ${CMAKE_CURRENT_BINARY_DIR}

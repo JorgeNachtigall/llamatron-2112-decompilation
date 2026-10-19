@@ -7,6 +7,9 @@
  * The pictures are compiled into the binary (native default) or read from the data directory
  * (--data, web /data, LLAMATRON_EMBED_ASSETS=OFF builds); see assets.h.
  *
+ * Like fs.exe it requests sample 1Bh (rate index 1, priority 6) once the picture is shown and
+ * runs the driver tick at 50.159 Hz; --mute or a missing sample bank just runs silently.
+ *
  * --frames N quits after N frames and prints a hash of the picture and of the rendered
  * window contents (read back before present); on the web use ?frames=N&ega. --dump writes the shown
  * picture (palette applied) as a binary PPM for local inspection. Never commit such dumps:
@@ -15,6 +18,8 @@
 #include "assets.h"
 #include "input.h"
 #include "platform.h"
+#include "snd.h"
+#include "timing.h"
 #include "title.h"
 
 #include <stdio.h>
@@ -29,7 +34,18 @@ typedef struct App {
     TitleScreen title;
     long frames_left;
     const char *dump_path;
+    bool fixed_step;
+
+    TickScheduler scheduler;
+    uint64_t last_us;
+    SoundBank bank;
+    bool sound;
+    bool title_sample_requested;
+    uint32_t audio_hash;
+    uint64_t audio_samples;
 } App;
+
+enum { AUDIO_RATE = 22050, AUDIO_MAX_QUEUED = AUDIO_RATE / 4 };
 
 static App g_app;
 
@@ -72,10 +88,55 @@ static void finish(App *app)
     plat_shutdown();
 }
 
+/* fs.exe's timer handler (1000:018e) only ticks the sound driver. */
+static void run_ticks(App *app)
+{
+    if (app->fixed_step) {
+        timing_advance_frame(&app->scheduler, &DISPLAY_VGA_MODE_0D);
+    } else {
+        uint64_t now = plat_time_us();
+        timing_advance(&app->scheduler, now - app->last_us);
+        app->last_us = now;
+    }
+    while (timing_take_tick(&app->scheduler))
+        if (app->sound)
+            snd_tick();
+
+    uint8_t buffer[4096];
+    size_t n;
+    while (app->sound && (n = snd_take_output(buffer, sizeof buffer)) > 0) {
+        app->audio_hash = fnv1a(buffer, n, app->audio_hash);
+        app->audio_samples += n;
+        /* Keep latency bounded if the device stalls (e.g. web audio not unlocked yet). */
+        if (plat_audio_queued() < AUDIO_MAX_QUEUED)
+            plat_audio_queue(buffer, n);
+    }
+}
+
+/* fs.exe 1000:008f: driver AH=3, AL=1Bh, CL=1, CH=6, right after the picture is shown.
+ * Web deviation: browsers keep audio suspended until the first click, so the request waits
+ * for that (test runs, which have no gesture, request immediately). */
+static void request_title_sample(App *app)
+{
+    if (!app->sound || app->title_sample_requested)
+        return;
+#ifdef __EMSCRIPTEN__
+    if (!app->fixed_step && !plat_audio_running())
+        return;
+#endif
+    snd_play(TITLE_SAMPLE, TITLE_SAMPLE_RATE_INDEX, TITLE_SAMPLE_PRIORITY);
+    app->title_sample_requested = true;
+#ifdef __EMSCRIPTEN__
+    printf("title: sample %02Xh requested\n", TITLE_SAMPLE);   /* shows the audio unlock worked */
+#endif
+}
+
 static bool frame(void *user)
 {
     App *app = user;
     bool running = plat_poll_events(on_key, app);
+    request_title_sample(app);
+    run_ticks(app);
 
     PlatGamepad pad;
     plat_gamepad(0, &pad);
@@ -97,6 +158,8 @@ static bool frame(void *user)
         uint32_t canvas = plat_captured_frame_hash(&cw, &ch);
         printf("title %dx%d hash=%08x canvas %dx%d hash=%08x\n", app->title.width, app->title.height, h,
                cw, ch, canvas);
+        printf("sound ticks=%llu samples=%llu hash=%08x\n", (unsigned long long)app->scheduler.ticks,
+               (unsigned long long)app->audio_samples, app->audio_hash);
         running = false;
     }
     if (!running)
@@ -109,6 +172,7 @@ int main(int argc, char **argv)
     App *app = &g_app;
     GfxAdapter adapter = GFX_ADAPTER_VGA;
     InputDevice device = INPUT_DEVICE_KEYBOARD;
+    bool mute = false;
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--ega") == 0)
             adapter = GFX_ADAPTER_EGA;
@@ -120,6 +184,8 @@ int main(int argc, char **argv)
             app->frames_left = strtol(argv[++i], NULL, 10);
         else if (strcmp(argv[i], "--dump") == 0 && i + 1 < argc)
             app->dump_path = argv[++i];
+        else if (strcmp(argv[i], "--mute") == 0)
+            mute = true;
     }
 
 #ifdef __EMSCRIPTEN__
@@ -129,6 +195,8 @@ int main(int argc, char **argv)
         adapter = GFX_ADAPTER_EGA;
     if (strstr(query, "joystick"))
         device = INPUT_DEVICE_JOYSTICK;
+    if (strstr(query, "mute"))
+        mute = true;
     const char *frames = strstr(query, "frames=");
     if (frames)
         app->frames_left = strtol(frames + 7, NULL, 10);
@@ -143,7 +211,23 @@ int main(int argc, char **argv)
         return 1;
     input_init(device, true);
     plat_set_frame_capture(app->frames_left > 0);
-    /* TODO(W7): snd_request(TITLE_SAMPLE, TITLE_SAMPLE_RATE_INDEX, TITLE_SAMPLE_PRIORITY) */
+
+    /* Test runs (--frames) use a fixed 70.086 Hz display clock so ticks and audio are exact. */
+    app->fixed_step = app->frames_left > 0;
+    if (app->fixed_step)
+        timing_init_display(&app->scheduler, &DISPLAY_VGA_MODE_0D);
+    else
+        timing_init_realtime(&app->scheduler);
+    app->last_us = plat_time_us();
+    app->audio_hash = 2166136261u;
+
+    if (!mute && snd_load_bank(&app->bank)) {
+        snd_init(&app->bank, AUDIO_RATE);
+        app->sound = true;
+        if (!plat_audio_open(AUDIO_RATE))
+            fprintf(stderr, "title: no audio device, running silently\n");
+        request_title_sample(app);
+    }
     plat_run_main_loop(frame, app);
     return 0;
 }

@@ -27,6 +27,10 @@ target_link_libraries(title_hash PRIVATE llama_engine llama_assets_files)
 if(LLAMATRON_GENERATED_DIR AND NOT EMSCRIPTEN)
     add_test(NAME title_hash_vga COMMAND title_hash --data "${LLAMATRON_GENERATED_DIR}/data" --expect c7ab74c4)
     add_test(NAME title_hash_ega COMMAND title_hash --data "${LLAMATRON_GENERATED_DIR}/data" --ega --expect d0a1684d)
+    # Title sound on the real bank (sample 1Bh, 100 ticks, 22050 Hz).
+    add_executable(snd_hash snd_hash.c)
+    target_link_libraries(snd_hash PRIVATE llama_engine llama_assets_files)
+    add_test(NAME snd_hash_title COMMAND snd_hash --data "${LLAMATRON_GENERATED_DIR}/data" --expect 16d7fc03)
     if(TARGET llama_assets_embedded)
         # Same picture through the embedded blob: proves the blob matches the data files.
         add_executable(title_hash_embedded title_hash.c)

@@ -99,6 +99,9 @@ void plat_run_main_loop(PlatFrameFn frame, void *user);
 /* Open a mono unsigned 8-bit output at `rate` Hz. On the web the device only starts
  * producing sound after the first user gesture. */
 bool plat_audio_open(int rate);
+/* True once the device really produces sound (on the web: after the first user gesture has
+ * resumed the AudioContext; before that SDL silently drains the queue). */
+bool plat_audio_running(void);
 void plat_audio_close(void);
 /* Append samples to the output queue; returns the number of bytes still queued. */
 size_t plat_audio_queue(const uint8_t *samples, size_t count);
