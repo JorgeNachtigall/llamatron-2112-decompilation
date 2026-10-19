@@ -13,6 +13,7 @@
 #include "game_data.h"
 #include "gfx.h"
 #include "input.h"
+#include "main_sm.h"
 
 static void draw_hook_run(GameState *game, const DrawTarget *frame)  /* CALLF [39E0] */
 {
@@ -26,7 +27,9 @@ static void draw_hook_run(GameState *game, const DrawTarget *frame)  /* CALLF [3
     case DRAW_HOOK_CONTINUE:
         continue_draw_hook(game, frame, continue_art_default());
         break;
-    case DRAW_HOOK_NAME_ENTRY:          /* 5ac4: not ported yet */
+    case DRAW_HOOK_NAME_ENTRY:
+        main_sm_name_entry_draw(game, frame);
+        break;
     case DRAW_HOOK_NONE:
         break;
     }

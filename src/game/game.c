@@ -64,7 +64,9 @@ void game_tick(GameState *game)
     case TICK_HOOK_CONTINUE:
         continue_tick_hook(game);
         break;
-    case TICK_HOOK_NAME_ENTRY:                      /* 5b06: not ported yet */
+    case TICK_HOOK_NAME_ENTRY:
+        main_sm_name_entry_tick(game);
+        break;
     case TICK_HOOK_NONE:
         break;
     }

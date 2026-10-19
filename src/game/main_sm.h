@@ -24,6 +24,10 @@ void main_sm_start(GameState *game);
 /* Run the flow up to its next wait for the vertical retrace. */
 void main_sm_frame(GameState *game);
 
+/* The hi-score name entry's hooks, on the entry main_sm keeps. game86 1000:5b06, 5ac4 */
+void main_sm_name_entry_tick(GameState *game);
+void main_sm_name_entry_draw(GameState *game, const DrawTarget *frame);
+
 #ifdef __cplusplus
 }
 #endif

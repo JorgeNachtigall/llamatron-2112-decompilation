@@ -5,10 +5,12 @@
 #include "bullets.h"
 #include "continue.h"
 #include "draw.h"
+#include "draw_play.h"
 #include "entity_dispatch.h"
 #include "frame.h"
 #include "gfx.h"
 #include "game_data.h"
+#include "hiscore.h"
 #include "hud.h"
 #include "input.h"
 #include "player.h"
@@ -52,6 +54,13 @@ typedef enum MainState {
     MS_GAME_OVER,           /* 08ee */
     MS_GAME_OVER_SOUND,     /* 0924 */
     MS_GAME_OVER_SCORES,    /* 0933 */
+    MS_HISCORE_CHECK,       /* hiscore_check_insert 1000:5da2 */
+    MS_NAME_ENTRY_START,    /* 5a88 */
+    MS_NAME_ENTRY,          /* 5aae */
+    MS_GAME_OVER_TABLE,     /* 094f */
+    MS_TABLE_SHOW,          /* hiscore_table_show 1000:5c3c */
+    MS_TABLE_SCROLL,        /* 5d19 */
+    MS_TABLE_WAIT,          /* 5d47 */
     MS_PALETTE,             /* palette_set 1000:1be6: wait, then set */
     MS_REVEAL,              /* screen_reveal_bg 1000:61ff */
     MS_QUIT,
@@ -66,6 +75,12 @@ typedef struct MainFlow {
     struct { int16_t x0, y0, x1, y1; unsigned colour; } box;   /* the warp box (06e8) */
     unsigned attract_case;  /* CS:0267, the attract rotation */
     bool extra_wait;        /* the last frame_run's flash step reloaded the palette */
+    bool second_check;      /* game over: the other player's score is being checked */
+    int rank;               /* the row being named */
+    int rows_left;          /* the hi-score table's scroll */
+    TickHook saved_tick_hook;   /* pushed by the name entry (5a8e) */
+    DrawHook saved_draw_hook;
+    NameEntry name;
     Scroller scroller;
 } MainFlow;
 
@@ -90,10 +105,7 @@ enum {
     LABEL_OFFSET_P1 = 0x0C,
     LABEL_OFFSET_SHARED_P2 = 0x5E,
     CONTINUE_LIVES = 5,
-
-    /* g3 title-bank shapes (the original's ES:[offset] / 2) */
-    SHAPE_GAME_OVER = 1,                /* 30EB:0002 */
-    SHAPE_WAVE_FRAME = 3,               /* 30EB:0006 */
+    TABLE_WAIT_TICKS = 0x3E8,           /* 5d4e */
 };
 
 static void go(MainState state)
@@ -132,11 +144,6 @@ static void hud_refresh_if_dirty(GameState *game)     /* game86 1000:0309 */
     hud_refresh(game);
 }
 
-static DrawTarget shown_page(void)
-{
-    return draw_target_page(gfx_display_page_id());
-}
-
 static const char *text_of(TextId id)
 {
     const GameText *text = asset_text(id);
@@ -165,7 +172,8 @@ static ScrollerInput scroller_input(void)
     return input;
 }
 
-/* One scroller frame; true when the run is over. */
+/* One scroller frame; true when the run is over (and finished), false while it runs or
+ * when the story run went on to the hi-score table (MS_TABLE_SHOW). */
 static bool scroller_step(void)
 {
     ScrollerInput input = scroller_input();
@@ -174,9 +182,45 @@ static bool scroller_step(void)
         input_state()->last_scan_code = 0;
     if (status == SCROLLER_RUNNING)
         return false;
-    /* SCROLLER_SHOW_HISCORE (the story run's table, 1000:5941) is not ported yet. */
-    scroller_finish(&flow.scroller);
+    if (status == SCROLLER_SHOW_HISCORE) {          /* 5941: the pen is already below */
+        go(MS_TABLE_SHOW);
+        return false;
+    }
+    scroller_finish(&flow.scroller);                /* 594a */
     return true;
+}
+
+/* The pictures and texts of the hi-score screens. */
+static const GfxSprite *title_shape(unsigned index)
+{
+    return asset_sprite_gfx(SPRITE_BANK_TITLE, index);
+}
+
+static const GfxSprite *game_sprite_at(uint16_t bank_offset)
+{
+    int index = asset_sprite_index_at(SPRITE_BANK_GAME, bank_offset);
+    return index < 0 ? NULL : asset_sprite_gfx(SPRITE_BANK_GAME, (unsigned)index);
+}
+
+static const HiscoreArt *hiscore_art(void)
+{
+    static HiscoreArt art;
+    static bool built;
+    if (!built) {
+        art = (HiscoreArt){
+            .logo_left = title_shape(15),
+            .logo_right = title_shape(14),
+            .cursor = title_shape(0),
+            .marker = { game_sprite_at(0x245A), game_sprite_at(0x4268) },
+            .control_labels = title_shape,
+            .table_heading = text_of(TEXT_ID_HISCORE_TITLE),
+            .entry_heading = text_of(TEXT_ID_HISCORE_ENTRY),
+            .entry_prompt = text_of(TEXT_ID_HISCORE_NAME),
+            .data = asset_hiscore_data(),
+        };
+        built = art.data != NULL;
+    }
+    return &art;
 }
 
 /* ---- Start-up (video_init 1000:5960) ------------------------------------------------- */
@@ -401,19 +445,7 @@ static bool wave_start(GameState *game)
     game->shots_bounce = false;
     game->spawn_remaining = -1;
 
-    /* 055c: the wave's background */
-    gfx_clear(GFX_PAGE_BACKGROUND, 0);
-    draw_rect_outline(GFX_PAGE_BACKGROUND, 0, 8, 0x13E, 0xC6, 2);
-    DrawTarget background = draw_target_page(GFX_PAGE_BACKGROUND);
-    draw_sprite_unrecorded(&background, asset_sprite_gfx(SPRITE_BANK_TITLE, SHAPE_WAVE_FRAME),
-                           0x9F, 3);
-    if (game->player.wave_type != 0)
-        text_print_home(&background, &game->text, text_of(TEXT_ID_HERD_WAVE_BANNER));
-    if (game->demo_mode != 0)
-        text_print_home(&background, &game->text, text_of(TEXT_ID_DEMO_BANNER));
-    const GameText *level_title = asset_level_title(game->player.level);
-    if (level_title != NULL)
-        text_print_home(&background, &game->text, level_title->raw);
+    wave_draw_background(game);                     /* 055c..05cf */
     reveal_then(MS_WAVE_SHOW);
     return true;
 }
@@ -456,11 +488,9 @@ static bool wave_over(GameState *game)
     switch (game->wave_result) {
     case WAVE_WARP: {                               /* 063a */
         game->tick_hook = TICK_HOOK_NONE;
-        DrawTarget page = shown_page();
-        text_print_home(&page, &game->text, text_of(TEXT_ID_WARP_BANNER));
+        wave_draw_warp_banner(game);                /* 0640 */
         game_sound_play(6, 0, 0x0A);
         go(MS_WARP_SOUND);
-        flow.counter = 0;
         return false;                               /* 0658 wait_vsync */
     }
     case WAVE_ABORTED:
@@ -477,12 +507,13 @@ static bool wave_over(GameState *game)
     }
 }
 
-static bool warp_sound(GameState *game)             /* 065d */
+/* 065d: wait_vsync first, then until the sound driver is idle. */
+static bool warp_sound(GameState *game)
 {
-    if (game_sound_status().playing != 0)
+    if (flow.phase++ == 0 || game_sound_status().playing != 0)
         return false;
     game->player.level += WARP_LEVELS;
-    score_add(game, 4, 0x32);
+    score_add(game, 4, 0x31);
     go(MS_WAVE_NEXT);
     return true;
 }
@@ -649,27 +680,132 @@ static bool continue_wait(GameState *game)
 static bool game_over(GameState *game)
 {
     (void)game;
-    DrawTarget page = shown_page();                 /* 08ee */
-    draw_sprite_unrecorded(&page, asset_sprite_gfx(SPRITE_BANK_TITLE, SHAPE_GAME_OVER), 0xA0, 0x5A);
+    game_over_draw();                               /* 08ee..0910 */
     game_sound_play(0x1E, 1, 8);
     go(MS_GAME_OVER_SOUND);
     return false;                                   /* 091f wait_vsync */
 }
 
-static bool game_over_sound(GameState *game)        /* 0924 */
+/* 0924: wait_vsync first, then until the sound driver is idle. */
+static bool game_over_sound(GameState *game)
 {
     (void)game;
-    if (game_sound_status().playing != 0)
+    if (flow.phase++ == 0 || game_sound_status().playing != 0)
         return false;
     go(MS_GAME_OVER_SCORES);
     return true;
 }
 
 /* 0933..097d: the hi-score check, name entry and table are not ported to main_sm yet. */
+static bool hiscore_checked(GameState *game);
+
 static bool game_over_scores(GameState *game)
 {
-    game->hiscore_mark[0] = -1;
+    game->hiscore_mark[0] = -1;                     /* 0933 */
     game->hiscore_mark[1] = -1;
+    flow.second_check = false;
+    go(MS_HISCORE_CHECK);
+    return true;
+}
+
+/* 093f / 094c: rank the current player's score; a new entry gets a name. */
+static bool hiscore_check(GameState *game)
+{
+    flow.rank = hiscore_check_insert(game);
+    if (flow.rank != HISCORE_NO_RANK) {
+        name_entry_begin(&flow.name, &game->text, game->options, hiscore_art());   /* 59fa */
+        reveal_then(MS_NAME_ENTRY_START);           /* 5a85 */
+        return true;
+    }
+    return hiscore_checked(game);
+}
+
+static bool hiscore_checked(GameState *game)
+{
+    if (!flow.second_check && (game->options & OPT_SHARED_START)) {     /* 0942 */
+        flow.second_check = true;
+        player_swap_state(game);
+        go(MS_HISCORE_CHECK);
+        return true;
+    }
+    go(MS_GAME_OVER_TABLE);
+    return true;
+}
+
+static bool name_entry_start(GameState *game)
+{
+    flow.saved_draw_hook = game->draw_hook;         /* 5a8e */
+    flow.saved_tick_hook = game->tick_hook;
+    game->draw_hook = DRAW_HOOK_NAME_ENTRY;
+    game->tick_hook = TICK_HOOK_NAME_ENTRY;
+    game->tick_count = 0;                           /* 5aa8 */
+    go(MS_NAME_ENTRY);
+    return true;
+}
+
+static bool name_entry(GameState *game)
+{
+    run_frame(game);                                /* 5aae */
+    if (!name_entry_done(game->tick_count))
+        return false;
+    game->tick_hook = flow.saved_tick_hook;         /* 5abb */
+    game->draw_hook = flow.saved_draw_hook;
+    const HiscoreArt *art = hiscore_art();          /* 5e4b..5e85 */
+    hiscore_set_name(&game->hiscores[flow.rank], flow.name.name, art->data->rude_word,
+                     &game->rude_name);
+    /* 5e89 hiscore_save (scores.yak) needs a host save hook; not done yet. */
+    hiscore_checked(game);
+    return false;
+}
+
+void main_sm_name_entry_tick(GameState *game)      /* tick hook 1000:5b06 */
+{
+    NameEntrySound sound = name_entry_tick(&flow.name, input_state()->controls[0],
+                                           &game->tick_count, hiscore_art());
+    if (sound.sample != 0)
+        game_sound_play(sound.sample, sound.rate_index, sound.priority);
+}
+
+void main_sm_name_entry_draw(GameState *game, const DrawTarget *frame)   /* 1000:5ac4 */
+{
+    name_entry_draw(&flow.name, frame, &game->text, hiscore_art());
+}
+
+static bool game_over_table(GameState *game)
+{
+    scroller_start_on_screen(&flow.scroller, &game->text);   /* 094f..095e */
+    go(MS_TABLE_SHOW);
+    return true;
+}
+
+/* hiscore_table_show (1000:5c3c), then the end of the scroller run and attract mode. */
+static bool table_show(GameState *game)
+{
+    title_tune_begin(game);                         /* 5c3f */
+    hiscore_table_draw(&flow.scroller, &game->text, game->hiscores, game->hiscore_mark,
+                       hiscore_art());
+    flow.rows_left = HISCORE_TABLE_SCROLL_ROWS;
+    go(MS_TABLE_SCROLL);
+    return true;
+}
+
+static bool table_scroll(GameState *game)
+{
+    if (!hiscore_table_scroll_frame(&flow.scroller, &flow.rows_left, scroller_input().skip))
+        return false;                               /* 5d33 wait_vsync */
+    game->tune.fire_pressed = false;                /* 5d3b */
+    game->tick_count = 0;
+    go(MS_TABLE_WAIT);
+    return true;
+}
+
+/* 5d47: until fire (seen by the tune's tick hook) or 20 seconds. */
+static bool table_wait(GameState *game)
+{
+    if (!game->tune.fire_pressed && (int16_t)game->tick_count < TABLE_WAIT_TICKS)
+        return false;
+    game->tick_hook = TICK_HOOK_NONE;               /* 5d56 */
+    scroller_finish(&flow.scroller);                /* 0967..097a / 594a..595d */
     go(MS_ATTRACT);
     return true;
 }
@@ -747,6 +883,13 @@ static bool step(GameState *game)
     case MS_GAME_OVER:              return game_over(game);
     case MS_GAME_OVER_SOUND:        return game_over_sound(game);
     case MS_GAME_OVER_SCORES:       return game_over_scores(game);
+    case MS_HISCORE_CHECK:          return hiscore_check(game);
+    case MS_NAME_ENTRY_START:       return name_entry_start(game);
+    case MS_NAME_ENTRY:             return name_entry(game);
+    case MS_GAME_OVER_TABLE:        return game_over_table(game);
+    case MS_TABLE_SHOW:             return table_show(game);
+    case MS_TABLE_SCROLL:           return table_scroll(game);
+    case MS_TABLE_WAIT:             return table_wait(game);
     case MS_PALETTE:                return palette(game);
     case MS_REVEAL:                 return reveal(game);
     case MS_QUIT:                   return false;
