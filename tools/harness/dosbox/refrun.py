@@ -11,6 +11,8 @@ hang or a kill.
     tools/harness/dosbox/refrun.py smoke                  # space past the title, q quits
     tools/harness/dosbox/refrun.py run --keys "space" --time-limit 60 --window
     tools/harness/dosbox/refrun.py probe --ticks 0x0012ABCD  # pinned-seed DGROUP snapshot
+    tools/harness/dosbox/refrun.py pages --snp DIR/c/PROBE.SNP --vram-irq 201 --out DIR/pages
+        # one VRAM snapshot as indexed pixels: page_0000.bin, page_2000.bin, page_4000.bin
 
 Requires `dosbox-x` on PATH (brew install dosbox-x); `probe` also needs nasm
 (brew install nasm) to assemble probe.asm. Probe outputs (PROBE.DG etc.) are copies of
@@ -245,10 +247,39 @@ def probe(ticks: int, original: Path = DEFAULT_ORIGINAL, workdir: Path = DEFAULT
                        pokes_applied, pokes_loaded, dgroup, snaps)
 
 
+def write_pages(snp: Path, vram_irq: int, out: Path) -> list[Path]:
+    """The snapshot whose VRAM was taken at `vram_irq` (or the DGROUP IRQ, if no VRAM
+    snapshot has that number) as three 320x200 pages of indexed pixels (64000 bytes,
+    row-major, EgaPlanes.rasterise). Copies of the original's screen: never commit them."""
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from llamatron_harness.ega import EgaPlanes
+    snaps = [s for s in read_snapshots(snp) if s.vram]
+    snap = next((s for s in snaps if s.vram_irq == vram_irq), None) or \
+        next((s for s in snaps if s.irq == vram_irq), None)
+    if snap is None:
+        raise SystemExit(f"no VRAM snapshot at IRQ {vram_irq}; have "
+                         f"{[s.vram_irq for s in snaps]}")
+    model = EgaPlanes()
+    for p, plane in enumerate(snap.vram):
+        model.planes[p][:len(plane)] = plane
+    out.mkdir(parents=True, exist_ok=True)
+    files = []
+    for page in (0x0000, 0x2000, 0x4000):
+        f = out / f"page_{page:04X}.bin"
+        f.write_bytes(model.rasterise(page))
+        files.append(f)
+    print(f"IRQ {snap.irq} (VRAM at {snap.vram_irq}), shown page {snap.shown:04X}: "
+          + ", ".join(str(f) for f in files))
+    return files
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("action", choices=["smoke", "run", "probe"])
+    ap.add_argument("action", choices=["smoke", "run", "probe", "pages"])
+    ap.add_argument("--snp", type=Path, help="pages: a PROBE.SNP")
+    ap.add_argument("--vram-irq", type=int, help="pages: the snapshot's vram_irq (or irq)")
+    ap.add_argument("--out", type=Path, help="pages: output directory")
     ap.add_argument("--ticks", type=lambda v: int(v, 0), default=0x0012ABCD,
                     help="probe: BIOS tick count to pin (RNG seed)")
     ap.add_argument("--interval", type=lambda v: int(v, 0), default=0,
@@ -265,6 +296,12 @@ def main(argv=None) -> int:
     ap.add_argument("--time-limit", type=int, default=60)
     ap.add_argument("--window", action="store_true", help="show the window (not -silent)")
     args = ap.parse_args(argv)
+
+    if args.action == "pages":
+        if not (args.snp and args.vram_irq and args.out):
+            ap.error("pages needs --snp, --vram-irq and --out")
+        write_pages(args.snp, args.vram_irq, args.out)
+        return 0
 
     if args.action == "probe":
         res = probe(args.ticks, args.original, args.workdir or DEFAULT_WORKDIR / "probe",

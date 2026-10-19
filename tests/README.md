@@ -76,3 +76,8 @@ Consequences:
   `EgaPlanes.rasterise`) and `shown` (the CRTC start address at capture).
 - The replay driver uses the EGA monitor's 59.92 Hz frame clock for `--ega` runs and VGA
   mode 0Dh's 70.086 Hz otherwise.
+- Dev loops: `tests/replay/window.py SCENARIO FIRST [--count N]` runs a scenario with a
+  snapshot after every tick from FIRST (at most 60) and the port over the same ticks, then
+  prints the report and every differing byte at the first divergent tick.
+  `tools/harness/dosbox/refrun.py pages --snp .../c/PROBE.SNP --vram-irq M --out DIR`
+  writes one VRAM snapshot as three pages of indexed pixels (never commit them).
