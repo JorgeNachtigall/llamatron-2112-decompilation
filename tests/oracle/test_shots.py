@@ -122,15 +122,17 @@ def update_case(machine, oracle, rnd, triples, frames):
 
 def debris_ignore(image):
     """A debris kill action's pickup drop past the entity table (test_hit.kill_action_ignore)
-    for every entity a shot might hit."""
+    for every entity a shot might hit. A smart bomb's earlier kills change the slots the
+    search walks, so then every debris kill's drop is left out."""
     out = set(SHOTS_SCRATCH)
+    smart_bomb = u16(image, SMART_BOMB) != 0
     for slot in range(ENTITY_COUNT):
         base = slot_address(slot)
         if struct.unpack_from("<h", image, base)[0] < 0:
             continue
         action = u16(image, base + 0x1E)
         if u16(image, base + 0x3E) == 3 and action in DEBRIS_SEARCHES and \
-                debris_walker(image, *DEBRIS_SEARCHES[action]) >= ENTITY_COUNT:
+                (smart_bomb or debris_walker(image, *DEBRIS_SEARCHES[action]) >= ENTITY_COUNT):
             out |= {base + 0x14, base + 0x15}
     return frozenset(out)
 
