@@ -96,6 +96,29 @@ def test_trail_positions_are_offsets(dg, image):
     assert struct.unpack_from("<H", dg.canonical(bytes(raw)), 0x2CF7)[0] == 0x3F8
 
 
+THINK_TABLE = 0x1FD2
+
+
+def clobber_range(image):
+    """The 4 bytes enemy_shot_init zeroes at 1000:123c/1241: [SI+8], [SI+0A] with SI =
+    think_13's code offset (DS:1FD2 entry 0x13) taken as a DS address."""
+    si = u16(image, THINK_TABLE + 2 * 0x13)
+    return range(si + 8, si + 12)
+
+
+def test_spawns_clobbered_10b0(dg, image):
+    if not dg.has_data:
+        pytest.skip("extracted data not available")
+    clobber = clobber_range(image)
+    assert all(dg.mask[i] == MASK_FIELD for i in clobber)
+    assert any(image[i] for i in clobber)          # intact in the loaded image
+    assert dg.canonical(image)[clobber.start:clobber.stop] == image[clobber.start:clobber.stop]
+    zeroed = bytearray(image)
+    zeroed[clobber.start:clobber.stop] = bytes(4)
+    state = dg.from_dgroup(bytes(zeroed))           # reads as clobbered ...
+    assert dg.to_dgroup(state, image)[clobber.start:clobber.stop] == bytes(4)   # ... and writes 0
+
+
 def test_hiscore_rows(dg, image):
     raw = bytearray(image)
     raw[HISCORES:HISCORES + 16] = b"00123450ABCDEFGH"

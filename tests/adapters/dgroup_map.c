@@ -374,6 +374,47 @@ static void spawn_from(SpawnCursor *c, uint16_t off)
     /* not inside any list (e.g. 0 before the first wave): left as it was */
 }
 
+/* The spawn pairs a think_13 drop zeroes (game86 1000:123c..1241 via 10b0, levels.dat
+ * clobber_10b0): DS address and length, false if this extraction has none. */
+static bool clobber_bytes(unsigned *off, unsigned *n)
+{
+    const LevelSet *set = asset_levels();
+    if (!set || set->clobber_10b0.level == LEVEL_NONE)
+        return false;
+    const LevelScript *level = asset_level(set->clobber_10b0.level);
+    if (!level)
+        return false;
+    *off = level_spawn_list(level) + 2u * set->clobber_10b0.first_spawn;
+    *n = 2u * set->clobber_10b0.spawn_count;
+    return true;
+}
+
+/* Read as set when every byte is zero (pairs that are (0, 0) anyway read the same either
+ * way). Written only when set: the original never restores the script bytes. */
+static bool clobber_from(Reader r)
+{
+    unsigned off, n;
+    if (!clobber_bytes(&off, &n))
+        return false;
+    for (unsigned i = 0; i < n; i++)
+        if (get8(r, off + i) != 0)
+            return false;
+    return true;
+}
+
+static void clobber_to(bool clobbered, Writer w)
+{
+    unsigned off, n;
+    if (!clobber_bytes(&off, &n))
+        return;
+    for (unsigned i = 0; i < n; i++) {
+        if (w.mask)     /* compared even while not written */
+            put8k((Writer){ NULL, w.mask, w.overlaps }, off + i, 0, DGROUP_MASK_FIELD);
+        if (w.dg && clobbered)
+            w.dg[(off + i) & 0xFFFF] = 0;
+    }
+}
+
 static uint16_t spawn_to(const SpawnCursor *c)
 {
     if (c->source == SPAWN_FROM_ROSTER)
@@ -456,6 +497,7 @@ void gamestate_from_dgroup(GameState *g, const uint8_t *dgroup)
         spawn_from(&g->spawn, get16(r, DS_SPAWN_CURSOR));
         uint16_t flash = get16(r, DS_FLASH_LIST);
         g->flash_list = flash ? asset_flash_list_at(flash) : NULL;
+        g->spawns_clobbered_10b0 = clobber_from(r);
     }
     g->spawn_remaining = gets16(r, DS_SPAWN_REMAINING);
     g->spawn_type = gets16(r, DS_SPAWN_TYPE);
@@ -628,6 +670,7 @@ static void write_state(const GameState *g, Writer w)
     if (have_data()) {
         put16(w, DS_SPAWN_CURSOR, spawn_to(&g->spawn));
         put16(w, DS_FLASH_LIST, g->flash_list ? g->flash_list->ds_offset : 0);
+        clobber_to(g->spawns_clobbered_10b0, w);
     }
     put16(w, DS_TICK_COUNT, g->tick_count);
     put8(w, DS_FRAME_DRAWN, g->frame_drawn ? 1 : 0);
