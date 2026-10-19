@@ -233,17 +233,15 @@ static bool write_scores(ExtractContext *ctx)
  * [8] are upper-cased (AND 0DFh); [0] must be V/E, [2] J/K, [4] A/S/R/N, else the launcher prints
  * "No or Invalid Game Configuration found" (1060:0110) and exits: record "absent" (the port then
  * uses the shipped settings). [6] - '0' and [8] are not checked. A shorter file leaves the rest
- * of the launcher's buffer (zeros); we require all 9 bytes. */
+ * of the launcher's 9-byte buffer (DS:0185) as it was: zeros. */
 void llama_inf_record(const uint8_t *inf, size_t size, uint8_t record[LLAMA_INF_RECORD_SIZE])
 {
     enum { SOUND_ADLIB = 0x00, SOUND_SBLASTER = 0x0C, SOUND_ROLAND = 0x18, SOUND_NONE = 0xFF, UPPER = 0xDF };
-    uint8_t video = 0, control = 0, sound_letter = 0, flash = 0;
-    if (size >= 9) {
-        video = inf[0] & UPPER;
-        control = inf[2] & UPPER;
-        sound_letter = inf[4] & UPPER;
-        flash = inf[8] & UPPER;
-    }
+    uint8_t bytes[9] = {0};
+    if (inf)
+        memcpy(bytes, inf, size < sizeof bytes ? size : sizeof bytes);
+    uint8_t video = bytes[0] & UPPER, control = bytes[2] & UPPER, sound_letter = bytes[4] & UPPER,
+            flash = bytes[8] & UPPER;
     uint8_t sound = SOUND_NONE;
     bool sound_ok = true;
     switch (sound_letter) {                       /* 1000:0292..02c5 */
@@ -253,14 +251,14 @@ void llama_inf_record(const uint8_t *inf, size_t size, uint8_t record[LLAMA_INF_
     case 'N': sound = SOUND_NONE; break;
     default: sound_ok = false; break;
     }
-    bool present = size >= 9 && (video == 'V' || video == 'E') && (control == 'J' || control == 'K') && sound_ok;
+    bool present = (video == 'V' || video == 'E') && (control == 'J' || control == 'K') && sound_ok;
     uint8_t fields[LLAMA_INF_RECORD_SIZE] = {'L', 'C', 'F', 'G', FMT_LCFG_VERSION, 0, 0, 0, 0, SOUND_NONE, 0, 0};
     if (present) {
         fields[6] = 1;
         fields[7] = video == 'V';                         /* 1000:023e */
         fields[8] = control == 'J';                       /* 1000:025d */
         fields[9] = sound;
-        fields[10] = (uint8_t)(inf[6] - '0');             /* 1000:0219 */
+        fields[10] = (uint8_t)(bytes[6] - '0');           /* 1000:0219 */
         fields[11] = flash == 'P' ? 1 : flash == 'Y' ? 2 : 0; /* 1000:0225 */
     }
     memcpy(record, fields, sizeof fields);

@@ -70,8 +70,6 @@ if(EXISTS "${_harness_python}")
                     --probe $<TARGET_FILE:settings_inf_probe> --check ${_check})
             set_tests_properties(settings_${_check}_oracle PROPERTIES SKIP_RETURN_CODE 77 LABELS "oracle" TIMEOUT 300)
         endforeach()
-        # Disabled until settings_parse_inf upper-cases and rejects as llama.exe does (W2).
-        set_tests_properties(settings_parse_oracle PROPERTIES DISABLED TRUE)
     endif()
 else()
     message(STATUS "no harness venv: skipping extract_lzss_oracle")

@@ -13,7 +13,7 @@ The launcher upper-cases [0], [2], [4], [8] (AND 0DFh) and rejects the file unle
 keeps cpu = [6] - '0' (1000:0221), vga (CS:0087), joystick (CS:0089), sound type (CS:008A) and
 flash mode (CS:0086: P = 1, Y = 2, else 0). After an accepted A/S/R it goes on to detect the
 card (02c8 detect_adlib); 'N' returns at 02c2. A shorter file leaves the rest of the 9-byte buffer
-as it was (zeros): the port requires 9 bytes, so files under 9 bytes are only reported.
+as it was (zeros).
 
 usage: launcher_oracle.py EXTRACT EXE_DIR WORK_DIR [--probe PROBE] [--check extractor,parse,format]
 EXE_DIR holds the extractor's llama.unpacked / install.unpacked. Exit 77 = skipped.
@@ -202,6 +202,7 @@ def main() -> int:
         m = Machine(load_image(llama))
         rnd = random.Random(0x01E7)
         cases: list[bytes | None] = [None, b"V K N 0 N\x00", b"E J S 0 Y\x00", b"v j a 1 p\x00", b"V K X 0 N\x00"]
+        cases += [b"", b"V", b"V K N", b"E J S 0", b"v k r 2 "]   # short: zeros after the end
         cases += [random_inf(rnd) for _ in range(CASES)]
         want = [original(m, inf) for inf in cases]
         sides = {}
@@ -215,9 +216,6 @@ def main() -> int:
             print(f"{name}: {len(cases) - len(bad)}/{len(cases)} as llama.exe")
             for i in bad[:8]:
                 print(f"  {cases[i]!r}: llama.exe {want[i]}, {name} {got[i]}")
-        for short in (b"V K N", b"E J S 0"):         # reported only (see above)
-            print(f"short file {short!r}: llama.exe {original(m, short)}, "
-                  f"extractor {extractor(args.extract, args.work, short)}")
     if "format" in checks:
         failures += check_format(Machine(load_image(install)), args.probe)
     print("launcher oracle:", "all checks passed" if failures == 0 else f"{failures} differences")
