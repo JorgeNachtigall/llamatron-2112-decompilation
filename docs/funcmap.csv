@@ -1,0 +1,424 @@
+program,orig_addr,size,name,c_symbol,file,status,owner,range,notes
+game86,1000:0010,676,main,game_main,src/game/main_sm.c,todo,W4,A,
+game86,1000:0309,44,hud_refresh_if_dirty,hud_refresh_if_dirty,src/game/hud.c,todo,W6,A,
+game86,1000:0335,93,score_add,score_add,src/game/player.c,todo,W4,A,
+game86,1000:0392,10,unk_1000_0392,,,todo,W4,A,
+game86,1000:039c,32,script_op6,script_op6,src/game/script.c,todo,W4,A,
+game86,1000:03bc,19,script_op5,script_op5,src/game/script.c,todo,W4,A,
+game86,1000:03cf,18,script_op4,script_op4,src/game/script.c,todo,W4,A,
+game86,1000:03e1,19,script_op3,script_op3,src/game/script.c,todo,W4,A,
+game86,1000:03f4,45,script_op2_sound,script_op2_sound,src/game/script.c,todo,W4,A,
+game86,1000:0421,23,script_op0_speed,script_op0_speed,src/game/script.c,todo,W4,A,
+game86,1000:0438,29,script_op1_params,script_op1_params,src/game/script.c,todo,W4,A,
+game86,1000:0455,945,wave_run,wave_run,src/game/main_sm.c,todo,W4,A,
+game86,1000:07b7,16,shots_clear,shots_clear,src/game/bullets.c,todo,W4,A,
+game86,1000:0816,37,continue_tick_hook,continue_tick_hook,src/game/main_sm.c,todo,W4,A,
+game86,1000:083b,19,title_tune_start,title_tune_start,src/game/attract.c,todo,W4,A,
+game86,1000:084e,70,title_tune_tick,title_tune_tick,src/game/attract.c,todo,W4,A,
+game86,1000:0894,90,continue_draw_hook,continue_draw_hook,src/game/main_sm.c,todo,W4,A,
+game86,1000:08ee,146,game_over,game_over,src/game/main_sm.c,todo,W4,A,
+game86,1000:0981,644,player_fire,player_fire,src/game/player.c,todo,W4,B,
+game86,1000:0c28,386,shots_update,shots_update,src/game/bullets.c,todo,W4,B,
+game86,1000:0dbf,267,ent_hit_02,ent_hit_02,src/game/entities/,todo,W5,B,
+game86,1000:0dfe,,ent_hit_00,ent_hit_00,src/game/entities/,todo,W5,B,
+game86,1000:0eb5,3,ent_hit_10,ent_hit_10,src/game/entities/,todo,W5,B,
+game86,1000:0eb8,88,unk_1000_0eb8,,,todo,W4,B,
+game86,1000:0f10,110,think_1c,think_1c,src/game/entities/,todo,W5,B,
+game86,1000:0f92,7,pickup_effect_07,pickup_effect_07,src/game/entities/,todo,W5,B,
+game86,1000:0f99,9,pickup_effect_08,pickup_effect_08,src/game/entities/,todo,W5,B,
+game86,1000:0fa2,19,pickup_effect_06,pickup_effect_06,src/game/entities/,todo,W5,B,
+game86,1000:0fb5,25,pickup_effect_05,pickup_effect_05,src/game/entities/,todo,W5,B,
+game86,1000:0fce,13,pickup_effect_03,pickup_effect_03,src/game/entities/,todo,W5,B,
+game86,1000:0fdb,28,pickup_effect_04,pickup_effect_04,src/game/entities/,todo,W5,B,
+game86,1000:0ff7,7,pickup_effect_01,pickup_effect_01,src/game/entities/,todo,W5,B,
+game86,1000:0ffe,17,pickup_effect_02,pickup_effect_02,src/game/entities/,todo,W5,B,
+game86,1000:100f,19,pickup_effect_00,pickup_effect_00,src/game/entities/,todo,W5,B,
+game86,1000:1022,37,ent_hit_07,ent_hit_07,src/game/entities/,todo,W5,B,
+game86,1000:105f,81,ent_hit_03,ent_hit_03,src/game/entities/,todo,W5,B,
+game86,1000:1074,,ent_hit_01,ent_hit_01,src/game/entities/,todo,W5,B,
+game86,1000:10f8,16,ent_hit_05,ent_hit_05,src/game/entities/,todo,W5,B,
+game86,1000:1108,85,unk_1000_1108,,,todo,W4,B,
+game86,1000:115d,111,ent_hit_08,ent_hit_08,src/game/entities/,todo,W5,B,
+game86,1000:11b0,6,ent_hit_09,ent_hit_09,src/game/entities/,todo,W5,B,
+game86,1000:11b6,,ent_hit_06,ent_hit_06,src/game/entities/,todo,W5,B,
+game86,1000:11d2,16,ent_hit_04,ent_hit_04,src/game/entities/,todo,W5,B,
+game86,1000:11e2,63,unk_1000_11e2,,,todo,W4,B,
+game86,1000:1221,165,enemy_shot_alloc,enemy_shot_alloc,src/game/entities/,todo,W5,B,
+game86,1000:1232,,enemy_shot_init,enemy_shot_init,src/game/entities/,todo,W5,B,
+game86,1000:12c6,12,hit_kill_action_08,hit_kill_action_08,src/game/entities/,todo,W5,B,
+game86,1000:12d2,27,ent_hit_0f,ent_hit_0f,src/game/entities/,todo,W5,B,
+game86,1000:12ed,185,ent_hit_0e,ent_hit_0e,src/game/entities/,todo,W5,B,
+game86,1000:13a6,112,hit_kill_action_06,hit_kill_action_06,src/game/entities/,todo,W5,B,
+game86,1000:1416,119,hit_kill_action_05,hit_kill_action_05,src/game/entities/,todo,W5,B,
+game86,1000:148d,12,think_1b,think_1b,src/game/entities/,todo,W5,B,
+game86,1000:1499,55,shots_draw,shots_draw,src/game/bullets.c,todo,W4,B,
+game86,1000:14d0,110,pause_tick_hook,pause_tick_hook,src/game/tick.c,todo,W4,B,
+game86,1000:1514,36,sound_toggle,snd_toggle,src/sound/,todo,W7,B,
+game86,1000:1538,,pause_key_sample,pause_key_sample,src/game/tick.c,todo,W4,B,
+game86,1000:1562,1265,play_tick_hook,game_tick,src/game/tick.c,todo,W4,B,
+game86,1000:176c,175,enemy_aim_update,enemy_aim_update,src/game/entities/,todo,W5,B,
+game86,1000:1a3b,427,play_draw_hook,game_draw_frame,src/game/frame.c,todo,W4,B,
+game86,1000:1be6,129,palette_set,gfx_set_palette,src/engine/gfx.c,todo,W2,B,
+game86,1000:1c67,134,enemy_random_spawn_pos,enemy_random_spawn_pos,src/game/entities/,todo,W5,B,
+game86,1000:1ced,83,wave_spawn_enemies,wave_spawn_enemies,src/game/main_sm.c,todo,W4,B,
+game86,1000:1dcd,95,enemy_init_00,enemy_init_00,src/game/entities/,todo,W5,C,
+game86,1000:1e2c,88,enemy_init_03,enemy_init_03,src/game/entities/,todo,W5,C,
+game86,1000:1e84,88,enemy_init_21,enemy_init_21,src/game/entities/,todo,W5,C,
+game86,1000:1edc,133,enemy_init_01,enemy_init_01,src/game/entities/,todo,W5,C,
+game86,1000:1f61,53,enemy_init_02,enemy_init_02,src/game/entities/,todo,W5,C,
+game86,1000:1f96,95,enemy_init_04,enemy_init_04,src/game/entities/,todo,W5,C,
+game86,1000:1ff5,74,enemy_init_0f,enemy_init_0f,src/game/entities/,todo,W5,C,
+game86,1000:203f,184,think_18,think_18,src/game/entities/,todo,W5,C,
+game86,1000:20f7,27,think_19,think_19,src/game/entities/,todo,W5,C,
+game86,1000:2112,27,think_1a,think_1a,src/game/entities/,todo,W5,C,
+game86,1000:212d,127,hit_kill_action_03,hit_kill_action_03,src/game/entities/,todo,W5,C,
+game86,1000:21ac,95,enemy_init_0e,enemy_init_0e,src/game/entities/,todo,W5,C,
+game86,1000:220b,128,think_17,think_17,src/game/entities/,todo,W5,C,
+game86,1000:228b,94,enemy_init_18,enemy_init_18,src/game/entities/,todo,W5,C,
+game86,1000:22e9,94,enemy_init_26,enemy_init_26,src/game/entities/,todo,W5,C,
+game86,1000:2347,96,enemy_init_0d,enemy_init_0d,src/game/entities/,todo,W5,C,
+game86,1000:23a7,93,think_16,think_16,src/game/entities/,todo,W5,C,
+game86,1000:2404,83,enemy_init_0c,enemy_init_0c,src/game/entities/,todo,W5,C,
+game86,1000:2457,60,think_15,think_15,src/game/entities/,todo,W5,C,
+game86,1000:2493,23,enemy_init_06,enemy_init_06,src/game/entities/,todo,W5,C,
+game86,1000:24aa,23,enemy_init_07,enemy_init_07,src/game/entities/,todo,W5,C,
+game86,1000:24c1,46,enemy_init_05,enemy_init_05,src/game/entities/,todo,W5,C,
+game86,1000:24ef,127,enemy_init_0a,enemy_init_0a,src/game/entities/,todo,W5,C,
+game86,1000:256e,124,think_13,think_13,src/game/entities/,todo,W5,C,
+game86,1000:25ae,67,enemy_init_0b,enemy_init_0b,src/game/entities/,todo,W5,C,
+game86,1000:25f1,33,think_14,think_14,src/game/entities/,todo,W5,C,
+game86,1000:2612,142,enemy_init_08,enemy_init_08,src/game/entities/,todo,W5,C,
+game86,1000:26a0,37,enemy_init_16,enemy_init_16,src/game/entities/,todo,W5,C,
+game86,1000:26c5,69,enemy_init_28,enemy_init_28,src/game/entities/,todo,W5,C,
+game86,1000:270a,44,ent_hit_11,ent_hit_11,src/game/entities/,todo,W5,C,
+game86,1000:2736,142,think_2c,think_2c,src/game/entities/,todo,W5,C,
+game86,1000:27c4,34,think_2d,think_2d,src/game/entities/,todo,W5,C,
+game86,1000:27e6,1,think_2b,think_2b,src/game/entities/,todo,W5,C,
+game86,1000:27e7,126,enemy_init_17,enemy_init_17,src/game/entities/,todo,W5,C,
+game86,1000:2865,271,think_22,think_22,src/game/entities/,todo,W5,C,
+game86,1000:2974,59,enemy_init_15,enemy_init_15,src/game/entities/,todo,W5,C,
+game86,1000:2a21,84,think_21,think_21,src/game/entities/,todo,W5,C,
+game86,1000:2a75,108,think_20,think_20,src/game/entities/,todo,W5,C,
+game86,1000:2ae1,32,ent_hit_0b,ent_hit_0b,src/game/entities/,todo,W5,C,
+game86,1000:2b01,14,enemy_init_1f,enemy_init_1f,src/game/entities/,todo,W5,C,
+game86,1000:2b0f,8,enemy_init_12,enemy_init_12,src/game/entities/,todo,W5,C,
+game86,1000:2b17,8,enemy_init_13,enemy_init_13,src/game/entities/,todo,W5,C,
+game86,1000:2b1f,8,enemy_init_14,enemy_init_14,src/game/entities/,todo,W5,C,
+game86,1000:2b27,143,enemy_init_11,enemy_init_11,src/game/entities/,todo,W5,C,
+game86,1000:2bb6,78,enemy_init_23,enemy_init_23,src/game/entities/,todo,W5,C,
+game86,1000:2c04,78,enemy_init_24,enemy_init_24,src/game/entities/,todo,W5,C,
+game86,1000:2c52,77,enemy_init_25,enemy_init_25,src/game/entities/,todo,W5,C,
+game86,1000:2c9f,150,enemy_init_22,enemy_init_22,src/game/entities/,todo,W5,C,
+game86,1000:2d35,37,think_2a,think_2a,src/game/entities/,todo,W5,C,
+game86,1000:2d5a,20,think_28,think_28,src/game/entities/,todo,W5,C,
+game86,1000:2d6e,57,think_1f,think_1f,src/game/entities/,todo,W5,C,
+game86,1000:2da7,72,ent_hit_0a,ent_hit_0a,src/game/entities/,todo,W5,C,
+game86,1000:2def,286,enemy_init_10,enemy_init_10,src/game/entities/,todo,W5,C,
+game86,1000:2f0d,70,enemy_init_1c,enemy_init_1c,src/game/entities/,todo,W5,C,
+game86,1000:2f53,52,enemy_init_1d,enemy_init_1d,src/game/entities/,todo,W5,C,
+game86,1000:2f87,141,think_27,think_27,src/game/entities/,todo,W5,C,
+game86,1000:3014,175,think_26,think_26,src/game/entities/,todo,W5,C,
+game86,1000:30c3,51,enemy_init_20,enemy_init_20,src/game/entities/,todo,W5,C,
+game86,1000:30f6,35,think_29,think_29,src/game/entities/,todo,W5,C,
+game86,1000:3119,60,unk_1000_3119,,,todo,W5,C,
+game86,1000:3155,35,enemy_init_1e,enemy_init_1e,src/game/entities/,todo,W5,C,
+game86,1000:3178,96,enemy_init_1b,enemy_init_1b,src/game/entities/,todo,W5,C,
+game86,1000:31d8,50,ent_hit_0d,ent_hit_0d,src/game/entities/,todo,W5,C,
+game86,1000:320a,148,think_25,think_25,src/game/entities/,todo,W5,C,
+game86,1000:32d7,39,unk_1000_32d7,,,todo,W5,C,
+game86,1000:33e0,76,enemy_init_1a,enemy_init_1a,src/game/entities/,todo,W5,C,
+game86,1000:342c,100,enemy_init_27,enemy_init_27,src/game/entities/,todo,W5,C,
+game86,1000:3441,,entity_init_type24,entity_init_type24,src/game/entities/,todo,W5,C,
+game86,1000:3490,142,think_24,think_24,src/game/entities/,todo,W5,C,
+game86,1000:351e,150,enemy_init_19,enemy_init_19,src/game/entities/,todo,W5,C,
+game86,1000:35b4,136,think_23,think_23,src/game/entities/,todo,W5,C,
+game86,1000:363c,51,ent_hit_0c,ent_hit_0c,src/game/entities/,todo,W5,C,
+game86,1000:36a0,86,think_1d,think_1d,src/game/entities/,todo,W5,C,
+game86,1000:36f6,64,think_1e,think_1e,src/game/entities/,todo,W5,C,
+game86,1000:3736,140,enemy_init_09,enemy_init_09,src/game/entities/,todo,W5,C,
+game86,1000:37c2,,pickup_effect_09,pickup_effect_09,src/game/entities/,todo,W5,C,
+game86,1000:37fe,47,think_12,think_12,src/game/entities/,todo,W5,C,
+game86,1000:382d,93,think_11,think_11,src/game/entities/,todo,W5,C,
+game86,1000:388a,351,think_10,think_10,src/game/entities/,todo,W5,C,
+game86,1000:39e9,321,think_0e,think_0e,src/game/entities/,todo,W5,C,
+game86,1000:3b07,8,think0e_mode_03,think0e_mode_03,src/game/entities/,todo,W5,C,
+game86,1000:3b0f,18,think0e_mode_01,think0e_mode_01,src/game/entities/,todo,W5,C,
+game86,1000:3b21,5,think0e_mode_02,think0e_mode_02,src/game/entities/,todo,W5,C,
+game86,1000:3b63,47,think0e_mode_00,think0e_mode_00,src/game/entities/,todo,W5,C,
+game86,1000:3b92,8,hit_kill_action_07,hit_kill_action_07,src/game/entities/,todo,W5,C,
+game86,1000:3bc5,17,hit_kill_action_04,hit_kill_action_04,src/game/entities/,todo,W5,C,
+game86,1000:3bd6,11,hit_kill_action_09,hit_kill_action_09,src/game/entities/,todo,W5,C,
+game86,1000:3be1,21,hit_kill_action_02,hit_kill_action_02,src/game/entities/,todo,W5,C,
+game86,1000:3bf6,142,hit_kill_action_01,hit_kill_action_01,src/game/entities/,todo,W5,C,
+game86,1000:3c84,102,entity_spawn_child_if,entity_spawn_child_if,src/game/entities/,todo,W5,C,
+game86,1000:3c91,,entity_spawn_child,entity_spawn_child,src/game/entities/,todo,W5,C,
+game86,1000:3ca3,,entity_init_child,entity_init_child,src/game/entities/,todo,W5,C,
+game86,1000:3cea,31,think_0f,think_0f,src/game/entities/,todo,W5,C,
+game86,1000:3d43,46,entity_alloc,entity_alloc,src/game/entities/,todo,W5,C,
+game86,1000:3d4e,,entity_alloc_next,entity_alloc_next,src/game/entities/,todo,W5,C,
+game86,1000:3d71,59,hit_kill_action_0a,hit_kill_action_0a,src/game/entities/,todo,W5,C,
+game86,1000:3dac,56,hit_kill_action_0b,hit_kill_action_0b,src/game/entities/,todo,W5,C,
+game86,1000:3de4,252,irq08_timer,timing_tick,src/engine/timing.c,todo,W2,D,50.16 Hz scheduler
+game86,1000:3ee0,143,title_draw,title_draw,src/game/attract.c,todo,W4,D,
+game86,1000:3f6f,111,title_tick_hook,title_tick_hook,src/game/attract.c,todo,W4,D,
+game86,1000:3fde,1,hook_nop,hook_nop,,todo,W4,D,empty hook
+game86,1000:402c,621,title_draw_hook,title_draw_hook,src/game/attract.c,todo,W4,D,
+game86,1000:40fc,,title_draw_logo_row,title_draw_logo_row,src/game/attract.c,todo,W4,D,
+game86,1000:424c,56,unk_1000_424c,,,todo,W4,D,
+game86,1000:4284,56,g3_draw_all_pages,gfx_draw_sprite,src/engine/gfx.c,todo,W6,D,g3 shapes use the sprite format
+game86,1000:42bc,15,sprite_draw_nodirty,gfx_draw_sprite,src/engine/gfx.c,todo,W6,D,
+game86,1000:42cb,24,g3_draw_nodirty,gfx_draw_sprite,src/engine/gfx.c,todo,W6,D,g3 shapes use the sprite format
+game86,1000:42da,22,g3_draw,gfx_draw_sprite,src/engine/gfx.c,todo,W6,D,g3 shapes use the sprite format
+game86,1000:42f0,23,sprite_draw,gfx_draw_sprite,src/engine/gfx.c,todo,W6,D,
+game86,1000:4307,36,entities_clear,entities_clear,,todo,W4,D,
+game86,1000:432b,73,entities_think_all,entities_think_all,,todo,W4,D,
+game86,1000:4374,85,entities_animate_all,entities_animate_all,,todo,W4,D,
+game86,1000:43c9,19,think_02,think_02,src/game/entities/,todo,W5,D,
+game86,1000:43dc,21,think_00,think_00,src/game/entities/,todo,W5,D,
+game86,1000:43f1,116,think_01,think_01,src/game/entities/,todo,W5,D,
+game86,1000:4465,52,anim_00,anim_00,src/game/entities/,todo,W5,D,
+game86,1000:4499,18,anim_05,anim_05,src/game/entities/,todo,W5,D,
+game86,1000:44ab,43,entity_sprite_setup,entity_sprite_setup,src/game/entities/,todo,W5,D,
+game86,1000:44d6,1,anim_08,anim_08,src/game/entities/,todo,W5,D,
+game86,1000:44d7,154,attract_llamas_init,attract_llamas_init,src/game/attract.c,todo,W4,D,
+game86,1000:4571,146,attract_llamas_tick,attract_llamas_tick,src/game/attract.c,todo,W4,D,
+game86,1000:4603,67,attract_llamas_draw,attract_llamas_draw,src/game/attract.c,todo,W4,D,
+game86,1000:4646,47,anim_04,anim_04,src/game/entities/,todo,W5,D,
+game86,1000:4675,1,anim_draw_current,anim_draw_current,,todo,W6,E,
+game86,1000:4676,20,anim_09,anim_09,src/game/entities/,todo,W5,E,
+game86,1000:468a,38,anim_10,anim_10,src/game/entities/,todo,W5,E,
+game86,1000:46b0,154,anim_03,anim_03,src/game/entities/,todo,W5,E,
+game86,1000:474a,47,anim_0e,anim_0e,src/game/entities/,todo,W5,E,
+game86,1000:4779,148,anim_02,anim_02,src/game/entities/,todo,W5,E,
+game86,1000:4802,,anim_0d,anim_0d,src/game/entities/,todo,W5,E,
+game86,1000:480d,1,anim_11,anim_11,src/game/entities/,todo,W5,E,
+game86,1000:480e,337,companion_update,companion_update,src/game/player.c,todo,W4,E,
+game86,1000:495f,362,think_08,think_08,src/game/entities/,todo,W5,E,
+game86,1000:4ac9,201,think_03,think_03,src/game/entities/,todo,W5,E,
+game86,1000:4b49,98,entity_hits_player,entity_hits_player,src/game/entities/,todo,W5,E,
+game86,1000:4bab,40,anim_01,anim_01,src/game/entities/,todo,W5,E,
+game86,1000:4bd3,40,sprite_draw_to_bg,gfx_draw_sprite,src/engine/gfx.c,todo,W6,E,
+game86,1000:4bfb,75,think_06,think_06,src/game/entities/,todo,W5,E,
+game86,1000:4c46,569,think_05,think_05,src/game/entities/,todo,W5,E,
+game86,1000:4e7f,,entity_move_bounce,entity_move_bounce,src/game/entities/,todo,W5,E,
+game86,1000:4ec8,15,think_09,think_09,src/game/entities/,todo,W5,E,
+game86,1000:4ed7,188,think_0b,think_0b,src/game/entities/,todo,W5,E,
+game86,1000:4f93,88,entity_spawn_debris,entity_spawn_debris,src/game/entities/,todo,W5,E,
+game86,1000:4feb,100,think_0c,think_0c,src/game/entities/,todo,W5,E,
+game86,1000:504f,76,think_0d,think_0d,src/game/entities/,todo,W5,E,
+game86,1000:509b,65,entity_aim_at_target,entity_aim_at_target,src/game/entities/,todo,W5,E,
+game86,1000:50dc,234,hud_draw_digit,hud_draw_digit,src/game/hud.c,todo,W6,E,
+game86,1000:51c6,22,hud_draw_player_label,hud_draw_player_label,src/game/hud.c,todo,W6,E,
+game86,1000:51dc,51,hud_draw_lives,hud_draw_lives,src/game/hud.c,todo,W6,E,
+game86,1000:520f,161,hud_clear_cell,hud_clear_cell,src/game/hud.c,todo,W6,E,
+game86,1000:52b0,55,hud_draw_level,hud_draw_level,src/game/hud.c,todo,W6,E,
+game86,1000:52e7,48,hud_draw_score,hud_draw_score,src/game/hud.c,todo,W6,E,
+game86,1000:5317,31,player_swap_state,player_swap_state,src/game/player.c,todo,W4,E,
+game86,1000:5336,26,player_copy_state,player_copy_state,src/game/player.c,todo,W4,E,
+game86,1000:5350,18,level_select_variant,level_select_variant,src/game/script.c,todo,W4,E,
+game86,1000:5363,12,text_print_home,text_print_home,src/game/text.c,todo,W6,E,
+game86,1000:536f,391,text_print,text_print,src/game/text.c,todo,W6,E,
+game86,1000:54f6,65,text_draw_char,text_draw_char,src/game/text.c,todo,W6,E,
+game86,1000:5537,100,text_draw_char_alt,text_draw_char_alt,src/game/text.c,todo,W6,E,
+game86,1000:559f,640,glyph_blit,glyph_blit,src/game/text.c,todo,W6,E,
+game86,1000:581f,14,crtc_set_start,gfx_flip,src/engine/gfx.c,todo,W2,E,
+game86,1000:582f,21,display_page_reset,display_page_reset,src/engine/gfx.c,todo,W2,E,
+game86,1000:5844,284,text_scroller,text_scroller,src/game/text.c,todo,W6,E,
+game86,1000:5960,52,video_init,video_init,src/engine/gfx.c,todo,W2,E,
+game86,1000:5994,23,video_init_tail,video_init_tail,src/engine/gfx.c,todo,W2,E,
+game86,1000:59ab,79,hud_draw_control_labels,hud_draw_control_labels,src/game/hud.c,todo,W6,E,
+game86,1000:59fa,202,hiscore_name_entry,hiscore_name_entry,src/game/hiscore.c,todo,W6,E,
+game86,1000:5ac4,66,name_entry_draw_hook,name_entry_draw_hook,src/game/hiscore.c,todo,W6,E,
+game86,1000:5b06,248,name_entry_tick_hook,name_entry_tick_hook,src/game/hiscore.c,todo,W6,E,
+game86,1000:5bfe,62,name_entry_cursor_pos,name_entry_cursor_pos,src/game/hiscore.c,todo,W6,E,
+game86,1000:5c3c,289,hiscore_table_show,hiscore_table_show,src/game/hiscore.c,todo,W6,E,
+game86,1000:5d5d,69,text_draw_row_coloured,text_draw_row_coloured,src/game/text.c,todo,W6,E,
+game86,1000:5da2,268,hiscore_check_insert,hiscore_check_insert,src/game/hiscore.c,todo,W6,E,
+game86,1000:5eae,43,unk_1000_5eae,,,todo,W6,E,
+game86,1000:5ed9,146,game_exit,game_exit,src/game/main_sm.c,todo,W4,E,
+game86,1000:5f6b,316,config_init,config_from_options,src/game/init.c,todo,W4,E,PSP tail -> port options
+game86,1000:60aa,104,data_load,assets_load,src/assets/,todo,W1,E,assets come from build/generated
+game86,1000:6112,130,vram_fill_rect,vram_fill_rect,src/engine/gfx.c,todo,W6,E,renderer API (W2) semantics
+game86,1000:619c,61,vram_fill_span,vram_fill_span,src/engine/gfx.c,todo,W6,E,renderer API (W2) semantics
+game86,1000:61d9,38,vram_latch_copy_setup,vram_latch_copy_setup,src/engine/gfx.c,todo,W6,E,renderer API (W2) semantics
+game86,1000:61ff,233,screen_reveal_bg,screen_reveal_bg,src/engine/gfx.c,todo,W2,E,
+game86,1000:62e8,14,vram_copy_page_to_bg,vram_copy_page_to_bg,src/engine/gfx.c,todo,W6,E,renderer API (W2) semantics
+game86,1000:62f6,14,vram_copy_bg_to_page,vram_copy_bg_to_page,src/engine/gfx.c,todo,W6,E,renderer API (W2) semantics
+game86,1000:6304,96,vram_copy_page,vram_copy_page,src/engine/gfx.c,todo,W6,E,renderer API (W2) semantics
+game86,1000:6364,31,vram_fill_setup,vram_fill_setup,src/engine/gfx.c,todo,W6,E,renderer API (W2) semantics
+game86,1000:6383,12,vram_clear_from_1f40,vram_clear_from_1f40,src/engine/gfx.c,todo,W6,E,renderer API (W2) semantics
+game86,1000:638f,16,vram_clear_line,vram_clear_line,src/engine/gfx.c,todo,W6,E,renderer API (W2) semantics
+game86,1000:639f,37,vram_clear_lower,vram_clear_lower,src/engine/gfx.c,todo,W6,E,renderer API (W2) semantics
+game86,1000:63c4,9,vram_clear_page,vram_clear_page,src/engine/gfx.c,todo,W6,E,renderer API (W2) semantics
+game86,1000:63d2,393,sprite_draw_wide,gfx_draw_sprite,src/engine/gfx.c,todo,W6,E,
+game86,1000:655b,2,sprite_draw_wide_ret,gfx_draw_sprite,src/engine/gfx.c,todo,W6,E,
+game86,1000:655d,9,sprite_draw_wide_clip,gfx_draw_sprite,src/engine/gfx.c,todo,W6,E,
+game86,1000:6566,457,sprite_draw_wide_shifted,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,
+game86,1000:8cbb,436,sprite_draw_core,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,
+game86,1000:8e6f,2,unk_1000_8e6f,,,todo,W6,F,
+game86,1000:8ea3,135,blit_rows,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,blitter family: one C routine
+game86,1000:8f2a,783,blit_h06,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,blitter family: one C routine
+game86,1000:9239,921,blit_h07,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,blitter family: one C routine
+game86,1000:95d2,1059,blit_h08,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,blitter family: one C routine
+game86,1000:99f5,1197,blit_h09,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,blitter family: one C routine
+game86,1000:9ea2,1335,blit_h10,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,blitter family: one C routine
+game86,1000:a3d9,1473,blit_h11,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,blitter family: one C routine
+game86,1000:a99a,13,blit_h12,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,blitter family: one C routine
+game86,1000:a9a7,13,blit_h13,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,blitter family: one C routine
+game86,1000:a9b4,13,blit_h14,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,blitter family: one C routine
+game86,1000:a9c1,13,blit_h15,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,blitter family: one C routine
+game86,1000:a9ce,13,blit_h16,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,blitter family: one C routine
+game86,1000:a9db,13,blit_h17,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,blitter family: one C routine
+game86,1000:a9e8,13,blit_h18,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,blitter family: one C routine
+game86,1000:a9f5,13,blit_h19,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,blitter family: one C routine
+game86,1000:aa02,13,blit_h20,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,blitter family: one C routine
+game86,1000:aa0f,13,blit_h21,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,blitter family: one C routine
+game86,1000:aa1c,13,blit_h22,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,blitter family: one C routine
+game86,1000:aa29,424,blit_shifted_column,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,blitter family: one C routine
+game86,1000:ac03,13,blit_shifted_dispatch,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,blitter family: one C routine
+game86,1000:ac10,257,blit_shifted_rows,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,blitter family: one C routine
+game86,1000:ad11,1525,blit_shifted_h06,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,blitter family: one C routine
+game86,1000:b306,1790,blit_shifted_h07,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,blitter family: one C routine
+game86,1000:ba04,2055,blit_shifted_h08,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,blitter family: one C routine
+game86,1000:c20b,2320,blit_shifted_h09,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,blitter family: one C routine
+game86,1000:cb1b,2585,blit_shifted_h10,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,blitter family: one C routine
+game86,1000:d534,2850,blit_shifted_h11,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,blitter family: one C routine
+game86,1000:e056,13,blit_shifted_h12,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,blitter family: one C routine
+game86,1000:e063,13,blit_shifted_h13,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,blitter family: one C routine
+game86,1000:e070,13,blit_shifted_h14,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,blitter family: one C routine
+game86,1000:e07d,13,blit_shifted_h15,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,blitter family: one C routine
+game86,1000:e08a,13,blit_shifted_h16,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,blitter family: one C routine
+game86,1000:e097,13,blit_shifted_h17,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,blitter family: one C routine
+game86,1000:e0a4,13,blit_shifted_h18,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,blitter family: one C routine
+game86,1000:e0b1,13,blit_shifted_h19,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,blitter family: one C routine
+game86,1000:e0be,13,blit_shifted_h20,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,blitter family: one C routine
+game86,1000:e0cb,13,blit_shifted_h21,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,blitter family: one C routine
+game86,1000:e0d8,13,blit_shifted_h22,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,blitter family: one C routine
+game86,1000:e0e5,76,vram_addr_from_xy,vram_addr_from_xy,src/engine/gfx.c,todo,W6,F,renderer API (W2) semantics
+game86,1000:e135,267,sprite_draw_scaled,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,
+game86,1000:e240,168,sprite_draw_scaled_col,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,
+game86,1000:e2e8,420,sprite_draw_scaled_rows,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,
+game86,1000:e48c,82,vram_addr_from_xy_signed,vram_addr_from_xy_signed,src/engine/gfx.c,todo,W6,F,renderer API (W2) semantics
+game86,1000:e4de,23,rng_next,rng_next,src/game/rng.c,todo,W4,S,
+game86,1000:e4f5,36,video_set_mode,video_set_mode,src/engine/gfx.c,todo,W2,S,
+game86,1000:e519,78,irq_install,irq_install,src/platform/,todo,W2,S,not ported: platform timer/input
+game86,1000:e567,140,irq09_keyboard,kbd_on_scancode,src/engine/input.c,todo,W2,S,
+game86,1000:e5f3,18,wait_vsync,wait_vsync,src/platform/,todo,W2,S,platform: end of frame
+game86,1000:e605,17,kbd_flush,kbd_flush,src/platform/,todo,W2,S,platform
+game86,1000:e616,72,rng_mix,rng_init,src/game/rng.c,todo,W4,S,seed = BIOS tick (injectable)
+game86,1000:e65e,46,cmp_load,cmp_load,tools/extract/,todo,W1,S,build-time extraction
+game86,1000:e6bb,130,lzss_decode,lzss_decode,tools/extract/,todo,W1,S,build-time extraction
+game86,1000:e73d,59,lzss_getbyte,lzss_decode,tools/extract/,todo,W1,S,build-time extraction
+game86,1000:e778,11,lzss_ungetbyte,lzss_decode,tools/extract/,todo,W1,S,build-time extraction
+game86,1000:e788,34,mem_shrink,mem_shrink,,todo,W0,S,not ported: DOS memory
+game86,1e7b:0000,315,input_poll,input_state,src/engine/input.c,todo,W2,F,
+game86,1e7b:013f,439,frame_run,frame_run,src/engine/timing.c,todo,W2,F,frame callback
+game86,1e7b:029a,38,page_swap,gfx_flip,src/engine/gfx.c,todo,W2,F,
+game86,1e7b:03dc,87,restore_w1_h00,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
+game86,1e7b:0433,233,restore_w1_h06,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
+game86,1e7b:051c,269,restore_w1_h07,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
+game86,1e7b:0629,305,restore_w1_h08,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
+game86,1e7b:075a,341,restore_w1_h09,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
+game86,1e7b:08af,377,restore_w1_h10,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
+game86,1e7b:0a28,413,restore_w1_h11,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
+game86,1e7b:0bc5,14,restore_w1_h12,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
+game86,1e7b:0bd3,14,restore_w1_h13,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
+game86,1e7b:0be1,14,restore_w1_h14,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
+game86,1e7b:0bef,14,restore_w1_h15,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
+game86,1e7b:0bfd,14,restore_w1_h16,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
+game86,1e7b:0c0b,14,restore_w1_h17,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
+game86,1e7b:0c19,14,restore_w1_h18,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
+game86,1e7b:0c27,14,restore_w1_h19,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
+game86,1e7b:0c35,14,restore_w1_h20,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
+game86,1e7b:0c43,14,restore_w1_h21,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
+game86,1e7b:0c51,14,restore_w1_h22,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
+game86,1e7b:0c5f,115,restore_w2_h00,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
+game86,1e7b:0cd2,417,restore_w2_h06,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
+game86,1e7b:0e73,489,restore_w2_h07,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
+game86,1e7b:105c,561,restore_w2_h08,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
+game86,1e7b:128d,633,restore_w2_h09,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
+game86,1e7b:1506,705,restore_w2_h10,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
+game86,1e7b:17c7,777,restore_w2_h11,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
+game86,1e7b:1ad0,31,restore_w2_h12,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
+game86,1e7b:1ade,14,restore_w2_h13,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
+game86,1e7b:1aec,14,restore_w2_h14,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
+game86,1e7b:1afa,14,restore_w2_h15,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
+game86,1e7b:1b08,14,restore_w2_h16,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
+game86,1e7b:1b16,14,restore_w2_h17,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
+game86,1e7b:1b24,448,restore_w2_h18,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
+game86,1e7b:1b32,14,restore_w2_h19,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
+game86,1e7b:1b40,14,restore_w2_h20,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
+game86,1e7b:1b4e,14,restore_w2_h21,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
+game86,1e7b:1b5c,164,restore_w2_h22,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
+game86,1e7b:1b6a,147,restore_w3_h00,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
+game86,1e7b:1bfd,601,restore_w3_h06,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
+game86,1e7b:1e56,709,restore_w3_h07,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
+game86,1e7b:211b,817,restore_w3_h08,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
+game86,1e7b:244c,747,restore_w3_h09,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
+game86,1e7b:27e9,1033,restore_w3_h10,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
+game86,1e7b:2bf2,1141,restore_w3_h11,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
+game86,1e7b:3067,14,restore_w3_h12,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
+game86,1e7b:3075,14,restore_w3_h13,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
+game86,1e7b:3083,14,restore_w3_h14,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
+game86,1e7b:3091,14,restore_w3_h15,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
+game86,1e7b:309f,14,restore_w3_h16,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
+game86,1e7b:30ad,14,restore_w3_h17,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
+game86,1e7b:30bb,14,restore_w3_h18,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
+game86,1e7b:30c9,14,restore_w3_h19,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
+game86,1e7b:30d7,14,restore_w3_h20,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
+game86,1e7b:30e5,14,restore_w3_h21,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
+game86,1e7b:30f3,14,restore_w3_h22,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
+fs,1000:0010,131,entry,entry,src/sound/title.c,todo,W2,fs,front screen (ILBM decode in W1 extractor)
+fs,1000:00de,44,timer_hook,timer_hook,src/sound/title.c,todo,W2,fs,front screen (ILBM decode in W1 extractor)
+fs,1000:010a,18,wait_vsync,wait_vsync,src/sound/title.c,todo,W2,fs,front screen (ILBM decode in W1 extractor)
+fs,1000:011c,15,kbd_flush,kbd_flush,src/sound/title.c,todo,W2,fs,front screen (ILBM decode in W1 extractor)
+fs,1000:012b,23,exit_cleanup,exit_cleanup,src/sound/title.c,todo,W2,fs,front screen (ILBM decode in W1 extractor)
+fs,1000:0142,76,FUN_1000_0142,,src/sound/title.c,todo,W2,fs,front screen (ILBM decode in W1 extractor)
+fs,1000:018e,49,irq08_timer,irq08_timer,src/sound/title.c,todo,W2,fs,front screen (ILBM decode in W1 extractor)
+fs,1000:01bf,106,show_title,show_title,src/sound/title.c,todo,W2,fs,front screen (ILBM decode in W1 extractor)
+fs,1000:0229,105,ega_show_planes,ega_show_planes,src/sound/title.c,todo,W2,fs,front screen (ILBM decode in W1 extractor)
+fs,1000:0293,424,lbm_load,lbm_load,src/sound/title.c,todo,W2,fs,front screen (ILBM decode in W1 extractor)
+fs,1000:043a,118,cmap_apply,cmap_apply,src/sound/title.c,todo,W2,fs,front screen (ILBM decode in W1 extractor)
+fs,1000:04b0,17,FUN_1000_04b0,,src/sound/title.c,todo,W2,fs,front screen (ILBM decode in W1 extractor)
+fs,1000:04c1,11,ega_palette_set,ega_palette_set,src/sound/title.c,todo,W2,fs,front screen (ILBM decode in W1 extractor)
+fs,1000:04cc,106,planar_to_chunky,planar_to_chunky,src/sound/title.c,todo,W2,fs,front screen (ILBM decode in W1 extractor)
+fs,1000:0536,7387,FUN_1000_0536,,src/sound/title.c,todo,W2,fs,front screen (ILBM decode in W1 extractor)
+fs,1000:2211,270,body_decode,body_decode,src/sound/title.c,todo,W2,fs,front screen (ILBM decode in W1 extractor)
+fs,1000:231f,53,byterun1_row,byterun1_row,src/sound/title.c,todo,W2,fs,front screen (ILBM decode in W1 extractor)
+fs,1000:2354,14,src_wrap,src_wrap,src/sound/title.c,todo,W2,fs,front screen (ILBM decode in W1 extractor)
+fs,1000:2362,41,skip_mask_row,skip_mask_row,src/sound/title.c,todo,W2,fs,front screen (ILBM decode in W1 extractor)
+fs,1000:238b,18,clear_load_buf,clear_load_buf,src/sound/title.c,todo,W2,fs,front screen (ILBM decode in W1 extractor)
+fs,1000:239d,5,chunky_to_modex_lower,chunky_to_modex_lower,src/sound/title.c,todo,W2,fs,front screen (ILBM decode in W1 extractor)
+fs,1000:23a2,91,chunky_to_modex,chunky_to_modex,src/sound/title.c,todo,W2,fs,front screen (ILBM decode in W1 extractor)
+fs,1000:23fd,91,vga_set_320x400,vga_set_320x400,src/sound/title.c,todo,W2,fs,front screen (ILBM decode in W1 extractor)
+fs,1000:2458,34,mem_shrink,mem_shrink,src/sound/title.c,todo,W2,fs,front screen (ILBM decode in W1 extractor)
+llama,1000:0010,54,entry,entry,,todo,W0,llama,launcher/installer: llama.inf semantics become port options
+llama,1000:0103,147,launch_children,launch_children,,todo,W0,llama,launcher/installer: llama.inf semantics become port options
+llama,1000:01a6,48,FUN_1000_01a6,,,todo,W0,llama,launcher/installer: llama.inf semantics become port options
+llama,1000:01e7,609,inf_read,inf_read,,todo,W0,llama,launcher/installer: llama.inf semantics become port options
+llama,1000:0437,18,FUN_1000_0437,,,todo,W0,llama,launcher/installer: llama.inf semantics become port options
+llama,1000:0449,31,detect_adlib,detect_adlib,,todo,W0,llama,launcher/installer: llama.inf semantics become port options
+llama,1000:0468,69,FUN_1000_0468,,,todo,W0,llama,launcher/installer: llama.inf semantics become port options
+llama,1000:04ad,26,FUN_1000_04ad,,,todo,W0,llama,launcher/installer: llama.inf semantics become port options
+llama,1000:04cf,48,FUN_1000_04cf,,,todo,W0,llama,launcher/installer: llama.inf semantics become port options
+llama,1000:04ff,23,detect_mpu401,detect_mpu401,,todo,W0,llama,launcher/installer: llama.inf semantics become port options
+llama,1000:0516,35,FUN_1000_0516,,,todo,W0,llama,launcher/installer: llama.inf semantics become port options
+llama,1000:0539,43,FUN_1000_0539,,,todo,W0,llama,launcher/installer: llama.inf semantics become port options
+llama,1000:0564,15,FUN_1000_0564,,,todo,W0,llama,launcher/installer: llama.inf semantics become port options
+llama,1000:05b5,35,FUN_1000_05b5,,,todo,W0,llama,launcher/installer: llama.inf semantics become port options
+llama,1000:05db,47,mem_setup,mem_setup,,todo,W0,llama,launcher/installer: llama.inf semantics become port options
+install,1000:0010,368,entry,entry,,todo,W0,install,launcher/installer: llama.inf semantics become port options
+install,1000:01a9,41,FUN_1000_01a9,,,todo,W0,install,launcher/installer: llama.inf semantics become port options
+install,1000:01d2,121,FUN_1000_01d2,,,todo,W0,install,launcher/installer: llama.inf semantics become port options
+install,1000:024b,38,FUN_1000_024b,,,todo,W0,install,launcher/installer: llama.inf semantics become port options
+install,1000:0271,44,FUN_1000_0271,,,todo,W0,install,launcher/installer: llama.inf semantics become port options
+install,1000:029d,62,FUN_1000_029d,,,todo,W0,install,launcher/installer: llama.inf semantics become port options
+install,1000:02db,61,FUN_1000_02db,,,todo,W0,install,launcher/installer: llama.inf semantics become port options
+install,1000:0318,128,menu_draw,menu_draw,,todo,W0,install,launcher/installer: llama.inf semantics become port options
+install,1000:0398,54,fill_background,fill_background,,todo,W0,install,launcher/installer: llama.inf semantics become port options
+install,1000:03ce,43,FUN_1000_03ce,,,todo,W0,install,launcher/installer: llama.inf semantics become port options
+install,1000:03f9,48,FUN_1000_03f9,,,todo,W0,install,launcher/installer: llama.inf semantics become port options
+install,1000:0429,85,FUN_1000_0429,,,todo,W0,install,launcher/installer: llama.inf semantics become port options
+install,1000:047e,145,copy_file,copy_file,,todo,W0,install,launcher/installer: llama.inf semantics become port options
+install,1000:050f,382,write_config,write_config,,todo,W0,install,launcher/installer: llama.inf semantics become port options
+install,1000:068d,31,FUN_1000_068d,,,todo,W0,install,launcher/installer: llama.inf semantics become port options
