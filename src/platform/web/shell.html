@@ -40,7 +40,19 @@
     /* Registered before the Emscripten runtime, so SDL sees the new CSS size on resize. */
     window.addEventListener('resize', fit);
     fit();
-    canvas.addEventListener('click', function () { canvas.focus(); });
+    /* Keyboard goes to the canvas (SDL_HINT_EMSCRIPTEN_KEYBOARD_ELEMENT = "#canvas"): take
+       focus at start and on any click, and never let game keys scroll or activate the page.
+       preventDefault does not stop propagation, so SDL still receives the keys. */
+    function focusGame() { canvas.focus({ preventScroll: true }); }
+    canvas.addEventListener('mousedown', focusGame);
+    document.addEventListener('click', focusGame);
+    window.addEventListener('load', focusGame);
+    var GAME_KEYS = { ArrowUp: 1, ArrowDown: 1, ArrowLeft: 1, ArrowRight: 1, ' ': 1,
+                      PageUp: 1, PageDown: 1, Home: 1, End: 1, Tab: 1, Backspace: 1 };
+    window.addEventListener('keydown', function (e) {
+      if (GAME_KEYS[e.key]) e.preventDefault();
+      if (document.activeElement !== canvas) focusGame();
+    }, true);
 
     var output = document.getElementById('output');
     var status = document.getElementById('status');
