@@ -373,6 +373,10 @@ bring-up is sequential (W0 + W4). M6 reference runs are W3 + W0 with everyone fi
    files under `re/`, `build*/`, `original/`, `unpacked/`, binary blobs > 4 KB, and lines matching
    known original strings; code review checks that generated headers are only included from
    `build/generated`.
+8. **RNG seed reads the live BIOS tick** (found by W3): the init shuffle (`1000:007b..00ab`) calls
+   the mixer `1000:e616` 8000 times, and each call re-reads the BIOS tick word `0000:046C`, which can
+   change during the shuffle on real hardware. The port's seed input is therefore the tick value each
+   call sees, not one number. Oracle tests hold it constant; DOSBox-X reference runs must pin it the same way.
 
 ## 9. Legal / IP hygiene rules
 - Committed: our C/CMake/Python/Java code, format descriptions (offsets, sizes, struct layouts),
