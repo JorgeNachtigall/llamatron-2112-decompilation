@@ -3,6 +3,7 @@
  */
 #include "platform.h"
 #include "keymap.h"
+#include "settings.h"
 
 #include <SDL.h>
 #include <stdio.h>
@@ -35,6 +36,8 @@ static struct {
     SDL_AudioDeviceID audio;
     uint32_t rgb_buffer[MAX_IMAGE_W * MAX_IMAGE_H];
     int web_timer_fps;
+    unsigned requests;
+    bool focused;
     bool capture;
     uint32_t capture_hash;
     int capture_w, capture_h;
@@ -84,6 +87,7 @@ bool plat_init(const PlatConfig *config)
     if (SDL_GetRendererInfo(g_plat.renderer, &info) == 0)
         g_plat.vsync = (info.flags & SDL_RENDERER_PRESENTVSYNC) != 0;
 
+    g_plat.focused = true;
     g_plat.counter_hz = SDL_GetPerformanceFrequency();
     g_plat.start_counter = SDL_GetPerformanceCounter();
     return true;
@@ -250,6 +254,18 @@ static bool is_fullscreen_hotkey(const SDL_KeyboardEvent *key)
     return key->keysym.scancode == SDL_SCANCODE_RETURN && (key->keysym.mod & KMOD_ALT);
 }
 
+unsigned plat_take_requests(void)
+{
+    unsigned r = g_plat.requests;
+    g_plat.requests = 0;
+    return r;
+}
+
+bool plat_has_focus(void)
+{
+    return g_plat.focused;
+}
+
 bool plat_poll_events(PlatKeyFn on_key, void *user)
 {
     bool keep_running = true;
@@ -257,7 +273,27 @@ bool plat_poll_events(PlatKeyFn on_key, void *user)
     while (SDL_PollEvent(&ev)) {
         switch (ev.type) {
         case SDL_QUIT:
+        case SDL_APP_TERMINATING:
+            g_plat.requests |= PLAT_REQUEST_QUIT;
             keep_running = false;
+            break;
+        case SDL_APP_WILLENTERBACKGROUND:
+            g_plat.requests |= PLAT_REQUEST_PAUSE;
+            break;
+        case SDL_WINDOWEVENT:
+            switch (ev.window.event) {
+            case SDL_WINDOWEVENT_FOCUS_LOST:
+            case SDL_WINDOWEVENT_MINIMIZED:
+            case SDL_WINDOWEVENT_HIDDEN:
+                g_plat.focused = false;
+                g_plat.requests |= PLAT_REQUEST_PAUSE;
+                break;
+            case SDL_WINDOWEVENT_FOCUS_GAINED:
+                g_plat.focused = true;
+                break;
+            default:
+                break;
+            }
             break;
         case SDL_KEYDOWN:
         case SDL_KEYUP: {
@@ -361,6 +397,70 @@ void plat_run_main_loop(PlatFrameFn frame, void *user)
             next_us = now;
     }
 #endif
+}
+
+/* ---- Settings storage ------------------------------------------------------------------ */
+
+#ifdef __EMSCRIPTEN__
+/* web/persist.js mounts IDBFS here and loads it before main() runs. */
+#define SETTINGS_DIR "/persist/"
+#endif
+#define SETTINGS_FILE "llama.inf"
+
+static bool settings_path(char *out, size_t size)
+{
+#ifdef __EMSCRIPTEN__
+    snprintf(out, size, "%s%s", SETTINGS_DIR, SETTINGS_FILE);
+    return true;
+#else
+    /* Tests (and portable installs) redirect storage with LLAMATRON_PREF_DIR. */
+    const char *override = SDL_getenv("LLAMATRON_PREF_DIR");
+    if (override && *override) {
+        snprintf(out, size, "%s/%s", override, SETTINGS_FILE);
+        return true;
+    }
+    char *dir = SDL_GetPrefPath("llamatron-port", "llamatron");
+    if (!dir)
+        return false;
+    snprintf(out, size, "%s%s", dir, SETTINGS_FILE);
+    SDL_free(dir);
+    return true;
+#endif
+}
+
+Settings plat_settings_load(void)
+{
+    Settings s = settings_defaults();
+    char path[1024];
+    if (!settings_path(path, sizeof path))
+        return s;
+    FILE *f = fopen(path, "rb");
+    if (!f)
+        return s;
+    uint8_t inf[SETTINGS_INF_SIZE];
+    size_t n = fread(inf, 1, sizeof inf, f);
+    fclose(f);
+    settings_parse_inf(inf, n, &s);
+    return s;
+}
+
+bool plat_settings_save(const Settings *settings)
+{
+    char path[1024];
+    if (!settings_path(path, sizeof path))
+        return false;
+    uint8_t inf[SETTINGS_INF_SIZE];
+    settings_format_inf(settings, inf);
+    FILE *f = fopen(path, "wb");
+    if (!f)
+        return false;
+    bool ok = fwrite(inf, 1, sizeof inf, f) == sizeof inf;
+    ok = fclose(f) == 0 && ok;
+#ifdef __EMSCRIPTEN__
+    /* Push the in-memory IDBFS state to the browser's IndexedDB. */
+    emscripten_run_script("if (typeof llamatronPersistSync === 'function') llamatronPersistSync();");
+#endif
+    return ok;
 }
 
 /* ---- Audio --------------------------------------------------------------------------- */

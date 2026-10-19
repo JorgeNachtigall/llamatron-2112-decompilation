@@ -16,9 +16,16 @@ endif()
 add_library(llama_platform STATIC
     platform_sdl.c
     keymap.c
+    settings.c
 )
 target_include_directories(llama_platform PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(llama_platform PUBLIC llama_sdl2)
+target_link_libraries(llama_platform PUBLIC llama_assets_api)
+if(EMSCRIPTEN)
+    # Persistent storage (settings, later scores): IDBFS at /persist, see web/persist.js.
+    target_link_options(llama_platform PUBLIC -lidbfs.js
+        "SHELL:--pre-js ${CMAKE_CURRENT_SOURCE_DIR}/web/persist.js")
+endif()
 target_compile_options(llama_platform PRIVATE
     $<$<C_COMPILER_ID:Clang,AppleClang,GNU>:-Wall -Wextra>)
 
@@ -50,7 +57,7 @@ endif()
 
 # Test app: window + generated test pattern and palette (no original data needed).
 add_executable(platform_testpattern testapp/testpattern.c)
-target_link_libraries(platform_testpattern PRIVATE llama_platform llama_engine)
+target_link_libraries(platform_testpattern PRIVATE llama_platform llama_engine llama_assets_files)
 if(EMSCRIPTEN)
     set_target_properties(platform_testpattern PROPERTIES SUFFIX ".html"
         LINK_DEPENDS ${LLAMA_WEB_SHELL})
@@ -73,15 +80,32 @@ if(EMSCRIPTEN)
         "SHELL:--preload-file ${LLAMATRON_GENERATED_DIR}/data@/data")
 endif()
 
+# Settings persistence (native): save in one run, read back in the next; storage redirected
+# into the build tree so tests never touch the user's own data directory.
+if(NOT EMSCRIPTEN)
+    set(_prefs ${CMAKE_CURRENT_BINARY_DIR}/test-prefs)
+    file(MAKE_DIRECTORY ${_prefs})
+    add_test(NAME settings_persist_reset COMMAND ${CMAKE_COMMAND} -E rm -f ${_prefs}/llama.inf)
+    add_test(NAME settings_persist_save COMMAND platform_testpattern --frames 1 --save-settings "E J S 0 Y")
+    add_test(NAME settings_persist_load COMMAND platform_testpattern --frames 1)
+    set_tests_properties(settings_persist_save settings_persist_load PROPERTIES
+        ENVIRONMENT "LLAMATRON_PREF_DIR=${_prefs}"
+        PASS_REGULAR_EXPRESSION "settings loaded: E J S 0 Y")
+    set_tests_properties(settings_persist_save PROPERTIES DEPENDS settings_persist_reset)
+    set_tests_properties(settings_persist_load PROPERTIES DEPENDS settings_persist_save)
+endif()
+
 # Web smoke tests (PLAN.md §5): run in the web build tree (ctest --test-dir build-web). Local
 # headless Chrome loads the page from a loopback server; the app prints the hash of the title
 # picture and of the rendered canvas (1000x750 for the tool's 1000x900 window). Skipped (77)
-# when no Chrome/Chromium is installed.
+# when no Chrome/Chromium is installed. Real time (--report: the page posts its output lines):
+# every page first loads IDBFS (web/persist.js), and headless virtual time does not wait for
+# IndexedDB.
 if(EMSCRIPTEN)
     find_package(Python3 COMPONENTS Interpreter)
     if(Python3_Interpreter_FOUND)
         set(_smoke ${CMAKE_CURRENT_SOURCE_DIR}/tools/web_smoke.py --dir ${CMAKE_CURRENT_BINARY_DIR}
-            --page llamatron_title.html)
+            --page llamatron_title.html --report)
         add_test(NAME web_smoke_title_vga COMMAND ${Python3_EXECUTABLE} ${_smoke} --query frames=2
             --expect "title 320x400 hash=c7ab74c4 canvas 1000x750 hash=1b1b4ce3")
         add_test(NAME web_smoke_title_ega COMMAND ${Python3_EXECUTABLE} ${_smoke} --query frames=2&ega
@@ -93,7 +117,7 @@ if(EMSCRIPTEN)
         # One Space press + release dispatched back to back (inside one frame) through SDL's
         # browser event path must still rotate the palette once (input latch, input.h).
         set(_tp ${CMAKE_CURRENT_SOURCE_DIR}/tools/web_smoke.py --dir ${CMAKE_CURRENT_BINARY_DIR}
-            --page platform_testpattern.html)
+            --page platform_testpattern.html --report)
         add_test(NAME web_smoke_tap_space COMMAND ${Python3_EXECUTABLE} ${_tp} --query frames=4&tap=Space
             --expect "frames=4 ticks=2 display_hash=3cbbd24e palette_phase=1")
         add_test(NAME web_smoke_no_tap COMMAND ${Python3_EXECUTABLE} ${_tp} --query frames=4
@@ -102,5 +126,19 @@ if(EMSCRIPTEN)
             SKIP_RETURN_CODE 77 LABELS web TIMEOUT 180)
         set_tests_properties(web_smoke_title_vga web_smoke_title_ega PROPERTIES
             SKIP_RETURN_CODE 77 LABELS web TIMEOUT 180)
+        # Settings persistence (IDBFS): save in one browser run, read back in the next. Same
+        # profile and port, since IndexedDB is per origin.
+        set(_profile ${CMAKE_CURRENT_BINARY_DIR}/test-profile)
+        set(_persist ${_tp} --profile ${_profile} --port 8471)
+        add_test(NAME web_persist_reset COMMAND ${CMAKE_COMMAND} -E rm -rf ${_profile})
+        add_test(NAME web_persist_save COMMAND ${Python3_EXECUTABLE} ${_persist}
+            --query frames=2&settings=E_J_S_0_Y --expect "settings saved: yes" --expect "persist: saved")
+        add_test(NAME web_persist_load COMMAND ${Python3_EXECUTABLE} ${_persist}
+            --query frames=2 --expect "settings loaded: E J S 0 Y")
+        set_tests_properties(web_persist_reset web_persist_save web_persist_load PROPERTIES
+            LABELS web RESOURCE_LOCK web_persist_profile)
+        set_tests_properties(web_persist_save web_persist_load PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 120)
+        set_tests_properties(web_persist_save PROPERTIES DEPENDS web_persist_reset)
+        set_tests_properties(web_persist_load PROPERTIES DEPENDS web_persist_save)
     endif()
 endif()

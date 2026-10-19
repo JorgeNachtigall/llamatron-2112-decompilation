@@ -63,6 +63,15 @@ typedef void (*PlatKeyFn)(uint8_t pc_make_code, bool pressed, void *user);
 /* Pump host events. Returns false once the user closed the window (or pressed Cmd-Q). */
 bool plat_poll_events(PlatKeyFn on_key, void *user);
 
+/* Requests from the host for the game to act on (no game logic here; the game decides).
+ * They accumulate across polls until taken. */
+enum PlatRequest {
+    PLAT_REQUEST_QUIT = 1u << 0,    /* window closed, Cmd-Q / Alt-F4, OS shutdown */
+    PLAT_REQUEST_PAUSE = 1u << 1,   /* focus lost, minimised, hidden tab, app backgrounded */
+};
+unsigned plat_take_requests(void);
+bool plat_has_focus(void);
+
 enum { PLAT_MAX_GAMEPADS = 2 };
 
 enum PlatGamepadButton {

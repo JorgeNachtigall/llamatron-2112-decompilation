@@ -5,6 +5,10 @@ Chrome, and check the hash line the app prints into the page.
     web_smoke.py --dir build-web/src/platform --page llamatron_title.html \
                  --query frames=30 --expect "title 320x400 hash=c7ab74c4" [--expect ...]
 
+With --report the page runs in real time instead of virtual time (needed when it waits on
+IndexedDB, which virtual time does not wait for): the shell posts each output line to the
+loopback server and the run ends as soon as every --expect line has arrived (or --timeout-s).
+
 Exit 0 = pass, 1 = fail, 77 = skipped (no Chrome found; ctest SKIP_RETURN_CODE).
 Only local resources are used: no network access beyond the loopback server.
 """
@@ -19,6 +23,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 
 SKIP = 77
 CHROME_CANDIDATES = [
@@ -38,8 +43,37 @@ def find_chrome():
 
 
 class QuietHandler(http.server.SimpleHTTPRequestHandler):
+    reports = None          # list of lines posted to /report (--report mode)
+
     def log_message(self, *args):
         pass
+
+    def do_POST(self):
+        body = self.rfile.read(int(self.headers.get("Content-Length", 0)))
+        if self.path == "/report" and self.reports is not None:
+            self.reports.append(body.decode("utf-8", "replace"))
+        self.send_response(204)
+        self.end_headers()
+
+
+def run_reported(cmd, reports, expect, timeout_s):
+    """Run Chrome in real time until every expected line was reported; returns the text."""
+    proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    try:
+        deadline = time.monotonic() + timeout_s
+        while time.monotonic() < deadline and proc.poll() is None:
+            text = "\n".join(reports)
+            if all(e in text for e in expect):
+                break
+            time.sleep(0.1)
+    finally:
+        proc.terminate()
+        try:
+            proc.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait()
+    return "\n".join(reports)
 
 
 def main():
@@ -49,6 +83,11 @@ def main():
     ap.add_argument("--query", default="")
     ap.add_argument("--expect", action="append", default=[])
     ap.add_argument("--budget-ms", type=int, default=10000)
+    ap.add_argument("--profile", help="persistent browser profile dir (shares IndexedDB between runs)")
+    ap.add_argument("--port", type=int, default=0,
+                    help="fixed server port (IndexedDB is per origin: runs sharing --profile need it)")
+    ap.add_argument("--report", action="store_true", help="real time, output posted by the page")
+    ap.add_argument("--timeout-s", type=float, default=30.0)
     args = ap.parse_args()
 
     chrome = find_chrome()
@@ -59,27 +98,33 @@ def main():
         print(f"web_smoke: {args.page} not built in {args.dir}")
         return 1
 
+    reports = []
     handler = functools.partial(QuietHandler, directory=args.dir)
-    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
+    handler.func.reports = reports if args.report else None
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", args.port), handler)
     threading.Thread(target=server.serve_forever, daemon=True).start()
+    query = "&".join(q for q in (args.query, "report" if args.report else "") if q)
     url = f"http://127.0.0.1:{server.server_address[1]}/{args.page}"
-    if args.query:
-        url += "?" + args.query
+    if query:
+        url += "?" + query
 
-    with tempfile.TemporaryDirectory() as profile:
+    with tempfile.TemporaryDirectory() as temp_profile:
+        profile = args.profile or temp_profile
         cmd = [chrome, "--headless=new", "--no-first-run", "--no-default-browser-check",
-               f"--user-data-dir={profile}", "--window-size=1000,900",
-               f"--virtual-time-budget={args.budget_ms}", "--dump-dom", url]
+               f"--user-data-dir={profile}", "--window-size=1000,900"]
         try:
-            out = subprocess.run(cmd, capture_output=True, text=True, timeout=120).stdout
+            if args.report:
+                text = run_reported(cmd + [url], reports, args.expect, args.timeout_s)
+            else:
+                cmd += [f"--virtual-time-budget={args.budget_ms}", "--dump-dom", url]
+                out = subprocess.run(cmd, capture_output=True, text=True, timeout=120).stdout
+                # Our shell (src/platform/web/shell.html) appends stdout to <pre id="output">.
+                m = re.search(r'<pre[^>]*id="output"[^>]*>(.*?)</pre>', out, re.S)
+                text = html.unescape(m.group(1)) if m else ""
+                if not m:
+                    print("web_smoke: page has no <pre id=\"output\"> (built without our shell?)")
         finally:
             server.shutdown()
-
-    # Our shell (src/platform/web/shell.html) appends stdout to <pre id="output">.
-    m = re.search(r'<pre[^>]*id="output"[^>]*>(.*?)</pre>', out, re.S)
-    text = html.unescape(m.group(1)) if m else ""
-    if not m:
-        print("web_smoke: page has no <pre id=\"output\"> (built without our shell?)")
     print(text.strip())
     missing = [e for e in args.expect if e not in text]
     if missing:

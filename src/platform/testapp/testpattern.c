@@ -10,12 +10,15 @@
  *   E                : toggle EGA / VGA palette path
  *   F11 / Alt-Enter  : fullscreen;  Esc / Q : quit
  *
- * Command line: --frames N  run N frames with a fixed 70.086 Hz display, print the tick count
+ * Command line: --save-settings "V J S 0 Y"  store settings (llama.inf text) before starting;
+ *               the settings loaded at start-up are always printed (persistence check).
+ *               --frames N  run N frames with a fixed 70.086 Hz display, print the tick count
  *               and a hash of the last displayed page, then exit (smoke test).
  */
 #include "gfx.h"
 #include "input.h"
 #include "platform.h"
+#include "settings.h"
 #include "timing.h"
 
 #include <stdio.h>
@@ -270,12 +273,15 @@ int main(int argc, char **argv)
 {
     App *app = &g_app;
     bool joystick = false;
+    const char *save_settings = NULL;
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--frames") == 0 && i + 1 < argc) {
             app->frames_left = strtol(argv[++i], NULL, 10);
             app->fixed_step = true;
         } else if (strcmp(argv[i], "--joystick") == 0) {
             joystick = true;
+        } else if (strcmp(argv[i], "--save-settings") == 0 && i + 1 < argc) {
+            save_settings = argv[++i];
         }
     }
 
@@ -286,6 +292,16 @@ int main(int argc, char **argv)
         app->frames_left = strtol(frames + 7, NULL, 10);
         app->fixed_step = true;
     }
+    /* ?settings=V_J_S_0_Y ('_' for the spaces of llama.inf) */
+    static char web_settings[16];
+    const char *query_settings = strstr(emscripten_run_script_string("location.search"), "settings=");
+    if (query_settings) {
+        snprintf(web_settings, sizeof web_settings, "%.9s", query_settings + 9);
+        for (char *c = web_settings; *c; c++)
+            if (*c == '_')
+                *c = ' ';
+        save_settings = web_settings;
+    }
 #endif
 
     PlatConfig config = { "Llamatron platform test pattern", 3, false, true, 0 };
@@ -293,6 +309,14 @@ int main(int argc, char **argv)
         config.web_timer_fps = 70;   /* deterministic frame pacing for test runs */
     if (!plat_init(&config))
         return 1;
+
+    Settings settings = plat_settings_load();
+    if (save_settings && settings_parse_inf((const uint8_t *)save_settings, strlen(save_settings), &settings))
+        printf("settings saved: %s\n", plat_settings_save(&settings) ? "yes" : "FAILED");
+    Settings reloaded = plat_settings_load();
+    uint8_t inf[SETTINGS_INF_SIZE];
+    settings_format_inf(&reloaded, inf);
+    printf("settings loaded: %s\n", (const char *)inf);
 
     gfx_init();
     input_init(joystick ? INPUT_DEVICE_JOYSTICK : INPUT_DEVICE_KEYBOARD, true);

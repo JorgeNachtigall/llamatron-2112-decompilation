@@ -60,9 +60,16 @@
 
     var output = document.getElementById('output');
     var status = document.getElementById('status');
+    /* Test hook for web_smoke.py --report: ?report also posts each output line to the loopback
+       test server (/report), for runs that need real time (IndexedDB) instead of virtual time. */
+    var reporting = /[?&]report(&|$)/.test(location.search);
+    function report(text) {
+      if (reporting) navigator.sendBeacon('/report', text);
+    }
     function print(text) {
       output.textContent += text + '\n';
       console.log(text);
+      report(text);
     }
     /* Test hook for web_smoke.py: ?tap=Space sends one key press and release back to back
        (inside one frame) right after start-up. Does nothing without the parameter. */
@@ -84,7 +91,8 @@
         if (tapMatch) setTimeout(function () { tap(tapMatch[1]); }, 0);
       },
       print: print,
-      printErr: function (text) { output.textContent += text + '\n'; console.error(text); },
+      printErr: function (text) { output.textContent += text + '\n'; console.error(text); report(text); },
+      onPersistSaved: function () { report('persist: saved'); },
       setStatus: function (text) { status.textContent = text; status.style.display = text ? '' : 'none'; },
       monitorRunDependencies: function () {},
     };
