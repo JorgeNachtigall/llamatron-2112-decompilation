@@ -3,6 +3,8 @@
  */
 #include "hud.h"
 
+#include "game_data.h"
+
 #include <stddef.h>
 
 #include "score.h"
@@ -30,6 +32,11 @@ static const struct { int x, y; } TURN_LABEL_POS = { 0x9b, 0x0f };
 void hud_set_glyphs(const HudGlyphs *glyphs)
 {
     s_glyphs = glyphs;
+}
+
+void hud_use_game_assets(void)
+{
+    hud_set_glyphs(asset_hud_glyphs());
 }
 
 static int current_player(const GameState *game)

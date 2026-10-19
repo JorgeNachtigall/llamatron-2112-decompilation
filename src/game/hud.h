@@ -39,6 +39,8 @@ enum {
 };
 
 void hud_set_glyphs(const HudGlyphs *glyphs);
+/* The game's glyphs (asset_hud_glyphs) from the loaded game data. */
+void hud_use_game_assets(void);
 
 /* Digit `digit` (0..9) in HUD cell `cell`. game86 1000:50dc */
 void hud_draw_digit(int cell, unsigned digit);
