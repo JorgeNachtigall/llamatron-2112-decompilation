@@ -205,7 +205,7 @@ void think_2c(GameState *game, Entity *e)
 {
     if (!pair_passed_zero(&e->aux16))
         return;
-    game->flash_list = asset_flash_list(FLASH_LIST_0721);
+    game->flash_list = asset_flash_list(FLASH_LIST_STORM);
     game_sound_play(SOUND_THUNDER.sample, SOUND_THUNDER.rate_index, SOUND_THUNDER.priority);
     if (--e->timer < 0) {
         entity_vanish(e);

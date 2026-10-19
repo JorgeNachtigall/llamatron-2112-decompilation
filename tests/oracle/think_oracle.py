@@ -178,8 +178,11 @@ class ThinkOracle:
         heard = []
         bp = machine.add_breakpoint((STUB_SEG, 0), lambda m: heard.append(m.get_regs()))
         try:
-            machine.call(f"1000:{think_address(machine, think):04x}",
-                         regs={"di": case.di, "bp": case.bp})
+            # entities_think_all calls through SI (1000:4363 MOV SI,[BX+1FD2]; CALL SI), and
+            # some handlers' callees depend on it (enemy_shot_drop's 10b0 clobber).
+            handler = think_address(machine, think)
+            machine.call(f"1000:{handler:04x}",
+                         regs={"di": case.di, "bp": case.bp, "si": handler})
         finally:
             machine.remove_breakpoint(bp)
         sounds = [(r["ax"] & 0xFF, r["cx"] & 0xFF, r["cx"] >> 8) for r in heard
