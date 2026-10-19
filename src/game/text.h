@@ -10,7 +10,7 @@
  *   \e      end of the string              \u \d   pen up / down one line (21 px)
  *   \l \i   pen left / right 21 px         \g<x><dy> left margin = x (0..255), pen to it, y += dy (signed)
  *   \q<text>NUL   draw <text> centred on the screen at the pen's y, then continue after the NUL
- *   \s<hi><lo>    draw sprite-bank entry hi*256+lo inline (not ported yet: skipped)
+ *   \s<hi><lo>    draw sprite number hi*256+lo inline, then move the pen past it
  * Bytes 0 are skipped; a string ends only at \e. Words that would reach x = 304 wrap to the
  * left margin, 21 px down.
  */
@@ -43,6 +43,12 @@ typedef struct TextState {
 
 void text_set_font(const GfxFont *font);
 const GfxFont *text_font(void);
+
+/* Sprites for the \s escape: sprite number `number` (an index into the sprite bank's table
+ * from 218C:001C, i.e. sprite ref 14 + number) and its nominal width. Returns false if
+ * there is no such sprite. */
+typedef bool (*TextSpriteLookup)(unsigned number, const GfxSprite **sprite, int *nominal_width);
+void text_set_sprite_lookup(TextSpriteLookup lookup);
 
 /* Draw one glyph with its top-left at (x, y). game86 1000:559f */
 void text_draw_glyph(const DrawTarget *target, const TextState *state, unsigned char ch,

@@ -217,7 +217,7 @@ game86,1000:5317,31,player_swap_state,player_swap_state,src/game/player.c,todo,W
 game86,1000:5336,26,player_copy_state,player_copy_state,src/game/player.c,todo,W4,E,
 game86,1000:5350,18,level_select_variant,level_select_variant,src/game/script.c,todo,W4,E,
 game86,1000:5363,12,text_print_home,text_print_home,src/game/text.c,ported,W6,E,"pen to (0,0) + text_print"
-game86,1000:536f,391,text_print,text_print,src/game/text.c,diff-tested,W6,E,"test_text.py (random fonts/strings, whole 64 KB canvas); \s inline sprite still TODO"
+game86,1000:536f,391,text_print,text_print,src/game/text.c,diff-tested,W6,E,"test_text.py (random fonts/strings incl. \s inline sprites, whole 64 KB canvas)"
 game86,1000:54f6,65,text_draw_char,text_draw_char,src/game/text.c,diff-tested,W6,E,via test_text.py::test_text_print_*
 game86,1000:5537,100,text_draw_char_alt,text_draw_centred,src/game/text.c,diff-tested,W6,E,\q escape in test_text.py
 game86,1000:559f,640,glyph_blit,text_draw_glyph,src/game/text.c,diff-tested,W6,E,"test_text.py::test_glyph_clipping (edge drift, top clip, no bottom clip)"

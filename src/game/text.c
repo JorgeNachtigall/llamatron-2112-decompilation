@@ -6,6 +6,9 @@
 #include <stddef.h>
 
 static const GfxFont *s_font;
+static TextSpriteLookup s_sprite_lookup;
+
+enum { INLINE_SPRITE_DROP = 4 };   /* \s sprites are centred 4 px below the pen's y */
 
 enum {
     SCREEN_LAST_X = GFX_WIDTH - 1,
@@ -21,6 +24,11 @@ void text_set_font(const GfxFont *font)
 const GfxFont *text_font(void)
 {
     return s_font;
+}
+
+void text_set_sprite_lookup(TextSpriteLookup lookup)
+{
+    s_sprite_lookup = lookup;
 }
 
 static const GfxGlyph *glyph_for(unsigned char ch)
@@ -165,6 +173,20 @@ void text_draw_centred(const DrawTarget *target, const TextState *state, const c
 
 /* ---- Strings ----------------------------------------------------------------------- */
 
+/* game86 1000:5432..5478. The original switches dirty recording off here and leaves it off
+ * (the frame loop turns it back on for the next frame), so sprites drawn after a \s in the
+ * same frame are not recorded or clipped either. Returns the pen x after the sprite. */
+static int16_t draw_inline_sprite(const DrawTarget *target, unsigned number, int16_t x, int16_t y)
+{
+    const GfxSprite *sprite = NULL;
+    int nominal_width = 0;
+    if (!s_sprite_lookup || !s_sprite_lookup(number, &sprite, &nominal_width))
+        return x;
+    draw_set_dirty_recording(false);
+    draw_sprite(target, sprite, x + (nominal_width >> 1), y + INLINE_SPRITE_DROP);
+    return (int16_t)(x + nominal_width);
+}
+
 static bool reaches_wrap(int16_t x)
 {
     return (int16_t)(x - TEXT_WRAP_X) >= 0;   /* the original's signed compare */
@@ -227,9 +249,7 @@ const char *text_print(const DrawTarget *target, TextState *state, const char *t
             state->y = y;
             return (const char *)s;
         case 's':
-            /* TODO(W6): inline sprite (game86 1000:5432..5478) once draw_sprite is ported:
-             * x += nominal width / 2, draw centred at y + 4 with dirty recording off, then
-             * x = old x + nominal width. */
+            x = draw_inline_sprite(target, (unsigned)(s[0] << 8 | s[1]), x, y);
             s += 2;
             break;
         case 'u':

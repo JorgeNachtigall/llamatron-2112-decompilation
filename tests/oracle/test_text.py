@@ -263,3 +263,61 @@ def test_text_print_page(machine, ctext, case):
     want = machine.ega.rasterise(page_off)
     got = ctypes.string_at(page, len(want))
     assert got == want, first_diff(got, want)
+
+
+# ---- \s inline sprites ----------------------------------------------------------------
+CS_SPRITE_SEG = 0x025F        # segment of the sprite bank (218C in the image)
+CS_DIRTY_ENABLE = 0x672F
+CS_SAVED_DS = 0x0255
+SPRITE_SEG = 0x8000           # test bank: pointer table at +1C, sprites from +0x400
+SPRITE_TABLE = 0x001C
+
+
+@pytest.mark.parametrize("case", fuzz_cases(24))
+def test_text_inline_sprites(machine, ctext, case):
+    from oracle.test_sprites import GfxSprite, Sprite
+    rnd = case_rng("text_inline_sprites", case)
+    numbers = rnd.sample(range(40), 4)
+    sprites = {n: Sprite(rnd) for n in numbers}
+    offset = 0x400
+    for n, sp in sprites.items():
+        blob = sp.original_bytes()
+        machine.write(SPRITE_SEG, offset, blob)
+        machine.write_u16(SPRITE_SEG, SPRITE_TABLE + 2 * n, offset)
+        offset += len(blob) + 16
+    machine.write_u16(CODE0, CS_SPRITE_SEG, SPRITE_SEG)
+    machine.write_u16(CODE0, CS_SAVED_DS, machine.dgroup)
+    machine.write_u16(CODE0, CS_DIRTY_ENABLE, 1)
+
+    parts = []
+    for _ in range(rnd.randrange(1, 6)):
+        n = rnd.choice(numbers)
+        parts.append(b"\\s" + struct.pack(">H", n))
+        if rnd.random() < 0.6:
+            parts.append(bytes(rnd.choice(PRINTABLE) for _ in range(rnd.randrange(1, 4))))
+        if rnd.random() < 0.3:
+            parts.append(b"\\r")
+    text = b"".join(parts) + b"\\e"
+    x, y = rnd.randrange(0, 250), rnd.randrange(30, 1200)
+
+    keep = []
+
+    @ctypes.CFUNCTYPE(ctypes.c_bool, ctypes.c_uint, ctypes.POINTER(ctypes.POINTER(GfxSprite)),
+                      ctypes.POINTER(ctypes.c_int))
+    def lookup(number, out_sprite, out_width):
+        sp = sprites.get(number)
+        if sp is None:
+            return False
+        gs = sp.to_c()
+        keep.append((sp, gs))
+        out_sprite[0] = ctypes.pointer(gs)
+        out_width[0] = sp.nominal
+        return True
+
+    bind(ctext, "text_set_sprite_lookup", None, type(lookup))(lookup)
+    bind(ctext, "draw_set_dirty_recording", None, ctypes.c_bool)(True)
+    run_canvas_case(machine, ctext, rnd, text, x, y, opaque=False, wrapped=rnd.random() < 0.25)
+    bind(ctext, "text_set_sprite_lookup", None, ctypes.c_void_p)(None)
+
+    assert machine.read_u16(CODE0, CS_DIRTY_ENABLE) == 0      # left off by \s
+    assert not bind(ctext, "draw_dirty_recording", ctypes.c_bool)()
