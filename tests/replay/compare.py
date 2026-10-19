@@ -23,6 +23,14 @@ from pathlib import Path
 DGROUP_SIZE = 0x10000
 LRPL_HEADER = "<4sHHII"
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from adapters.gamestate import ATTRACT_LLAMAS  # noqa: E402
+
+# The reference run's phase, from its tick hook (g_tick_hook, not part of GameState).
+TICK_HOOK = 0x39E4
+TITLE_HOOKS = {0x3F6F, 0x084E}  # title_tick_hook, title_tune_tick
+PLAY_HOOK = 0x1562              # play_tick_hook
+
 # Named DGROUP regions for reports (docs/re-notes-game86.md §8).
 _SCALARS = {  # DS offset: (size, name), src/game/state.h
     0x0429: (1, "frame_drawn"), 0x0453: (8, "rng.mixer"), 0x0589: (1, "flash_mode"),
@@ -117,6 +125,7 @@ def read_port(path: Path) -> PortRun:
 class TickDiff:
     tick: int
     offsets: list[int]
+    ignored: list[tuple[range, str]] = field(default_factory=list)
 
     def fields(self, limit: int = 12) -> list[str]:
         seen: list[str] = []
@@ -131,14 +140,27 @@ class TickDiff:
 
 
 def compare(port: PortRun, reference: dict[int, bytes], ignore=()) -> list[TickDiff]:
-    """Per common tick (ascending), the mapped offsets that differ."""
+    """Per common tick (ascending), the mapped offsets that differ.
+
+    From the first reference snapshot with a title hook until the first one with the play
+    hook, the title llamas (ATTRACT_LLAMAS) are skipped and listed as ignored: the original
+    keeps them in the entity table, the port in attract.c. hook_nop transitions in between
+    stay in the attract phase, because the bytes survive until entities_clear."""
     ignore = set(ignore)
     out = []
+    attract = False
     for tick in sorted(set(port.snapshots) & set(reference)):
         a, b = reference[tick], port.snapshots[tick]
+        hook = struct.unpack_from("<H", a, TICK_HOOK)[0]
+        if hook in TITLE_HOOKS:
+            attract = True
+        elif hook == PLAY_HOOK:
+            attract = False
+        skipped = [(ATTRACT_LLAMAS, "attract llamas")] if attract else []
+        skip = set().union(*(r for r, _ in skipped))
         offs = [i for i in range(DGROUP_SIZE)
-                if port.mask[i] and a[i] != b[i] and i not in ignore]
-        out.append(TickDiff(tick, offs))
+                if port.mask[i] and a[i] != b[i] and i not in ignore and i not in skip]
+        out.append(TickDiff(tick, offs, skipped))
     return out
 
 
@@ -146,7 +168,9 @@ def report(diffs: list[TickDiff]) -> str:
     lines = []
     for d in diffs:
         state = "ok" if not d.offsets else f"{len(d.offsets)} bytes: " + ", ".join(d.fields())
-        lines.append(f"tick {d.tick:6d}  {state}")
+        skipped = "".join(f"  [ignored {name} {r.start:04X}..{r.stop - 1:04X}]"
+                          for r, name in d.ignored)
+        lines.append(f"tick {d.tick:6d}  {state}{skipped}")
     first = next((d.tick for d in diffs if d.offsets), None)
     lines.append("identical on every common tick" if first is None
                  else f"first divergence at tick {first}")

@@ -58,6 +58,28 @@ def test_seed_changes_rng_table(driver, tmp_path):
     assert a.snapshots[5][table] != b.snapshots[5][table]
 
 
+def test_compare_skips_attract_llamas_while_title_hooks_run():
+    mask = bytearray(compare.DGROUP_SIZE)
+    llama = 0x48C1 + 5                     # entity 0, inside ATTRACT_LLAMAS
+    mask[llama] = 1
+    mine = bytearray(compare.DGROUP_SIZE)
+    mine[llama] = 7
+
+    def ref(hook):
+        img = bytearray(compare.DGROUP_SIZE)
+        struct.pack_into("<H", img, compare.TICK_HOOK, hook)
+        return bytes(img)
+
+    port = compare.PortRun(10, bytes(mask), {t: bytes(mine) for t in (10, 20, 30, 40)})
+    refs = {10: ref(0x1234), 20: ref(0x3F6F), 30: ref(0x3FDE), 40: ref(compare.PLAY_HOOK)}
+    diffs = {d.tick: d for d in compare.compare(port, refs)}
+    assert diffs[10].offsets == [llama] and not diffs[10].ignored     # before attract
+    assert diffs[20].offsets == [] and diffs[20].ignored              # title hook
+    assert diffs[30].offsets == [] and diffs[30].ignored              # hook_nop: still attract
+    assert diffs[40].offsets == [llama] and not diffs[40].ignored     # in play: compared again
+    assert "[ignored attract llamas 48C1..4B00]" in compare.report(list(diffs.values()))
+
+
 def test_compare_names_fields():
     mask = bytearray(compare.DGROUP_SIZE)
     for off in (0x21A6, 0x21A7, 0x48C1 + 0x40 * 3 + 2, 0x4441):

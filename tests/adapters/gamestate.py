@@ -27,6 +27,11 @@ MASK_UNMAPPED, MASK_FIELD, MASK_DERIVED = 0, 1, 2
 # 0413/0415 (Thorn), 0419..0421 enemy-shot template (W5: scratch, not in GameState).
 SCRATCH = frozenset({*range(0x0413, 0x0417), *range(0x0419, 0x0423)})
 
+# 48C1..4B00 (entity slots 0..8) hold the 32 title llamas while the attract/title hooks run;
+# the port keeps them inside attract.c, not in GameState.entities. Attract-mode comparisons
+# pass this in `ignore`; entities_clear rebuilds the table when a game starts.
+ATTRACT_LLAMAS = range(0x48C1, 0x4B01)
+
 
 class DgroupMap:
     def __init__(self, lib: ctypes.CDLL):
