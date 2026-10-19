@@ -5,7 +5,8 @@
  *
  *   llamatron [--vga|--ega] [--keyboard|--joystick] [--flash N|P|Y] [--mute] [--data DIR]
  *             [--frames N] [--start-after K] [--seed BIOS_TICKS]
- *             [--record FILE | --replay FILE] [--dump-pages DIR --dump-ticks T1,T2,...]
+ *             [--record FILE | --replay FILE | --keys T:SC,...] [--page-hashes T1,T2,...]
+ *             [--dump-pages DIR --dump-ticks T1,T2,...]
  *
  * Settings come from the saved llama.inf (settings.h); the options here override them for this
  * run only. The game gets them as game86 did, on its command tail (GameLaunch); the RNG seed is
@@ -21,7 +22,11 @@
  *
  * Test hooks: --frames N quits after N frames and prints the phase, tick count and a hash of
  * what is shown; --start-after K presses a key on frame K to leave the title. On the web the
- * page URL stands in for the command line: ?ega&vga&joystick&keyboard&mute&frames=N&start=K&seed=T.
+ * page URL stands in for the command line:
+ * ?ega&vga&joystick&keyboard&mute&frames=N&start=K&seed=T&flash=N|P|Y&keys=T:SC,...&hashes=T1,...
+ * --keys is an input script given inline (tick:scan byte pairs, as in PROBE.KEY), so the web
+ * build can replay too. --page-hashes prints, right before each listed tick, the FNV-1a hash of
+ * the three pages and the shown page ("pages tick=..."), to compare native and web runs.
  * --dump-pages DIR with --dump-ticks writes, right before each listed game tick runs, the three
  * pages as the reference runs capture VRAM (inside the vsync wait that tick interrupts) to
  * DIR/pages-<tick>.bin: page 0, page 1, background (320x200 indexed pixels each), then one
@@ -82,6 +87,8 @@ typedef struct App {
     const char *dump_dir;           /* --dump-pages */
     uint32_t dump_ticks[256];       /* --dump-ticks */
     size_t dump_tick_count;
+    uint32_t hash_ticks[256];       /* --page-hashes */
+    size_t hash_tick_count;
 } App;
 
 enum {
@@ -161,12 +168,31 @@ static void dump_pages(const App *app, uint32_t tick)
         fprintf(stderr, "llamatron: cannot write %s\n", path);
 }
 
+static void print_page_hashes(uint32_t tick)
+{
+    uint32_t h[3];
+    for (int page = GFX_PAGE_0; page <= GFX_PAGE_BACKGROUND; page++)
+        h[page] = fnv1a(&gfx_page((GfxPageId)page)->pixels[0][0], (size_t)GFX_WIDTH * GFX_HEIGHT, 2166136261u);
+    printf("pages tick=%u fnv=%08x,%08x,%08x shown=%d\n", (unsigned)tick, h[0], h[1], h[2],
+           (int)gfx_display_page_id());
+}
+
+static bool tick_listed(const uint32_t *ticks, size_t count, uint32_t tick)
+{
+    for (size_t i = 0; i < count; i++)
+        if (ticks[i] == tick)
+            return true;
+    return false;
+}
+
 static void game_tick_cb(void *user)
 {
     App *app = user;
-    for (size_t i = 0; app->dump_dir && i < app->dump_tick_count; i++)
-        if (app->dump_ticks[i] == app->game_ticks + 1)
-            dump_pages(app, app->game_ticks + 1);
+    uint32_t next = app->game_ticks + 1;
+    if (app->dump_dir && tick_listed(app->dump_ticks, app->dump_tick_count, next))
+        dump_pages(app, next);
+    if (tick_listed(app->hash_ticks, app->hash_tick_count, next))
+        print_page_hashes(next);
     app->game_ticks++;
     /* The reference runs apply the bytes due at an IRQ before its handler; the driver tick
      * that already ran does not read the keyboard, so this is the same. */
@@ -365,6 +391,48 @@ static bool frame(void *user)
     return running;
 }
 
+enum { TICK_LIST_MAX = 256 };
+
+/* "T1,T2,..." (stops at the first other character, e.g. '&' in a page URL). */
+static size_t parse_ticks(const char *text, uint32_t *ticks, size_t max)
+{
+    size_t n = 0;
+    char *end;
+    while (n < max) {
+        unsigned long t = strtoul(text, &end, 10);
+        if (end == text)
+            break;
+        ticks[n++] = (uint32_t)t;
+        if (*end != ',')
+            break;
+        text = end + 1;
+    }
+    return n;
+}
+
+/* "T:SC,T:SC,..." with decimal ticks and scan bytes, sorted by tick: an inline input script. */
+static bool parse_keys(const char *text, InputScript *script)
+{
+    memset(script, 0, sizeof *script);
+    char *end;
+    for (;;) {
+        unsigned long tick = strtoul(text, &end, 10);
+        if (end == text || *end != ':')
+            break;
+        text = end + 1;
+        unsigned long scan = strtoul(text, &end, 10);
+        if (end == text || scan > 0xff || !input_script_add(script, (uint32_t)tick, (uint8_t)scan)) {
+            fprintf(stderr, "llamatron: bad key list near \"%s\"\n", text);
+            input_script_free(script);
+            return false;
+        }
+        if (*end != ',')
+            break;
+        text = end + 1;
+    }
+    return true;
+}
+
 int main(int argc, char **argv)
 {
     App *app = &g_app;
@@ -402,14 +470,14 @@ int main(int argc, char **argv)
             app->replaying = true;
         } else if (strcmp(argv[i], "--dump-pages") == 0 && i + 1 < argc)
             app->dump_dir = argv[++i];
-        else if (strcmp(argv[i], "--dump-ticks") == 0 && i + 1 < argc) {
-            for (char *p = argv[++i]; *p && app->dump_tick_count < sizeof app->dump_ticks / sizeof app->dump_ticks[0];) {
-                app->dump_ticks[app->dump_tick_count++] = (uint32_t)strtoul(p, &p, 10);
-                if (*p == ',')
-                    p++;
-                else
-                    break;
-            }
+        else if (strcmp(argv[i], "--dump-ticks") == 0 && i + 1 < argc)
+            app->dump_tick_count = parse_ticks(argv[++i], app->dump_ticks, TICK_LIST_MAX);
+        else if (strcmp(argv[i], "--page-hashes") == 0 && i + 1 < argc)
+            app->hash_tick_count = parse_ticks(argv[++i], app->hash_ticks, TICK_LIST_MAX);
+        else if (strcmp(argv[i], "--keys") == 0 && i + 1 < argc) {
+            if (!parse_keys(argv[++i], &app->replay))
+                return 1;
+            app->replaying = true;
         }
     }
     if (app->replaying && app->record_path) {
@@ -438,6 +506,19 @@ int main(int argc, char **argv)
     if (seed) {
         app->seed = (uint32_t)strtoul(seed + 5, NULL, 10);
         app->seed_pinned = true;
+    }
+    const char *flash = strstr(query, "flash=");
+    if (flash)
+        app->settings.flash = flash[6] == 'Y' ? SETTINGS_FLASH_ALL
+                            : flash[6] == 'P' ? SETTINGS_FLASH_PULSE_ONLY : SETTINGS_FLASH_NONE;
+    const char *hashes = strstr(query, "hashes=");
+    if (hashes)
+        app->hash_tick_count = parse_ticks(hashes + 7, app->hash_ticks, TICK_LIST_MAX);
+    const char *keys = strstr(query, "keys=");
+    if (keys) {
+        if (!parse_keys(keys + 5, &app->replay))
+            return 1;
+        app->replaying = true;
     }
 #endif
     app->adapter = app->settings.vga ? GFX_ADAPTER_VGA : GFX_ADAPTER_EGA;

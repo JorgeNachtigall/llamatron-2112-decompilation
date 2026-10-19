@@ -198,8 +198,15 @@ if(EMSCRIPTEN)
                 --query frames=2&vga&mute --expect "title 320x400 hash=c7ab74c4")
             add_test(NAME web_llamatron_to_game COMMAND ${Python3_EXECUTABLE} ${_game}
                 --query frames=10&start=3&mute&seed=0 --expect "llamatron phase=game frames=10")
-            set_tests_properties(web_llamatron_title web_llamatron_to_game PROPERTIES
-                SKIP_RETURN_CODE 77 LABELS web TIMEOUT 120)
+            # Native / web parity on a reference scenario: same page hashes at the same ticks.
+            set(LLAMATRON_NATIVE_LLAMATRON "${PROJECT_SOURCE_DIR}/build/src/platform/llamatron" CACHE FILEPATH
+                "Native llamatron executable the web build is compared with (web_llamatron_parity)")
+            add_test(NAME web_llamatron_parity COMMAND ${Python3_EXECUTABLE}
+                ${CMAKE_CURRENT_SOURCE_DIR}/tools/web_parity.py --native ${LLAMATRON_NATIVE_LLAMATRON}
+                --web-dir ${CMAKE_CURRENT_BINARY_DIR} --golden ${PROJECT_SOURCE_DIR}/tests/golden/reference_runs.json
+                --run walk_vga)
+            set_tests_properties(web_llamatron_title web_llamatron_to_game web_llamatron_parity PROPERTIES
+                SKIP_RETURN_CODE 77 LABELS web TIMEOUT 300)
         endif()
     endif()
 endif()
