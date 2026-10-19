@@ -11,7 +11,7 @@ from adapters.entities import ENTITY_COUNT
 UNHATCHED = 0x091B
 COMPANION_X = 0x4883
 SPEED_17 = 0x21BE
-THINK_EGG = 0x05
+THINK_LLAMA = 0x05
 
 
 @pytest.fixture(scope="module")
@@ -30,36 +30,36 @@ def herder_entity(rnd, rec):
     rec.raw[0x23] = rnd.choice([0, 1, rnd.randrange(0x40)])
 
 
-def eggs(rnd, records, slot):
-    """Some eggs (think 5, hp 0 = unclaimed / 1 = claimed), unhatched <= their number, and a
-    herder target of seek / return / an egg / something else; the goal is often near."""
+def llamas(rnd, records, slot):
+    """Some llamas (think 5, hp 0 = unclaimed / 1 = claimed), unhatched <= their number, and a
+    herder target of seek / return / a llama / something else; the goal is often near."""
     herder = records[slot]
-    egg_slots = [i for i in rnd.sample(range(ENTITY_COUNT), rnd.randrange(0, 8)) if i != slot]
-    for i in egg_slots:
+    llama_slots = [i for i in rnd.sample(range(ENTITY_COUNT), rnd.randrange(0, 8)) if i != slot]
+    for i in llama_slots:
         r = records[i]
         if r.free:
             r.raw[:] = bytes(rnd.randrange(256) for _ in range(64))
-        r.set("type", THINK_EGG | rnd.randrange(46) << 8)
+        r.set("type", THINK_LLAMA | rnd.randrange(46) << 8)
         r.set("hp", rnd.choice([0, 0, 1]))
         if rnd.random() < 0.4:
             r.set("x", herder.get("x") + rnd.randrange(-9, 10))
             r.set("y", herder.get("y") + rnd.randrange(-9, 10))
-    for i, r in enumerate(records):     # no stray eggs elsewhere
-        if i not in egg_slots and i != slot and not r.free and r.get("type") & 0xFF == THINK_EGG:
+    for i, r in enumerate(records):     # no stray llamas elsewhere
+        if i not in llama_slots and i != slot and not r.free and r.get("type") & 0xFF == THINK_LLAMA:
             r.set("type", r.get("type") ^ 1)
     choice = rnd.random()
     if choice < 0.25:
         herder.set("timer", 0xFFFF)
     elif choice < 0.5:
         herder.set("timer", 0xFFFE)
-    elif egg_slots and choice < 0.85:
-        herder.set("timer", rnd.choice(egg_slots))
+    elif llama_slots and choice < 0.85:
+        herder.set("timer", rnd.choice(llama_slots))
     else:
         herder.set("timer", rnd.randrange(ENTITY_COUNT))
     near = rnd.random() < 0.4
     cx = herder.get("x") + rnd.randrange(-9, 10) if near else rnd.randrange(0x10, 0x130)
     cy = herder.get("y") + rnd.randrange(-9, 10) if near else rnd.randrange(0x10, 0xb0)
-    return {UNHATCHED: rnd.randrange(len(egg_slots) + 1), COMPANION_X: cx, COMPANION_X + 2: cy}
+    return {UNHATCHED: rnd.randrange(len(llama_slots) + 1), COMPANION_X: cx, COMPANION_X + 2: cy}
 
 
 def chaser_entity(rnd, rec):
@@ -78,9 +78,9 @@ def column_entity(rnd, rec):
 
 
 CASES = {
-    0x0e: (herder_entity, eggs),
-    0x15: (herder_entity, eggs),
-    0x16: (herder_entity, eggs),
+    0x0e: (herder_entity, llamas),
+    0x15: (herder_entity, llamas),
+    0x16: (herder_entity, llamas),
     0x17: (chaser_entity, None),
     0x18: (column_entity, None),
 }

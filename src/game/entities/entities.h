@@ -68,7 +68,7 @@ void think_15(GameState *game, Entity *e);
 void think_16(GameState *game, Entity *e);
 /* Sets e->timer to the slot of the first unclaimed think_05 entity (claiming it, hp = 1), or
  * to -2 = none left. Also used by think_08. game86 1000:3a17 */
-void herder_pick_egg(GameState *game, Entity *e);
+void herder_claim_llama(GameState *game, Entity *e);
 /* think_chasers.c */
 void think_17(GameState *game, Entity *e);
 void think_18(GameState *game, Entity *e);

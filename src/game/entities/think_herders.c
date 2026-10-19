@@ -1,12 +1,12 @@
 /*
- * think_herders.c - herders (think_0e and the variants 15, 16 built on it): they walk to an
- * unhatched egg (think 5), turn it into something according to their sub-mode, then return
- * to the companion and pick the next egg.
+ * think_herders.c - herders (think_0e and the variants 15, 16 built on it): they walk to a
+ * llama still waiting to be rescued (think_05, see think_llamas.c), turn it into something
+ * according to their sub-mode, then return to the companion and pick the next llama.
  *
- * Record use: timer = slot index of the egg being fetched, HERDER_SEEK = pick one,
+ * Record use: timer = slot index of the llama being fetched, HERDER_SEEK = pick one,
  * HERDER_RETURN = walk back to the companion; aux1a = step period/countdown byte pair;
- * aux1c = sprite base (8 directions x 2 frames); sub_mode = what happens to the egg.
- * An egg is claimed by setting its hp to 1.
+ * aux1c = sprite base (8 directions x 2 frames); sub_mode = what happens to the llama.
+ * A llama is claimed by setting its hp to 1. (game->unhatched counts the llamas left.)
  */
 #include "entities.h"
 #include "sound.h"
@@ -14,11 +14,11 @@
 enum {
     HERDER_SEEK = -1,
     HERDER_RETURN = -2,
-    THINK_EGG = 0x05,
+    THINK_LLAMA = 0x05,
     ARRIVED_RANGE = 8,
     HERDER_STEP = 3,                    /* max pixels per axis per step */
-    DROPPED_EGG_SPRITE = 0x33,
-    DROPPED_EGG_TICKS = 0x14,
+    CAUGHT_SPRITE = 0x33,
+    CAUGHT_TICKS = 0x14,
     THINK_TIMER = 0x09,
     PENDING_DEADLY_PICKUP = 9 + 1,      /* sub-mode 3: the next kill drops pickup kind 9 */
     PROXIMITY_RANGE = 0x1e,             /* think_15 */
@@ -26,10 +26,10 @@ enum {
     SPAWN_CHANCE_16 = 4,                /* out of 256 per period */
 };
 
-/* Egg handling by sub-mode (CS:3AFF). */
-enum { EGG_HATCH_TIMER, EGG_BECOMES_HERDER, EGG_BURSTS, EGG_HATCH_ARM_PICKUP };
+/* What a herder does to the llama it reaches, by sub-mode (CS:3AFF). */
+enum { LLAMA_TO_TIMER, LLAMA_TO_HERDER, LLAMA_BURSTS, LLAMA_TO_TIMER_ARM_PICKUP };
 
-static const SoundRequest SOUND_EGG_DONE = { 0x00, 1, 4 };      /* 1000:3b80 */
+static const SoundRequest SOUND_CAUGHT = { 0x00, 1, 4 };        /* 1000:3b80 */
 static const SoundRequest SOUND_NEW_HERDER = { 0x1a, 0, 3 };    /* 1000:3b17 */
 static const SoundRequest SOUND_PROXIMITY = { 0x1e, 2, 0x0c };  /* 1000:2484 */
 static const SoundRequest SOUND_SPAWN_16 = { 0x07, 1, 4 };      /* 1000:23f5 */
@@ -51,24 +51,24 @@ static int16_t magnitude16(int16_t v)
     return v < 0 ? (int16_t)(uint16_t)-v : v;
 }
 
-/* Claims the first unclaimed egg; the search gives up after g_unhatched eggs. The original
- * scans on past the table when there are fewer eggs than unhatched says; the port stops at
- * the table's end and returns as if all eggs were taken. Also think_08's search
+/* Claims the first unclaimed llama; the search gives up after game->unhatched llamas. The original
+ * scans on past the table when there are fewer llamas than unhatched says; the port stops at
+ * the table's end and returns as if all llamas were taken. Also think_08's search
  * (1000:498e). game86 1000:3a17 */
-void herder_pick_egg(GameState *game, Entity *e)
+void herder_claim_llama(GameState *game, Entity *e)
 {
-    int16_t eggs_left = game->unhatched;
-    if (eggs_left != 0) {
+    int16_t llamas_left = game->unhatched;
+    if (llamas_left != 0) {
         for (int slot = 0; slot < ENTITY_COUNT; slot++) {
-            Entity *egg = &game->entities[slot];
-            if (egg->think != THINK_EGG)
+            Entity *llama = &game->entities[slot];
+            if (llama->think != THINK_LLAMA)
                 continue;
-            if (egg->hp == 0) {
-                egg->hp = 1;
+            if (llama->hp == 0) {
+                llama->hp = 1;
                 e->timer = (int16_t)slot;
                 return;
             }
-            if (--eggs_left == 0)
+            if (--llamas_left == 0)
                 break;
         }
     }
@@ -86,44 +86,44 @@ static int16_t herder_sprite(const Entity *e)
     return (int16_t)(frame + e->aux1c);
 }
 
-/* Done with an egg (or back at the companion): show `marker` as a dropped egg for a while
- * and look for the next one. game86 1000:3b70 */
+/* Done with a llama (or back at the companion): `marker` shows the "caught" sprite for a
+ * while and the herder looks for the next one. game86 1000:3b70 */
 static void herder_drop(Entity *e, Entity *marker)
 {
     e->timer = HERDER_SEEK;
-    marker->sprite = DROPPED_EGG_SPRITE;
-    marker->timer = DROPPED_EGG_TICKS;
-    play(SOUND_EGG_DONE);
+    marker->sprite = CAUGHT_SPRITE;
+    marker->timer = CAUGHT_TICKS;
+    play(SOUND_CAUGHT);
 }
 
 /* game86 1000:3b63 */
-static void egg_hatch_timer(GameState *game, Entity *e, Entity *egg)
+static void llama_to_timer(GameState *game, Entity *e, Entity *llama)
 {
-    entity_set_type(egg, THINK_TIMER, 0);
+    entity_set_type(llama, THINK_TIMER, 0);
     game->unhatched--;
-    egg->kind = -1;
-    herder_drop(e, egg);
+    llama->kind = -1;
+    herder_drop(e, llama);
 }
 
 /* game86 1000:3aeb..3b62 */
-static void herder_handle_egg(GameState *game, Entity *e, Entity *egg)
+static void herder_handle_llama(GameState *game, Entity *e, Entity *llama)
 {
     switch (e->sub_mode) {
-    case EGG_HATCH_TIMER:
-        egg_hatch_timer(game, e, egg);
+    case LLAMA_TO_TIMER:
+        llama_to_timer(game, e, llama);
         break;
-    case EGG_BECOMES_HERDER:            /* 3b0f; the herder keeps its target index */
+    case LLAMA_TO_HERDER:            /* 3b0f; the herder keeps its target index */
         game->unhatched--;
-        enemy_setup_0c(game, egg);
+        enemy_setup_0c(game, llama);
         play(SOUND_NEW_HERDER);
         break;
-    case EGG_BURSTS:                    /* 3b21 */
+    case LLAMA_BURSTS:                    /* 3b21 */
         entity_burst_four(game, e);
-        egg_hatch_timer(game, e, egg);
+        llama_to_timer(game, e, llama);
         break;
-    case EGG_HATCH_ARM_PICKUP:          /* 3b07 */
+    case LLAMA_TO_TIMER_ARM_PICKUP:          /* 3b07 */
         game->player.pickup_pending = PENDING_DEADLY_PICKUP;
-        egg_hatch_timer(game, e, egg);
+        llama_to_timer(game, e, llama);
         break;
     default:                            /* the original jumps through garbage; never set */
         break;
@@ -145,7 +145,7 @@ void think_0e(GameState *game, Entity *e)
         game->companion.x = game->target.x;
         game->companion.y = game->target.y;
     } else if (e->timer < 0) {
-        herder_pick_egg(game, e);
+        herder_claim_llama(game, e);
         return;
     }
 
@@ -155,8 +155,8 @@ void think_0e(GameState *game, Entity *e)
         goal = &game->companion;
     } else {
         goal = e->timer < ENTITY_COUNT ? &game->entities[e->timer] : NULL;
-        if (!goal || goal->think != THINK_EGG) {
-            herder_pick_egg(game, e);   /* the egg was shot or hatched meanwhile */
+        if (!goal || goal->think != THINK_LLAMA) {
+            herder_claim_llama(game, e);   /* the llama was rescued, caught or shot meanwhile */
             return;
         }
     }
@@ -170,7 +170,7 @@ void think_0e(GameState *game, Entity *e)
         if (e->timer == HERDER_RETURN)
             herder_drop(e, goal);
         else
-            herder_handle_egg(game, e, goal);
+            herder_handle_llama(game, e, goal);
         return;
     }
     vector_shrink_to(&dx, &dy, HERDER_STEP, HERDER_STEP);

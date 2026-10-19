@@ -25,7 +25,7 @@ enum {
     HUNTER_REACH = 8,
     HUNTER_STEP = 3,
     CAUGHT_SPRITE = 0x33, CAUGHT_TICKS = 0x14,
-    QUARRY_NONE = -2,                   /* herder_pick_egg found none: go to the companion */
+    QUARRY_NONE = -2,                   /* herder_claim_llama found none: go to the companion */
 };
 
 /* Pickup kinds a rescue arms (Player.pickup_pending = kind + 1). */
@@ -207,7 +207,7 @@ void think_08(GameState *game, Entity *e)
         return;
     if (e->timer < 0) {
         if (e->timer != QUARRY_NONE) {
-            herder_pick_egg(game, e);
+            herder_claim_llama(game, e);
             return;
         }
         game->companion.x = game->target.x;
@@ -227,7 +227,7 @@ void think_08(GameState *game, Entity *e)
 
     Entity *quarry = hunter_quarry(game, e);
     if (!quarry) {
-        herder_pick_egg(game, e);
+        herder_claim_llama(game, e);
         return;
     }
     if (entity_check_touch(game, e))
