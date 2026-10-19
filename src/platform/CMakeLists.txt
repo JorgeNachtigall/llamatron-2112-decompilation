@@ -83,7 +83,7 @@ endif()
 # The game executable: title screen, then the game through its entry API (src/game/game.h).
 # No game logic in the shell.
 if(EXISTS ${PROJECT_SOURCE_DIR}/src/game/CMakeLists.txt)
-    add_executable(llamatron apps/llamatron_main.c)
+    add_executable(llamatron apps/llamatron_main.c apps/input_script.c)
     target_link_libraries(llamatron PRIVATE llama_platform llama_engine llamatron_game ${LLAMA_ASSETS})
     target_compile_options(llamatron PRIVATE $<$<C_COMPILER_ID:Clang,AppleClang,GNU>:-Wall -Wextra>)
     if(TARGET llamatron_generated)
@@ -103,7 +103,15 @@ if(EXISTS ${PROJECT_SOURCE_DIR}/src/game/CMakeLists.txt)
         add_test(NAME llamatron_to_game COMMAND llamatron --frames 10 --start-after 3 --mute --seed 0)
         set_tests_properties(llamatron_to_game PROPERTIES
             PASS_REGULAR_EXPRESSION "llamatron phase=game frames=10")
-        set_tests_properties(llamatron_title_phase llamatron_to_game PROPERTIES
+        # Input scripts (PROBE.KEY format): round trip, then the selftest's script replayed
+        # (240 ticks need ~336 frames at the 70.086 Hz display clock).
+        add_executable(input_script_selftest apps/input_script_selftest.c apps/input_script.c)
+        set(_script ${CMAKE_CURRENT_BINARY_DIR}/input_script_selftest.key)
+        add_test(NAME input_script_selftest COMMAND input_script_selftest ${_script})
+        add_test(NAME llamatron_replay COMMAND llamatron --replay ${_script} --frames 400 --mute --seed 0)
+        set_tests_properties(llamatron_replay PROPERTIES DEPENDS input_script_selftest
+            PASS_REGULAR_EXPRESSION "replayed 4 of 4 key bytes")
+        set_tests_properties(llamatron_title_phase llamatron_to_game llamatron_replay PROPERTIES
             ENVIRONMENT "LLAMATRON_PREF_DIR=${_llama_prefs}")
     endif()
 endif()

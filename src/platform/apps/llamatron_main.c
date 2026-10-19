@@ -5,11 +5,19 @@
  *
  *   llamatron [--vga|--ega] [--keyboard|--joystick] [--mute] [--data DIR]
  *             [--frames N] [--start-after K] [--seed BIOS_TICKS]
+ *             [--record FILE | --replay FILE]
  *
  * Settings come from the saved llama.inf (settings.h); the options here override them for this
  * run only. The game gets them as game86 did, on its command tail (GameLaunch); the RNG seed is
- * the BIOS tick count of the local time of day, like the original (--seed pins it). As in the original, the title always plays its sample and the game follows the
- * llama.inf sound type ('N' = stub driver, silent). --mute silences both.
+ * the BIOS tick count of the local time of day, like the original (--seed pins it). As in the
+ * original, the title always plays its sample and the game follows the llama.inf sound type
+ * ('N' = stub driver, silent). --mute silences both.
+ *
+ * Input scripts (input_script.h, the DOSBox-X reference runs' PROBE.KEY format): --record
+ * writes every key byte the game receives, keyed to the game tick it precedes; --replay starts
+ * the game directly (no title, like the reference runs, which start game86 itself), ignores
+ * the live keyboard, runs the fixed display clock and feeds each scripted byte to the keyboard
+ * handler right before its tick. Ticks count from 1 after game_init.
  *
  * Test hooks: --frames N quits after N frames and prints the phase, tick count and a hash of
  * what is shown; --start-after K presses a key on frame K to leave the title. On the web the
@@ -19,6 +27,7 @@
 #include "game.h"
 #include "gfx.h"
 #include "input.h"
+#include "input_script.h"
 #include "platform.h"
 #include "settings.h"
 #include "snd.h"
@@ -56,6 +65,12 @@ typedef struct App {
     bool seed_pinned;               /* --seed */
     uint32_t seed;
     long frame_count;
+
+    uint32_t game_ticks;            /* timer ticks since game_init (input script numbering) */
+    const char *record_path;        /* --record */
+    InputScript record;
+    bool replaying;                 /* --replay */
+    InputScript replay;
 } App;
 
 enum {
@@ -105,14 +120,27 @@ static uint32_t fnv1a(const uint8_t *data, size_t n, uint32_t h)
 static void on_key(uint8_t code, bool pressed, void *user)
 {
     App *app = user;
-    input_key_event(code, pressed);
-    if (app->phase == PHASE_TITLE)
+    uint8_t scan_code = pressed ? code : (uint8_t)(code | PC_KEY_BREAK);
+    if (app->phase == PHASE_TITLE) {
+        input_keyboard_byte(scan_code);
         title_key(&app->title, code, pressed);
+    } else if (!app->replaying) {
+        /* Delivered before the frame's ticks run, i.e. before tick game_ticks + 1. */
+        if (app->record_path && !input_script_add(&app->record, app->game_ticks + 1, scan_code))
+            fprintf(stderr, "llamatron: recording failed\n");
+        input_keyboard_byte(scan_code);
+    }
 }
 
 static void game_tick_cb(void *user)
 {
     App *app = user;
+    app->game_ticks++;
+    /* The reference runs apply the bytes due at an IRQ before its handler; the driver tick
+     * that already ran does not read the keyboard, so this is the same. */
+    const InputScriptEvent *e;
+    while (app->replaying && (e = input_script_take_due(&app->replay, app->game_ticks)) != NULL)
+        input_keyboard_byte(e->scan_code);
     game_tick(&app->game);
 }
 
@@ -179,6 +207,7 @@ static bool start_game(App *app)
         return false;
     }
     app->phase = PHASE_GAME;
+    app->game_ticks = 0;
     return true;
 }
 
@@ -222,6 +251,15 @@ static void finish(App *app)
 {
     if (app->phase == PHASE_TITLE)
         title_free(&app->title);
+    if (app->record_path) {
+        if (input_script_save(&app->record, app->record_path))
+            printf("llamatron: recorded %zu key bytes to %s\n", app->record.count, app->record_path);
+        input_script_free(&app->record);
+    }
+    if (app->replaying) {
+        printf("llamatron: replayed %zu of %zu key bytes\n", app->replay.next, app->replay.count);
+        input_script_free(&app->replay);
+    }
     app->phase = PHASE_DONE;
     plat_shutdown();
 }
@@ -295,7 +333,17 @@ int main(int argc, char **argv)
         else if (strcmp(argv[i], "--seed") == 0 && i + 1 < argc) {
             app->seed = (uint32_t)strtoul(argv[++i], NULL, 10);
             app->seed_pinned = true;
+        } else if (strcmp(argv[i], "--record") == 0 && i + 1 < argc)
+            app->record_path = argv[++i];
+        else if (strcmp(argv[i], "--replay") == 0 && i + 1 < argc) {
+            if (!input_script_load(&app->replay, argv[++i]))
+                return 1;
+            app->replaying = true;
         }
+    }
+    if (app->replaying && app->record_path) {
+        fprintf(stderr, "llamatron: --record and --replay exclude each other\n");
+        return 1;
     }
 #ifdef __EMSCRIPTEN__
     const char *query = emscripten_run_script_string("location.search");
@@ -327,7 +375,7 @@ int main(int argc, char **argv)
     settings_format_inf(&app->settings, inf);
     printf("llamatron: settings %s\n", (const char *)inf);
 
-    if (!title_load(&app->title, app->adapter, app->device))
+    if (!app->replaying && !title_load(&app->title, app->adapter, app->device))
         return 1;
     PlatConfig config = { "Llamatron 2112", 3, false, true, 0 };
     if (app->frames_left > 0)
@@ -337,8 +385,8 @@ int main(int argc, char **argv)
     input_init(app->device, true);
     plat_set_frame_capture(app->frames_left > 0);
 
-    /* Test runs use the fixed 70.086 Hz display clock so ticks are exact. */
-    app->fixed_step = app->frames_left > 0;
+    /* Test runs and replays use the fixed 70.086 Hz display clock so ticks are exact. */
+    app->fixed_step = app->frames_left > 0 || app->replaying;
     if (app->fixed_step)
         timing_init_display(&app->scheduler, &DISPLAY_VGA_MODE_0D);
     else
@@ -350,9 +398,14 @@ int main(int argc, char **argv)
         app->sound = true;
         if (!plat_audio_open(AUDIO_RATE))
             fprintf(stderr, "llamatron: no audio device, running silently\n");
-        request_title_sample(app);
     }
     app->phase = PHASE_TITLE;
+    if (app->replaying) {
+        if (!start_game(app))
+            return 1;
+    } else {
+        request_title_sample(app);
+    }
     plat_run_main_loop(frame, app);
     return 0;
 }
