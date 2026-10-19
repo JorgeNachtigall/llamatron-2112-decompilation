@@ -32,5 +32,11 @@ CLI for quick experiments:
 
     tools/harness/.venv/bin/python -m llamatron_harness 1000:e4de --ds 39e9=ff01
 
-Planned: Python EGA-plane model for VRAM at A000 (GC/SEQ registers, latches) to
-rasterise blitter output; state generators; DOSBox-X reference-run scripts (§3.3).
+VRAM: the A000 window is mapped (unicorn mmio) to `Machine.ega`, a Python model of
+the EGA/VGA planar path (`ega.py`): 4 planes, latches, SEQ map mask, GC set/reset,
+enable set/reset, colour compare, rotate/logical op, read map, write modes 0-3, read
+modes 0/1, bit mask; CRTC registers stored. Port writes to 3C4/3C5, 3CE/3CF and
+3D4/3D5 drive it. `ega.rasterise(page)` returns 320x200 indexed pixels;
+`ega.load_indexed(pixels, page)` is the inverse, for building input pages.
+`CallResult.vram_in/vram/vram_changed` hold the planes before and after a call.
+`bios_int10` is an opt-in INT 10h stub (mode 0Dh reset).

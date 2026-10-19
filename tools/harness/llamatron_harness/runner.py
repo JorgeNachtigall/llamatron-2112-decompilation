@@ -29,11 +29,13 @@ from unicorn import (UC_ARCH_X86, UC_HOOK_CODE, UC_HOOK_INSN, UC_HOOK_INTR,
                      UC_HOOK_MEM_INVALID, UC_MODE_16, UC_PROT_ALL, Uc, UcError)
 from unicorn import x86_const as X
 
+from .ega import EgaPlanes
 from .mzimage import PARAGRAPH, LoadedImage, load_image
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
 MEM_SIZE = 0x110000           # 1 MB + HMA so A20-wrapping accesses stay mapped
+VRAM_BASE, VRAM_SIZE = 0xA0000, 0x10000   # A000 window -> EGA plane model (mmio)
 BDA_SEG = 0x0040
 BDA_TICKS = 0x006C            # BIOS tick count, the game's RNG seed source
 FAR_SENTINEL = (0xF000, 0xFFF0)
@@ -119,6 +121,9 @@ class CallResult:
     interrupts: list[IntEvent] = field(default_factory=list)
     ports: list[PortEvent] = field(default_factory=list)
     stack_scratch: list[DiffRange] = field(default_factory=list)  # writes below SP
+    vram_in: list[bytes] = field(default_factory=list)   # 4 planes before the call
+    vram: list[bytes] = field(default_factory=list)      # 4 planes after the call
+    vram_changed: list[int] = field(default_factory=list)  # VRAM offsets changed in any plane
 
     def changed_dgroup_offsets(self) -> list[int]:
         return sorted(self.dgroup_diff)
@@ -142,13 +147,27 @@ class DefaultPorts:
         return 0xFF if size == 1 else 0xFFFF
 
 
+def bios_int10(m: "Machine", _intno: int) -> None:
+    """Minimal INT 10h for tests that opt in (interrupts={0x10: bios_int10}):
+    AH=00h with AL=0Dh resets the EGA model; everything else is only logged."""
+    ax = m.uc.reg_read(X.UC_X86_REG_AX)
+    if ax >> 8 == 0x00 and ax & 0x7F == 0x0D:
+        m.ega.set_mode_0d()
+
+
 class Machine:
-    """A 1 MB real-mode address space holding the relocated game image."""
+    """A 1 MB real-mode address space holding the relocated game image.
+    The A000 window is the EGA plane model `self.ega`; access it through that
+    object (read/write/snapshot here only cover ordinary RAM)."""
 
     def __init__(self, image: LoadedImage, dgroup: int | None = None):
         self.image = image
         self.uc = Uc(UC_ARCH_X86, UC_MODE_16)
-        self.uc.mem_map(0, MEM_SIZE, UC_PROT_ALL)
+        self.ega = EgaPlanes()
+        self.uc.mem_map(0, VRAM_BASE, UC_PROT_ALL)
+        self.uc.mmio_map(VRAM_BASE, VRAM_SIZE, self.ega.mmio_read, None,
+                         self.ega.mmio_write, None)
+        self.uc.mem_map(VRAM_BASE + VRAM_SIZE, MEM_SIZE - VRAM_BASE - VRAM_SIZE, UC_PROT_ALL)
         self.dgroup = dgroup if dgroup is not None else self._detect_dgroup()
         self.psp_seg = image.load_seg - 0x10
         self.interrupts: dict[int, IntHandler] = {}
@@ -176,8 +195,11 @@ class Machine:
         raise HarnessError("cannot detect DGROUP from entry code; pass dgroup= explicitly")
 
     def reset(self) -> None:
-        """Fresh memory: zeroed 1 MB, image at its load segment, minimal PSP."""
-        self.uc.mem_write(0, bytes(MEM_SIZE))
+        """Fresh memory: zeroed RAM, cleared mode-0Dh VRAM, image at its load
+        segment, minimal PSP."""
+        self.uc.mem_write(0, bytes(VRAM_BASE))
+        self.uc.mem_write(VRAM_BASE + VRAM_SIZE, bytes(MEM_SIZE - VRAM_BASE - VRAM_SIZE))
+        self.ega.set_mode_0d()
         self.uc.mem_write(self.image.base, self.image.data)
         psp = bytearray(256)
         psp[0:2] = b"\xCD\x20"                        # INT 20h
@@ -208,7 +230,11 @@ class Machine:
         self.write(BDA_SEG, BDA_TICKS, struct.pack("<I", ticks & 0xFFFFFFFF))
 
     def snapshot(self) -> bytes:
-        return bytes(self.uc.mem_read(0, MEM_SIZE))
+        """All RAM as one MEM_SIZE buffer; the VRAM window reads as zeros (reading
+        it through the bus would load the latches)."""
+        return (bytes(self.uc.mem_read(0, VRAM_BASE)) + bytes(VRAM_SIZE) +
+                bytes(self.uc.mem_read(VRAM_BASE + VRAM_SIZE,
+                                       MEM_SIZE - VRAM_BASE - VRAM_SIZE)))
 
     # ---- registers ----------------------------------------------------------
 
@@ -243,12 +269,15 @@ class Machine:
         handler(self, intno)
 
     def _on_in(self, uc: Uc, port: int, size: int, _user) -> int:
-        value = self.io_read(port, size)
+        value = self.ega.port_in(port) if size == 1 else None
+        if value is None:
+            value = self.io_read(port, size)
         self._port_log.append(PortEvent("in", port, size, value))
         return value
 
     def _on_out(self, uc: Uc, port: int, size: int, value: int, _user) -> None:
         self._port_log.append(PortEvent("out", port, size, value))
+        self.ega.port_out(port, value, size)
 
     def _on_bad_mem(self, uc: Uc, access, address, size, value, _user) -> bool:
         self._fault = HarnessError(f"invalid memory access at {address:#x}")
@@ -317,6 +346,7 @@ class Machine:
         self._int_log, self._port_log, self._fault = [], [], None
 
         before = self.snapshot()
+        vram_in = self.ega.snapshot()
         self.set_regs(full)
         regs_in = self.get_regs()
         hook = self.uc.hook_add(UC_HOOK_CODE, self._on_sentinel, None,
@@ -336,15 +366,26 @@ class Machine:
             raise HarnessError(f"routine {seg:04x}:{off:04x} did not return within "
                                f"{max_insns} instructions (at {regs['cs']:04x}:{regs['ip']:04x})")
         after = self.snapshot()
+        vram = self.ega.snapshot()
         full_diff = diff_memory(before, after)
         diff = _drop_range(full_diff, *scratch)
         return CallResult(entry=(seg, off), regs_in=regs_in, regs=regs, memory_diff=diff,
                           dgroup_diff=dgroup_view(diff, self.dgroup),
                           stack_scratch=_keep_range(full_diff, *scratch),
-                          interrupts=self._int_log, ports=self._port_log)
+                          interrupts=self._int_log, ports=self._port_log,
+                          vram_in=vram_in, vram=vram, vram_changed=_vram_changed(vram_in, vram))
 
 
 # ---- diffs ------------------------------------------------------------------
+
+def _vram_changed(before: list[bytes], after: list[bytes]) -> list[int]:
+    changed: set[int] = set()
+    for b, a in zip(before, after):
+        if b != a:
+            changed.update(diff.start + i for diff in diff_memory(b, a)
+                           for i in range(len(diff.new)))
+    return sorted(changed)
+
 
 def diff_memory(before: bytes, after: bytes, chunk: int = 256) -> list[DiffRange]:
     """Changed byte runs between two equally sized snapshots."""
