@@ -205,6 +205,13 @@ static void check_samples_scores_config(void)
                 score = score * 10 + (uint32_t)(yak[i * 16 + d] - '0');
             CHECK(score == table->entries[i].score && memcmp(yak + i * 16 + 8, table->entries[i].name, 8) == 0);
         }
+        HighScoreTable back;
+        CHECK(scores_parse_yak(yak, sizeof yak, &back) && memcmp(&back, table, sizeof back) == 0);
+        uint8_t again[SCORES_YAK_SIZE];
+        CHECK(scores_format_yak(&back, again) && memcmp(again, yak, sizeof yak) == 0);
+        CHECK(!scores_parse_yak(yak, sizeof yak - 1, &back) && back.count == 0);
+        yak[5 * 16 + 3] = 'x';
+        CHECK(!scores_parse_yak(yak, sizeof yak, &back) && back.count == 0);
     }
     CHECK(asset_config() != NULL);
     const EnemyTables *enemies = asset_enemy_tables();

@@ -81,6 +81,28 @@ bool scores_format_yak(const HighScoreTable *table, uint8_t out[SCORES_YAK_SIZE]
     return true;
 }
 
+bool scores_parse_yak(const uint8_t *data, size_t size, HighScoreTable *out)
+{
+    *out = (HighScoreTable){0};
+    if (size != SCORES_YAK_SIZE)
+        return format_fail("scores.yak is %u bytes, not %d", (unsigned)size, SCORES_YAK_SIZE);
+    for (int i = 0; i < HIGH_SCORE_ENTRIES; i++) {
+        const uint8_t *entry = data + i * (8 + HIGH_SCORE_NAME_SIZE);
+        uint32_t score = 0;
+        for (int d = 0; d < 8; d++) {
+            if (entry[d] < '0' || entry[d] > '9') {
+                *out = (HighScoreTable){0};
+                return format_fail("scores.yak entry %d has a non-digit score", i);
+            }
+            score = score * 10 + (uint32_t)(entry[d] - '0');
+        }
+        out->entries[i].score = score;
+        memcpy(out->entries[i].name, entry + 8, HIGH_SCORE_NAME_SIZE);
+    }
+    out->count = HIGH_SCORE_ENTRIES;
+    return true;
+}
+
 bool hiscore_data_parse(const uint8_t *data, size_t size, HiscoreData *out)
 {
     memset(out, 0, sizeof *out);

@@ -388,6 +388,10 @@ bool scores_parse(const uint8_t *data, size_t size, HighScoreTable *out);
 enum { SCORES_YAK_SIZE = HIGH_SCORE_ENTRIES * (8 + HIGH_SCORE_NAME_SIZE) };
 /* false if count != 10 or a score exceeds 99999999. File I/O is the platform's job. */
 bool scores_format_yak(const HighScoreTable *table, uint8_t out[SCORES_YAK_SIZE]);
+/* The reverse, for the scores.yak the host saved: the game takes the file only if it is exactly
+ * SCORES_YAK_SIZE bytes (game86 1000:60aa); like the extractor, a score field that is not all
+ * digits rejects it too. false = count 0. */
+bool scores_parse_yak(const uint8_t *data, size_t size, HighScoreTable *out);
 
 /* ---- hud_glyphs.dat (LHUD): DS:09EE digits, DS:0A8E / 0A9E player-life labels ----------- */
 

@@ -267,6 +267,11 @@ static void test_samples_scores_config(void)
     full.entries[0] = scores.entries[0];
     full.entries[9].score = 7;
     CHECK(scores_format_yak(&full, yak) && memcmp(yak, "00050000JEFF    ", 16) == 0 && memcmp(yak + 144, "00000007", 8) == 0);
+    HighScoreTable back;
+    CHECK(scores_parse_yak(yak, sizeof yak, &back) && memcmp(&back, &full, sizeof back) == 0);
+    CHECK(!scores_parse_yak(yak, sizeof yak - 1, &back) && back.count == 0);  /* 60aa: exactly 0xA0 */
+    yak[16 + 7] = ' ';
+    CHECK(!scores_parse_yak(yak, sizeof yak, &back) && back.count == 0);      /* non-digit score */
     full.entries[3].score = 100000000u;
     CHECK(!scores_format_yak(&full, yak));
     Buf empty = {0};
