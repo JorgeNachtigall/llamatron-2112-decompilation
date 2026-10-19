@@ -193,6 +193,13 @@ void enemy_setup_1a(GameState *game, Entity *e);                    /* 1000:33e3
 /* Type 0x24 record with sprite 0x136 + phase. game86 1000:3441 */
 void enemy_setup_type24(GameState *game, Entity *e, int16_t phase, int16_t hp);
 
+/* ---- think_w5a.c (Thorn) -------------------------------------------------------------- */
+
+void think_23(GameState *game, Entity *e);      /* 1000:35b4 walker, lays type 0x24 */
+void think_24(GameState *game, Entity *e);      /* 1000:3490 eight-direction seeker */
+void think_26(GameState *game, Entity *e);      /* 1000:3014 dropper */
+void think_27(GameState *game, Entity *e);      /* 1000:2f87 edge spawner */
+
 /* ---- hit.c / pickups.c (Thorn) -------------------------------------------------------- */
 
 /* The common kill: score, explosion, pickup drop. ent_hit_00, game86 1000:0dfe */

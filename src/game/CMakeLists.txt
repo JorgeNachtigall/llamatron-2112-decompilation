@@ -33,6 +33,7 @@ add_library(llamatron_game STATIC
     entities/think_chasers.c
     entities/think_orbiters.c
     entities/think_table.c
+    entities/think_w5a.c
 )
 target_include_directories(llamatron_game PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
     ${PROJECT_SOURCE_DIR}/src/assets)   # W6 hud.c: HudGlyphs type from formats.h (header only)
