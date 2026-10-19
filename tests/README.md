@@ -100,9 +100,13 @@ Consequences:
   differs there is real, even one equal at the port's own tick (input reaches both runs at
   one IRQ). Only real bytes decide the first divergence. In play, title llama bytes left in
   the original's used slots (unchanged since the first play snapshot, 0 in the port) are
-  skipped, only in the fields `tests/dosbox/llama_residue.py` proved never read before
-  written (it pokes them with 0 and their inverse at the attract -> play switch and compares
-  with a control run; the report's header names them). `TRIAGE` in
+  skipped, only in the fields `tests/dosbox/llama_residue.py` showed never read before
+  written in these runs (it pokes them with 0 and their inverse at the attract -> play switch
+  and compares with a control run; the report's header names them). +20 is left out: it is
+  read in other play (DEVIATIONS #26). Input shift: `input_shift` segments in RUNS deliver the
+  port's keys a tick later where it is a tick behind after a timing-classed switch (input at
+  the same game phase); each segment must match the timing shift at its start, and the report
+  has a line per segment. `TRIAGE` in
   test_reference_golden.py lists each real divergence with its owner and status, printed
   under the run's report.
 - Dev loops: `tests/replay/window.py SCENARIO FIRST [--count N]` runs a scenario with a

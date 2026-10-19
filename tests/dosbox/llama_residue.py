@@ -17,7 +17,9 @@ in any DGROUP snapshot (game stack and page bookkeeping aside), and leaves the s
 was (the settled parts the golden test checks).
 
 Result (2026-10-19, at the scenarios' full lengths): every field +02..+3e passes with both
-poisons in warp, death_continue and two_player. compare.py's RESIDUE_FIELDS relies on it.
+poisons in warp, death_continue and two_player. That only covers what those runs play: +20 is
+read elsewhere (DEVIATIONS #26, a herder hatched from kind 04), so compare.py's
+LEFTOVER_FIELDS leaves it out.
 
     python tests/dosbox/llama_residue.py [SCENARIO ...] [--workdir DIR] [--jobs N]
         [--fields 02 04 ...]

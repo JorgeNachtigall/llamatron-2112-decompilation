@@ -41,13 +41,17 @@ TUNE_PERIOD, TUNE_COUNTDOWN = 0x0627, 0x0629
 ENTITIES, ENTITY_COUNT, ENTITY_SIZE = 0x48C1, 70, 0x40
 
 # Title llama leftovers in play: entity fields of slots 0..8 (ATTRACT_LLAMAS) that the original
-# never reads before writing, proven by tests/dosbox/llama_residue.py (0 and the inverted
-# leftover poked at the attract -> play switch change nothing in warp, death_continue and
-# two_player over their full length). Only these fields are skipped.
-LEFTOVER_FIELDS = range(0x02, 0x40)        # every word after the type word passed
-LEFTOVER_REASON = ("title llama leftovers in play (slots 0..8, fields +02..+3f, unchanged "
-                   "since the first play snapshot, port 0): never read before written, "
-                   "tests/dosbox/llama_residue.py")
+# never reads before writing in these runs, by tests/dosbox/llama_residue.py (0 and the
+# inverted leftover poked at the attract -> play switch change nothing in warp, death_continue
+# and two_player over their full length). That covers only what those runs play: +20 is read
+# in real play (DEVIATIONS #26: enemy_init_04 1f96 never writes it, so a herder hatched from
+# kind 04, from level 2, takes the leftover as its mode) and is compared. To be dropped once the
+# port keeps slot leftovers as the original does (lead, Keel + Moss).
+LEFTOVER_FIELDS = set(range(0x02, 0x40)) - {0x20, 0x21}
+LEFTOVER_REASON = ("title llama leftovers in play (slots 0..8, fields +02..+3f but not +20 "
+                   "sub_mode, unchanged since the first play snapshot, port 0): never read "
+                   "before written in these runs, tests/dosbox/llama_residue.py; +20 is read "
+                   "(DEVIATIONS #26)")
 
 # A follower (think_06, 1000:4bfb) keeps the trail it walks in kill_action (+1e): the original
 # as the trail's DS address (stored by think_05 1000:4d04..4d97), the port as the player index

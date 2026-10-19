@@ -121,7 +121,13 @@ RUNS = {
 # Triage of the real divergences (compare.py's first ones per run and those after them that are
 # not consequences): (run, tick, field, owner, status). Printed under each run's report; update
 # when a re-run after a fix moves them.
+_LEFTOVER_20 = ("entities[0..8]+20 sub_mode: the title llamas' leftover, read in play "
+                "(DEVIATIONS #26), the port holds 0", "Keel + Moss",
+                "open: the port must keep slot leftovers as the original (lead's item 2)")
 TRIAGE = [
+    *[(run, tick, *_LEFTOVER_20) for run, tick in (
+        ("walk_vga", 200), ("walk_ega", 200), ("warp", 175), ("death_continue", 200),
+        ("game_over_hiscore", 175), ("two_player", 1250))],
     ("two_player", 1200, "loop_count (port's tick 1201 has 1): the fire key that starts the "
      "game is not shifted (it causes the switch), so at its own tick the port is ahead of its "
      "shifted state", "Sentinel", "open: the one snapshot on an input-caused switch"),
