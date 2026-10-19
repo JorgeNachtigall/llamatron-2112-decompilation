@@ -71,6 +71,8 @@ _SCALARS = {  # DS offset: (size, name), src/game/state.h
     0x061D: (2, "game_started"), 0x068A: (2, "wave_start_delay"),
     0x07F5: (2, "player_label_offset"), 0x07FE: (2, "spawn_delay"), 0x0617: (2, "play_flag_0617"),
     0x059F: (2, "level_default"), 0x0902: (2, "pulse_enable"),
+    0x044C: (1, "flash_frame_timer"), 0x07F7: (2, "player2_label_offset"),
+    0x0941: (2, "level_variant"), 0x0B74: (6, "text"),
     0x2104: (20, "title_objects"), 0x0904: (2, "title_timer"), 0x0906: (1, "title_key_latch"),
     0x0872: (2, "death_sound_timer"), 0x0874: (2, "rude_name"), 0x0876: (2, "debris_alt"),
     0x08F8: (2, "unhatched_left"), 0x08FA: (2, "spawn_remaining"),

@@ -189,3 +189,26 @@ def test_flash_list_null_and_unknown(dg, image):
     assert u16(dg.canonical(put16(image, FLASH_LIST, 0)), FLASH_LIST) == 0
     # an address that is not a flash list cannot be represented: reads back as none
     assert u16(dg.canonical(put16(image, FLASH_LIST, 0x0001)), FLASH_LIST) == 0
+
+
+def test_flash_list_position(dg, image):
+    """[06C7] advances one word per frame through a 0-terminated list (1e7b frame loop):
+    every word of a list, the terminator included, reads back as (list, position). The
+    lists' extents come from the original bytes, not from palettes.dat."""
+    if not dg.has_data:
+        pytest.skip("extracted data not available")
+
+    def round_trips(ptr):
+        return u16(dg.to_dgroup(dg.from_dgroup(put16(image, FLASH_LIST, ptr))), FLASH_LIST) == ptr
+
+    # list starts (odd DS offsets, 06C9..072D): round-trip, and the word before is not part
+    # of a list or is the previous list's terminator
+    starts = [p for p in range(0x0600, 0x0800) if round_trips(p)
+              and (not round_trips(p - 2) or u16(image, p - 2) == 0)]
+    for p in starts:
+        end = p
+        while u16(image, end) != 0:
+            end += 2
+        assert all(round_trips(q) for q in range(p, end + 2, 2)), hex(p)
+        assert not round_trips(end + 1)             # odd offsets inside a list are not positions
+    assert len(starts) == 8                         # FLASH_LIST_COUNT

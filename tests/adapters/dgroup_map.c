@@ -59,6 +59,10 @@ enum {
     DS_PLAY_FLAG_0617 = 0x0617,
     DS_LEVEL_DEFAULT = 0x059F,
     DS_PULSE_ENABLE = 0x0902,   /* word flag */
+    DS_FLASH_FRAME_TIMER = 0x044C,  /* byte */
+    DS_PLAYER2_LABEL_OFFSET = 0x07F7,
+    DS_LEVEL_VARIANT = 0x0941,
+    DS_TEXT_PEN = 0x0B74,       /* x, y, margin; colour and mode live in CS (unmapped) */
     DS_FRAME_DRAWN = 0x0429,    /* byte */
     DS_SPAWN_REMAINING = 0x08FA,
     DS_SPAWN_TYPE = 0x0900,
@@ -529,6 +533,37 @@ static uint16_t pause_to(int16_t k, const uint8_t *image)
     return k >= 1 && k <= PAUSE_MESSAGES ? pause_pointer(k, image) : 0;
 }
 
+/* [06C7] points into a flash list, one word further per frame, up to its 0 terminator
+ * (= word_count): the list containing the address and the words already shown. */
+static void flash_from(GameState *g, uint16_t ptr)
+{
+    g->flash_list = NULL;
+    g->flash_pos = 0;
+    if (ptr == 0)
+        return;
+    const FlashList *exact = asset_flash_list_at(ptr);
+    if (exact) {
+        g->flash_list = exact;
+        return;
+    }
+    const PaletteSet *set = asset_palettes();
+    for (unsigned i = 0; set && i < set->flash_list_count; i++) {
+        const FlashList *l = &set->flash_lists[i];
+        if (ptr > l->ds_offset && ptr <= l->ds_offset + 2u * l->word_count
+            && (ptr - l->ds_offset) % 2 == 0) {
+            g->flash_list = l;
+            g->flash_pos = (uint16_t)((ptr - l->ds_offset) / 2);
+            return;
+        }
+    }
+    /* not inside any list: reads as none */
+}
+
+static uint16_t flash_to(const GameState *g)
+{
+    return g->flash_list ? (uint16_t)(g->flash_list->ds_offset + 2u * g->flash_pos) : 0;
+}
+
 static uint16_t spawn_to(const SpawnCursor *c)
 {
     if (c->source == SPAWN_NONE)
@@ -589,6 +624,12 @@ void gamestate_from_dgroup(GameState *g, const uint8_t *dgroup)
     g->play_flag_0617 = gets16(r, DS_PLAY_FLAG_0617);
     g->level_default = gets16(r, DS_LEVEL_DEFAULT);
     g->pulse_enable = getflag16(r, DS_PULSE_ENABLE);
+    g->flash_frame_timer = get8(r, DS_FLASH_FRAME_TIMER);
+    g->player2_label_offset = gets16(r, DS_PLAYER2_LABEL_OFFSET);
+    g->level_variant = gets16(r, DS_LEVEL_VARIANT);
+    g->text.x = gets16(r, DS_TEXT_PEN);
+    g->text.y = gets16(r, DS_TEXT_PEN + 2);
+    g->text.margin = gets16(r, DS_TEXT_PEN + 4);
     g->demo_mode = gets16(r, DS_DEMO_MODE);
 
     entity_from(&g->companion, r, DS_COMPANION);
@@ -627,8 +668,7 @@ void gamestate_from_dgroup(GameState *g, const uint8_t *dgroup)
     g->wave_intro_timer = gets16(r, DS_WAVE_INTRO_TIMER);
     if (have_data()) {
         spawn_from(&g->spawn, get16(r, DS_SPAWN_CURSOR));
-        uint16_t flash = get16(r, DS_FLASH_LIST);
-        g->flash_list = flash ? asset_flash_list_at(flash) : NULL;
+        flash_from(g, get16(r, DS_FLASH_LIST));
         g->spawns_clobbered_10b0 = clobber_from(r);
     }
     g->spawn_remaining = gets16(r, DS_SPAWN_REMAINING);
@@ -768,6 +808,12 @@ static void write_state(const GameState *g, Writer w)
     put16(w, DS_PLAY_FLAG_0617, (uint16_t)g->play_flag_0617);
     put16(w, DS_LEVEL_DEFAULT, (uint16_t)g->level_default);
     putflag16(w, DS_PULSE_ENABLE, g->pulse_enable);
+    put8(w, DS_FLASH_FRAME_TIMER, g->flash_frame_timer);
+    put16(w, DS_PLAYER2_LABEL_OFFSET, (uint16_t)g->player2_label_offset);
+    put16(w, DS_LEVEL_VARIANT, (uint16_t)g->level_variant);
+    put16(w, DS_TEXT_PEN, (uint16_t)g->text.x);
+    put16(w, DS_TEXT_PEN + 2, (uint16_t)g->text.y);
+    put16(w, DS_TEXT_PEN + 4, (uint16_t)g->text.margin);
     put16(w, DS_DEMO_MODE, (uint16_t)g->demo_mode);
 
     entity_to(&g->companion, w, DS_COMPANION);
@@ -886,7 +932,7 @@ static void write_state(const GameState *g, Writer w)
     }
     if (have_data()) {
         put16(w, DS_SPAWN_CURSOR, spawn_to(&g->spawn));
-        put16(w, DS_FLASH_LIST, g->flash_list ? g->flash_list->ds_offset : 0);
+        put16(w, DS_FLASH_LIST, flash_to(g));
         clobber_to(g->spawns_clobbered_10b0, w);
     }
     put16(w, DS_TICK_COUNT, g->tick_count);
