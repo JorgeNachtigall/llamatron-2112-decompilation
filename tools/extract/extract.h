@@ -30,6 +30,8 @@ bool extract_sprites(ExtractContext *ctx);
 
 /* data/samples.bin, data/samples.idx — samples.c */
 bool extract_samples(ExtractContext *ctx);
+/* data/palettes.dat, data/default_scores.dat, data/user_scores.dat, data/config.dat — dgroup.c */
+bool extract_dgroup_tables(ExtractContext *ctx);
 /* assets_blob.c with every data/ file as a C array — blob.c. Runs last. */
 bool write_assets_blob(ExtractContext *ctx);
 

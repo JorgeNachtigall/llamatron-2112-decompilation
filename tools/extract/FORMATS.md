@@ -89,3 +89,51 @@ struct { u32 offset; u32 length; } samples[sample_count]   into samples.bin
 **Deviation:** sample 30's entry runs 96 bytes past the end of llatron.spl (the original DMA plays
 whatever memory follows the bank); those bytes are silence here. Loop fields of the driver table
 are dead in the driver and not exported.
+
+## `palettes.dat` (DGROUP; palette code at game86 1000:1be6, 3e4e, 1e7b:0196, e4f5)
+```
+char  magic[4] = "LPAL"
+u16   version = 1
+u8    vga_attribute_registers[17]   DS:2122, INT 10h/1002h at video init on VGA (maps colour
+                                    0..15 -> DAC 0..7, 16..23)
+u8    nibble_to_dac[16]             DS:2134, ST colour nibble -> 6-bit DAC level (VGA only)
+u8    pad = 0
+u16   pulse_vga[16]                 DS:0658, ST words for colour 1, step = tick & 15
+u8    pulse_ega[8]                  DS:0678, EGA register values for colour 1, one step per 4 ticks
+u16   palette_count = 3
+struct {                            = GfxGamePalette (src/engine/gfx.h) + its DS offset
+    u16 ds_offset                   0x2144 game palette, 0x2164 EGA video init (EGA half only),
+                                    0x2175 all black
+    u16 st_words[16]                $0RGB, one nibble per channel
+    u8  ega_registers[17]           at ds_offset + 0x20; [16] = overscan
+    u8  pad = 0
+} palettes[palette_count]           52 bytes each
+u16   flash_list_count
+struct { u16 ds_offset; u16 first_word; u16 word_count; } flash_lists[flash_list_count]
+u16   flash_word_count
+u16   flash_words[flash_word_count] ST words for colour 0, one per frame; the original's 0
+                                    terminator is not stored (word_count instead)
+```
+`ds_offset` is the value the original stores in `g_flash_list` (DS:06C7) or passes in DX.
+
+## High scores: `default_scores.dat` (DS:0AD2) and `user_scores.dat` (the user's scores.yak)
+```
+char  magic[4] = "LSCO"
+u16   version = 1
+u16   count               10, or 0 in user_scores.dat when scores.yak is missing, not exactly
+                          160 bytes (the game's own check) or has non-digit scores
+struct { u32 score; u8 name[8]; } entries[count]   best first; name as stored (space padded)
+```
+scores.yak itself is 10 x {8 ASCII digits, 8 name bytes}; the port writes that format back.
+
+## `config.dat` (the user's llama.inf, parsed like llama.exe 1000:0219)
+```
+char  magic[4] = "LCFG"
+u16   version = 1
+u8    present      0 = no valid llama.inf (the remaining fields are defaults)
+u8    vga          1 = 'V', 0 = 'E'
+u8    joystick     1 = 'J', 0 = 'K'
+u8    sound        0x00 AdLib, 0x0C Sound Blaster, 0x18 Roland, 0xFF none
+u8    cpu          inf[6] - '0' (0 = game86)
+u8    flash_mode   'P' -> 1, 'Y' -> 2, else 0 (game86 [0x589])
+```

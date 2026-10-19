@@ -8,6 +8,7 @@ add_executable(llamatron-extract
     blob.c
     cmpdata.c
     common.c
+    dgroup.c
     ilbm.c
     lzss.c
     main.c
