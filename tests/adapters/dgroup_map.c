@@ -29,13 +29,13 @@ enum {
     DS_SHIPS = 0x2CFB,          /* P1 x,y, P2 x,y */
     DS_TARGET = 0x2D03,
     DS_SCORES = 0x4441,         /* 2 x 8 digit bytes */
-    DS_HUD_DIRTY = 0x0309,      /* word */
+    DS_HUD_DIRTY = 0x05A1,      /* word flag g_hud_dirty (tested at 1000:0309) */
     DS_CONTINUES = 0x061F,
     DS_RESPAWN_P1 = 0x07F3,
     DS_RESPAWN_P2 = 0x0634,
     DS_LOOP_COUNT = 0x233C,
     DS_LEVEL_FLAGS = 0x233E,
-    DS_DEMO_MODE = 0x06C4,      /* word */
+    DS_DEMO_MODE = 0x06C4,      /* word: demo waves left */
     DS_COMPANION = 0x4881,
     DS_ENTITIES = 0x48C1,
     DS_FREE_SLOTS = 0x0927,
@@ -51,6 +51,8 @@ enum {
     DS_FRAME_DRAWN = 0x0429,    /* byte */
     DS_SPAWN_REMAINING = 0x08FA,
     DS_SPAWN_TYPE = 0x0900,
+    DS_SPAWNING_DONE = 0x0802,  /* word flag */
+    DS_UNHATCHED_LEFT = 0x08F8,
     DS_SHIELD_TIMER = 0x0907,
     DS_SMART_BOMB = 0x0615,     /* word flag */
     DS_DEATH_SOUND_TIMER = 0x0872,
@@ -403,7 +405,7 @@ void gamestate_from_dgroup(GameState *g, const uint8_t *dgroup)
     g->respawn_timer[1] = gets16(r, DS_RESPAWN_P2);
     g->loop_count = gets16(r, DS_LOOP_COUNT);
     g->level_flags = gets16(r, DS_LEVEL_FLAGS);
-    g->demo_mode = getflag16(r, DS_DEMO_MODE);
+    g->demo_mode = gets16(r, DS_DEMO_MODE);
 
     entity_from(&g->companion, r, DS_COMPANION);
     for (int i = 0; i < ENTITY_COUNT; i++)
@@ -446,6 +448,8 @@ void gamestate_from_dgroup(GameState *g, const uint8_t *dgroup)
     }
     g->spawn_remaining = gets16(r, DS_SPAWN_REMAINING);
     g->spawn_type = gets16(r, DS_SPAWN_TYPE);
+    g->spawning_done = getflag16(r, DS_SPAWNING_DONE);
+    g->unhatched_left = gets16(r, DS_UNHATCHED_LEFT);
     g->tuning.init01_mode = gets16(r, DS_TUNING_INIT01_MODE);
     g->tuning.init0d_hp = gets16(r, DS_TUNING_INIT0D_HP);
     g->tuning.segment_family = gets16(r, DS_TUNING_SEGMENT_FAMILY);
@@ -524,7 +528,7 @@ static void write_state(const GameState *g, Writer w)
     put16(w, DS_RESPAWN_P2, (uint16_t)g->respawn_timer[1]);
     put16(w, DS_LOOP_COUNT, (uint16_t)g->loop_count);
     put16(w, DS_LEVEL_FLAGS, (uint16_t)g->level_flags);
-    putflag16(w, DS_DEMO_MODE, g->demo_mode);
+    put16(w, DS_DEMO_MODE, (uint16_t)g->demo_mode);
 
     entity_to(&g->companion, w, DS_COMPANION);
     for (int i = 0; i < ENTITY_COUNT; i++)
@@ -562,6 +566,8 @@ static void write_state(const GameState *g, Writer w)
     put16(w, DS_WAVE_INTRO_TIMER, (uint16_t)g->wave_intro_timer);
     put16(w, DS_SPAWN_REMAINING, (uint16_t)g->spawn_remaining);
     put16(w, DS_SPAWN_TYPE, (uint16_t)g->spawn_type);
+    putflag16(w, DS_SPAWNING_DONE, g->spawning_done);
+    put16(w, DS_UNHATCHED_LEFT, (uint16_t)g->unhatched_left);
     put16(w, DS_TUNING_INIT01_MODE, (uint16_t)g->tuning.init01_mode);
     put16(w, DS_TUNING_INIT0D_HP, (uint16_t)g->tuning.init0d_hp);
     put16(w, DS_TUNING_SEGMENT_FAMILY, (uint16_t)g->tuning.segment_family);
