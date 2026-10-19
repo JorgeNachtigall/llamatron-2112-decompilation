@@ -3,9 +3,13 @@
 - `oracle/test_*.py`: differential tests. Each runs original game86 routines through
   `tools/harness` and compares them with our behaviour. Today that is a Python
   reference; once the C functions exist in `src/`, it will be those functions.
+- `generators/`: seeded generators of valid random inputs (RNG state, indexed pages,
+  rectangles, entity tables). Cases are reproducible from the test name and case number.
+  `LLAMATRON_FUZZ_SCALE=N` multiplies the case counts; `LLAMATRON_FUZZ_SEED=S` picks
+  another reproducible set.
 - `adapters/`: the only place that knows original offsets. These modules convert
-  between our state structs and the DGROUP byte layout (`rng.py` now;
-  `dgroup_map.c` for the C `GameState` later).
+  between our state structs and the DGROUP byte layout (`rng.py`, `entities.py`; `dgroup_map.c` for the C `GameState`
+  later); `cport.py` loads the port's `llamatron_game_testlib` via ctypes (fixture `cgame`).
 
 Run:
 

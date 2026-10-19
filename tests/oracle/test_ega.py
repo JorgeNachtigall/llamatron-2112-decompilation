@@ -3,9 +3,9 @@ an original routine drawing through it (1000:6112, dotted rectangle outline)."""
 
 import random
 import struct
-import zlib
 
 import pytest
+from generators import case_rng, fuzz_cases, indexed_page, screen_rect
 
 from llamatron_harness.ega import (GC_BIT_MASK, GC_ENABLE_SET_RESET, GC_MODE,
                                    GC_ROTATE, GC_SET_RESET, HEIGHT, WIDTH, EgaPlanes)
@@ -103,14 +103,13 @@ def ref_rect_outline(x0, y0, x1, y1, colour, page_pixels):
     return bytes(out)
 
 
-@pytest.mark.parametrize("seed", range(12))
-def test_rect_outline_6112(machine, seed):
-    rnd = random.Random(3000 + seed)
-    x0, x1 = sorted(rnd.sample(range(0, 318), 2))
-    y0, y1 = sorted(rnd.sample(range(0, 198), 2))
+@pytest.mark.parametrize("case", fuzz_cases(12))
+def test_rect_outline_6112(machine, case):
+    rnd = case_rng("rect_outline", case)
+    x0, y0, x1, y1 = screen_rect(rnd, margin_x=2, margin_y=2)   # dots are 2x2
     colour = rnd.randrange(16)
     page = rnd.choice([0x0000, 0x2000])
-    background = bytes(rnd.randrange(16) for _ in range(WIDTH * HEIGHT))
+    background = indexed_page(rnd, rnd.choice(["noise", "blocks", "blank"]))
     machine.ega.load_indexed(background, page=page)
     machine.write_dgroup(RECT, struct.pack("<4H", x0, y0, x1, y1))
     machine.write_dgroup(PAGE_PTR, struct.pack("<H", page))
@@ -139,10 +138,10 @@ def test_page_copy(machine, entry, src, dst, swap):
     """game86 1000:62e8 / 62f6 / 6304: whole-page copies, one plane at a time."""
     front, back = (0x2000, 0x0000) if swap else (0x0000, 0x2000)
     where = {"front": front, "back": back, "clean": CLEAN}
-    rnd = random.Random(zlib.crc32(f"{entry}{swap}".encode()))
+    rnd = case_rng(f"page_copy:{entry}", int(swap))
     content = {}
     for name, off in where.items():
-        content[name] = bytes(rnd.randrange(16) for _ in range(WIDTH * HEIGHT))
+        content[name] = indexed_page(rnd, "blocks")
         machine.ega.load_indexed(content[name], page=off)
     machine.write_dgroup(PAGES, struct.pack("<2H", front, back))
 

@@ -5,9 +5,8 @@ stand in for the C port (src/game) until it exists, then the same cases will be
 fed to the C functions through tests/adapters.
 """
 
-import random
-
 import pytest
+from generators import case_rng, fuzz_cases, rng_state
 
 from adapters.rng import (MIXER, PERM_INDEX, PERM_SIZE, PERM_TABLE, RngState,
                           rng_from_dgroup, rng_to_dgroup)
@@ -47,11 +46,9 @@ def ref_init_table(mixer, bios_ticks):
     return bytes(table), mixer
 
 
-@pytest.mark.parametrize("seed", range(64))
-def test_next_byte(machine, seed):
-    rnd = random.Random(seed)
-    st = RngState(table=bytes(rnd.randrange(256) for _ in range(PERM_SIZE)),
-                  index=rnd.choice([0, 0x1FF, rnd.randrange(0x200)]))
+@pytest.mark.parametrize("case", fuzz_cases(64))
+def test_next_byte(machine, case):
+    st = rng_state(case_rng("next_byte", case))
     rng_to_dgroup(machine, st)
     want_value, want_state = ref_next_byte(st)
 
@@ -66,12 +63,12 @@ def test_next_byte(machine, seed):
     assert not res.interrupts and not res.ports
 
 
-@pytest.mark.parametrize("seed", range(64))
-def test_mixer(machine, seed):
-    rnd = random.Random(1000 + seed)
-    mixer = tuple(rnd.randrange(0x10000) for _ in range(4))
+@pytest.mark.parametrize("case", fuzz_cases(64))
+def test_mixer(machine, case):
+    rnd = case_rng("mixer", case)
+    mixer = rng_state(rnd).mixer
     # Half the cases hit the "BIOS tick == s2" perturbation branch.
-    ticks = mixer[2] if seed % 2 else rnd.randrange(0x10000)
+    ticks = mixer[2] if case % 2 else rnd.randrange(0x10000)
     ticks |= rnd.randrange(0x10000) << 16          # high word is never read
     rng_to_dgroup(machine, RngState(mixer=mixer))
     machine.set_bios_ticks(ticks)
@@ -86,10 +83,10 @@ def test_mixer(machine, seed):
     assert set(res.dgroup_diff) <= set(range(MIXER, MIXER + 8))
 
 
-@pytest.mark.parametrize("seed", range(4))
-def test_init_shuffle(machine, seed):
+@pytest.mark.parametrize("case", fuzz_cases(4))
+def test_init_shuffle(machine, case):
     """Whole start-up table build from a given BIOS tick seed (as 1000:5f6b sets it)."""
-    rnd = random.Random(2000 + seed)
+    rnd = case_rng("init_shuffle", case)
     ticks = rnd.randrange(0x1800B0)                 # a valid time of day
     lo, hi = ticks & 0xFFFF, ticks >> 16
     mixer = (lo, hi, lo, hi)                        # 1000:5f6b: [453]=[457]=lo, [455]=[459]=hi
