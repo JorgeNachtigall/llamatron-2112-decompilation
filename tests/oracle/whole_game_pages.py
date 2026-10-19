@@ -10,6 +10,11 @@ Compared per frame (PageComparer.hook, run_lockstep's on_frame):
     original shows one of them. While the text scroller runs, the original shows its 64 KB
     canvas at other start addresses and the port keeps the canvas apart from its pages
     (draw_scroller.c), so then only the shown picture is compared.
+  - The frame stops at frame_run's wait_vsync (the call returning to 1e7b:0196) before the
+    rest of frame_run: the page swap and the erase of the new draw page (1e7b:0213..0299,
+    the dirty list at CS:[6735]), which the port's frame_run has already done. So the
+    original's hidden page is compared with that list applied (pending_erase); after the
+    other wait_vsync callers (palette_set, the scroller's own wait) no erase follows.
 
 A difference is reported as the first one found (shown picture first, then pages 0, 1,
 background): its kind, page, bounding box, pixel count and first pixel; with dump_dir set,
@@ -31,6 +36,13 @@ PLANE_SIZE = 0x10000
 PIXELS = WIDTH * HEIGHT
 PAGES = {0x0000: 0, 0x2000: 1, 0x4000: 2}        # VRAM offset -> GfxPageId
 PAGE_NAMES = {0: "page 0 (0000)", 1: "page 1 (2000)", 2: "background (4000)"}
+BACKGROUND = 0x4000
+
+CODE0 = 0x1000
+FRAME_RUN_WAIT_RETURN = (0x1E7B, 0x0196)        # far return of frame_run's wait_vsync call
+CS_ERASE_LIST = 0x6735                          # the list frame_run erases after the swap
+ERASE_LIST_END = 0xFE0C
+ERASE_LIST_MAX = 4000                           # entries; a longer list is not a list
 
 # Per plane p: a byte of that plane -> its 8 pixels' bit p (MSB = leftmost pixel).
 _EXPAND = [[bytes(((b >> (7 - i)) & 1) << p for i in range(8)) for b in range(256)]
@@ -48,6 +60,46 @@ def rasterise(planes, offset: int) -> bytes:
             bytes(plane[offset:]) + bytes(plane[:end - PLANE_SIZE])
         acc |= int.from_bytes(b"".join(map(_EXPAND[p].__getitem__, data)), "big")
     return acc.to_bytes(PIXELS, "big")
+
+
+def read_erase_list(m) -> list[tuple[int, int, int]] | None:
+    """The original's pending erase, when its frame stopped in frame_run's wait: the entries
+    {count (low byte 16-pixel words, high byte != 0: one word more), rows, page-relative byte
+    offset} of the list at CS:[6735] (test_draw_basic.dirty_entries), else None."""
+    r = m.get_regs()
+    ss, sp = r["ss"], r["sp"]
+    ret = (m.read_u16(ss, (sp + 2) & 0xFFFF), m.read_u16(ss, sp))
+    if ret != FRAME_RUN_WAIT_RETURN:
+        return None
+    at = m.read_u16(CODE0, CS_ERASE_LIST)
+    out = []
+    while len(out) < ERASE_LIST_MAX:
+        count = m.read_u16(CODE0, at)
+        if count == ERASE_LIST_END:
+            return out
+        out.append((count, m.read_u16(CODE0, at + 2), m.read_u16(CODE0, at + 4)))
+        at = (at + 6) & 0xFFFF
+    raise ValueError(f"erase list at CS:{m.read_u16(CODE0, CS_ERASE_LIST):04x} has no end")
+
+
+def apply_erase(planes, page: int, entries) -> list[bytearray]:
+    """Copies of the planes with 1e7b:0213..0299 done on `page`: each entry's rows of
+    2 * words bytes copied from the background page (an entry's bytes run on into the next
+    row past column 39, as the original's linear copy does)."""
+    out = [bytearray(p) for p in planes]
+    for count, rows, offset in entries:
+        n = 2 * ((count & 0xFF) + (1 if count >> 8 else 0))
+        for r in range(rows):
+            a = offset + r * BYTES_PER_LINE
+            dst, src = (page + a) & 0xFFFF, (BACKGROUND + a) & 0xFFFF
+            if dst + n <= PLANE_SIZE and src + n <= PLANE_SIZE:
+                for p in out:
+                    p[dst:dst + n] = p[src:src + n]
+            else:
+                for p in out:
+                    for i in range(n):
+                        p[(dst + i) & 0xFFFF] = p[(src + i) & 0xFFFF]
+    return out
 
 
 @dataclass
@@ -128,7 +180,7 @@ class PageComparer:
     def port_shown(self) -> bytes:
         return ctypes.string_at(self._display(), PIXELS)
 
-    def compare(self, ega, tick: int, frame: int) -> PageDiff | None:
+    def compare(self, ega, tick: int, frame: int, pending_erase=None) -> PageDiff | None:
         self.frames += 1
         start = ega.start_address
         orig = rasterise(ega.planes, start)
@@ -144,10 +196,14 @@ class PageComparer:
             return PageDiff(tick, frame, "shown page", PAGE_NAMES[PAGES[start]],
                             detail=f"the original shows {PAGE_NAMES[PAGES[start]]}, the port "
                                    f"{PAGE_NAMES.get(shown, shown)} (same pixels)")
+        hidden = 0x2000 - start if start in (0x0000, 0x2000) else None
         for offset, page_id in PAGES.items():
             if page_id == shown:
                 continue                # compared above
-            orig = rasterise(ega.planes, offset)
+            planes = ega.planes
+            if pending_erase and offset == hidden:
+                planes = apply_erase(planes, offset, pending_erase)
+            orig = rasterise(planes, offset)
             port = self.port_page(page_id)
             d = pixel_diff(orig, port)
             if d:
@@ -165,7 +221,7 @@ class PageComparer:
 
     def hook(self, orig, port, tick: int, frame: int):
         """run_lockstep's on_frame: a whole_game.Result for the first difference."""
-        diff = self.compare(orig.ega, tick, frame)
+        diff = self.compare(orig.ega, tick, frame, read_erase_list(orig.m))
         if diff is None:
             return None
         from whole_game import Result

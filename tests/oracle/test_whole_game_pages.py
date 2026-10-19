@@ -81,3 +81,26 @@ def test_canvas_start_compares_only_the_shown_picture(setup):
     ctypes.memmove(cmp._page(0), rasterise(ega.planes, 0x1450), PIXELS)
     ctypes.memmove(cmp._page(2), picture(rnd), PIXELS)   # not compared on a canvas frame
     assert cmp.compare(ega, 1, 1) is None
+
+
+@pytest.mark.parametrize("case", range(12))
+def test_apply_erase_matches_frame_run(machine, case):
+    """apply_erase against the original's own erase pass 1e7b:0213..0299 on random planes
+    (entries as test_draw_basic.dirty_entries, incl. spans past column 39)."""
+    import struct
+    from test_draw_basic import CS_CODE0_SEG, DIRTY_LIST, DIRTY_PTR_B, LIST_END, dirty_entries
+    from test_sprites import PAGES as DS_PAGES
+    from whole_game_pages import apply_erase
+    rnd = random.Random(100 + case)
+    back = rnd.choice([0x0000, 0x2000])
+    for p in range(4):
+        machine.ega.planes[p][:] = rnd.randbytes(0x10000)
+    entries = dirty_entries(rnd, rnd.randrange(1, 12))
+    machine.write(0x1000, DIRTY_LIST, b"".join(struct.pack("<3H", *e) for e in entries)
+                  + struct.pack("<H", LIST_END))
+    machine.write_u16(0x1000, DIRTY_PTR_B, DIRTY_LIST)
+    machine.write_u16(*CS_CODE0_SEG, 0x1000)
+    machine.write_dgroup(DS_PAGES, struct.pack("<2H", 0x2000 - back, back))
+    want = apply_erase(machine.ega.planes, back, entries)
+    machine.run_until("1e7b:0213", "1e7b:029a", max_insns=2_000_000)
+    assert [bytes(p) for p in machine.ega.planes] == [bytes(p) for p in want]
