@@ -36,6 +36,7 @@ game86,1000:100f,19,pickup_effect_00,pickup_effect_00,src/game/entities/pickups.
 game86,1000:1022,37,ent_hit_07,ent_hit_07,src/game/entities/hit.c,diff-tested,W5a,B,
 game86,1000:105f,81,ent_hit_03,ent_hit_03,src/game/entities/hit.c,diff-tested,W5a,B,
 game86,1000:1074,,ent_hit_01,ent_hit_01,src/game/entities/hit.c,diff-tested,W5a,B,
+game86,1000:10b0,,think13_spawn_shot,think13_spawn_shot,,todo,W4,B,stale-SI enemy_shot_init clobbers DS:2576..2579 (re-notes-game86 §4; script_clobber_spawns_10b0)
 game86,1000:10f8,16,ent_hit_05,ent_hit_05,src/game/entities/hit.c,diff-tested,W5a,B,
 game86,1000:1108,85,fire_back_tail_05,fire_back,src/game/entities/hit.c,diff-tested,W5a,B,shared tail of ent_hit_05
 game86,1000:115d,111,ent_hit_08,ent_hit_08,src/game/entities/hit.c,diff-tested,W5a,B,

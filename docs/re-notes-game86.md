@@ -123,7 +123,18 @@ Two independent clocks:
   18 entries), `[0x32]` sprite pointer, `[0x36]` frame. Per-type think handlers via `DS:1FD2`
   (**46 entries**, `1FD2..202D`, indexed by the low byte of `[0]`; `1000:4331..4373` loop) [C]
   — the earlier "13 entries" was wrong; 33 of the handlers were undisassembled code holes. Full
-  record layout in §8.3. Player state: `[0x2cfb/0x2cfd]` P1 x,y,
+  record layout in §8.3.
+- **Stale-SI spawn-list clobber** [C, W4/Keel, re-checked in the listing]: `enemy_shot_init`
+  (`1232`) zeroes `[SI+8]`/`[SI+0A]`, which the other callers use as the parent's velocity.
+  `think_13` (`256e`) calls `think13_spawn_shot` (`10b0`) at `2594`. Neither routine sets SI,
+  so SI still holds the code offset `0x256E` that the `432b` dispatch loaded
+  (`4363 MOV SI,[BX+1FD2]` / `4369 CALL SI`). The store therefore zeroes `DS:2576..2579`, which
+  are level 21's spawn pairs 2 and 3 (type 1 x16 and type 5 x4 become type 0 x1 each). The
+  damage lasts for the whole process, because nothing reloads the scripts `244C..2AFD`. The
+  roster `220A` is rebuilt from live entities at `1ced`, not from the list, so only the
+  spawns change. The port reproduces this on purpose: `script_clobber_spawns_10b0` (W4,
+  9a3bc40) and levels.dat `clobber_10b0` (W1, f86753d).
+- Player state: `[0x2cfb/0x2cfd]` P1 x,y,
   `[0x2cff/0x2d01]` P2 x,y, clamps x in [0x0F,0x130), y in [0x12,0xBC). Direction tables
   `DS:0743/0753/0763/07B3/07C3/07D3/07E3` indexed by 4-bit joystick nibble. Bullets: ring
   buffers `DS:6CC9` (P1) and `DS:70C9` (P2), 128 x 8 bytes. Lives `[0x21a6]`, score digits

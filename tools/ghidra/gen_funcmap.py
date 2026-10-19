@@ -3,8 +3,10 @@
 
 Inputs (local, never committed): re/functions/<program>.exe.functions.csv (ExportFunctions.java)
 and re/symbols.csv (func rows, including shared tails that Ghidra keeps as labels).
-Rows that already exist in docs/funcmap.csv keep their c_symbol, file, status, owner and notes,
-so the file can be edited by every workstream and regenerated after each RE pass.
+Rows that already exist in docs/funcmap.csv keep their c_symbol, file, status, owner and notes
+(and their name when the export only has an unk_/FUN_ default), and rows other workstreams added
+by hand (e.g. labels) are kept, so the file can be edited by every workstream and regenerated
+after each RE pass.
 
 Columns: program,orig_addr,size,name,c_symbol,file,status,owner,range,notes
 (docs/PLAN.md section 3.4 plus program and range).
@@ -142,12 +144,15 @@ def main():
         row = {"program": prog, "orig_addr": addr, "size": e["size"], "name": name,
                "c_symbol": csym or "", "file": file, "status": "todo", "owner": owner,
                "range": rng, "notes": note}
-        prev = old.get((prog, addr))
+        prev = old.pop((prog, addr), None)
         if prev:
+            if name.startswith(("unk_", "FUN_")) and not prev["name"].startswith(("unk_", "FUN_")):
+                row["name"] = prev["name"]
             for k in ("c_symbol", "file", "status", "owner", "notes"):
                 if prev.get(k):
                     row[k] = prev[k]
         rows.append(row)
+    rows.extend(old.values())  # hand-added rows with no function or func symbol behind them
     order = {p: i for i, p in enumerate(PROGRAMS)}
     rows.sort(key=lambda r: (order[r["program"]], *(int(x, 16) for x in r["orig_addr"].split(":"))))
     with open(OUT, "w", newline="") as f:
