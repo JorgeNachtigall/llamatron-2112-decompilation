@@ -90,7 +90,8 @@ Consequences:
 - Timing shifts: the report lists a byte as timing, not as a divergence (DEVIATIONS #20),
   when it equals the port's state one tick later or earlier at a transition. A transition is
   a tick or draw hook switch, or a jump of the tick counter (DS:39E6). Also timing: a frozen
-  tune.countdown one step from the port's (the tune hook ran a tick longer). Only real
+  tune.countdown one step from the port's (the tune hook ran a tick longer), and the tick
+  counter one apart right after a jump (the original set it a tick later). Only real
   bytes decide the first divergence. In play, title llama bytes left in the original's used
   slots (unchanged since the first play snapshot, 0 in the port) are skipped.
 - Dev loops: `tests/replay/window.py SCENARIO FIRST [--count N]` runs a scenario with a

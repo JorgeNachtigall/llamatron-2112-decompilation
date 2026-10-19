@@ -264,6 +264,11 @@ def compare(port: PortRun, reference: dict[int, bytes], ignore=()) -> list[TickD
             timing = best
             explained = set(best)
             offs = [o for o in offs if o not in explained and o not in TICK_COUNT]
+        if jump and TICK_COUNT.start in offs and abs(counts[0] - counts[1]) == 1:
+            # the counter was set one tick apart (e.g. 1000:5d41 after a draw the port does
+            # in zero time); it counts on in step from there
+            timing = timing + [o for o in offs if o in TICK_COUNT]
+            offs = [o for o in offs if o not in TICK_COUNT]
         if hook != TITLE_TUNE_HOOK and TUNE_COUNTDOWN in offs and _tune_step(a, b):
             frozen = range(TUNE_COUNTDOWN, TUNE_COUNTDOWN + 2)
             timing = timing + [o for o in offs if o in frozen]
@@ -334,7 +339,12 @@ def report(diffs: list[TickDiff]) -> str:
             state += (f"  [timing: port one tick {'behind' if d.shift > 0 else 'ahead'}, "
                       f"{len(d.timing)} bytes match its tick {d.tick + d.shift}]")
         elif d.timing:
-            state += "  [timing: tune.countdown frozen one tick apart]"
+            notes = []
+            if any(o in TICK_COUNT for o in d.timing):
+                notes.append("tick counter set one tick apart")
+            if TUNE_COUNTDOWN in d.timing:
+                notes.append("tune.countdown frozen one tick apart")
+            state += f"  [timing: {', '.join(notes)}]"
         skipped = "".join(f"  [ignored {name} {r.start:04X}..{r.stop - 1:04X}]" if r else
                           f"  [ignored {name}]" for r, name in d.ignored)
         lines.append(f"tick {d.tick:6d}  {state}{skipped}")

@@ -280,3 +280,15 @@ def test_frames_dump_the_frames_of_dumped_ticks(driver, tmp_path):
     assert numbers == sorted(set(numbers))
     # the frames after a tick's handler and before the next tick: VGA has 1-2 per tick
     assert all(1 <= len(per_frame.at_tick(t)) <= 2 for t in (10, 20))
+
+
+def test_compare_tick_counter_set_one_tick_apart_is_timing():
+    mask = bytearray(compare.DGROUP_SIZE)
+    mask[0x39E6] = mask[0x39E7] = 1
+    play = compare.PLAY_HOOK
+    ref = {10: _image(play, 0, 10), 20: _image(play, 0, 4), 30: _image(play, 0, 14)}
+    port = {10: _image(play, 0, 10), 20: _image(play, 0, 5), 30: _image(play, 0, 15)}
+    diffs = compare.compare(compare.PortRun(10, bytes(mask), port), ref)
+    assert diffs[1].offsets == [] and diffs[1].timing == [0x39E6]    # set at the jump
+    assert diffs[2].offsets == [0x39E6]       # no jump since: a counter out of step is real
+    assert "[timing: tick counter set one tick apart]" in compare.report(diffs[1:2])
