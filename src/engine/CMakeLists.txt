@@ -5,6 +5,8 @@ add_library(llama_engine STATIC
     timing.c
     title.c
 )
+# The ctypes test library (tests/cmake/TestLib.cmake) links this into a shared object.
+set_target_properties(llama_engine PROPERTIES POSITION_INDEPENDENT_CODE ON)
 target_include_directories(llama_engine PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(llama_engine PUBLIC llama_assets_api)
 target_compile_options(llama_engine PRIVATE
