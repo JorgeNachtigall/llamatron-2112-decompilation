@@ -98,6 +98,10 @@ class Problem(Exception):
     pass
 
 
+# key_script and poke_script are also the input of the warped-level DOSBox-X reference runs
+# (tests/dosbox/test_reference_golden.py imports them): keep them pure, and expect any change
+# to them to need those golden runs regenerated (Sentinel).
+
 def key_script(level: int, ticks: int) -> dict[int, list[int]]:
     """Scan codes due per tick: Space to start, then walk in a direction for a while, fire
     in bursts (fire holds the facing, so the shots go the way the ship last walked)."""
