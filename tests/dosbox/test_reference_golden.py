@@ -106,6 +106,8 @@ RUNS = {
 }
 
 
+# Resolved: two_player 1300 entities[8]+1e was a follower's trail as address vs player index
+# (compare.py TRAIL_ADDRESS).
 # Triage of the real divergences (compare.py's first ones per run and those after them that are
 # not consequences): (run, tick, field, owner, status). Printed under each run's report; update
 # when a re-run after a fix moves them.
@@ -113,15 +115,14 @@ TRIAGE = [
     ("two_player", 1150, "options_default, title_key_latch, options (title menu key)",
      "Claude Code #2", "open: input reaches both runs at one IRQ while the port is a tick behind "
      "(shifted compare); harness question, not a port bug"),
-    ("two_player", 1300, "entities[8]+1e (llama slot, think_06): original writes C96C between "
-     "1250 and 1300, port keeps 0 (not a leftover: llama_residue poisons don't change it)",
-     "Moss", "sent"),
     ("two_player", 1450, "shots[4..9]+00 (x 2 px apart), entities[21]+02", "Keel", "sent"),
     ("warp", 400, "ship_control[0].aim/move, ship x (walk keys)", "Claude Code #2",
      "open: same input-phase question as two_player 1150"),
     ("warp", 450, "entities[8..11] x/y +-1, shots[0..1]", "Keel", "sent"),
-    ("death_continue", 800, "entities[8]+02 x (15 vs 13), +0c sprite (2A vs 29): llama think_05",
-     "Moss", "sent"),
+    ("death_continue", 800, "entities[8]+02 x (15 vs 13), +0c sprite (2A vs 29), llama think_05: "
+     "the first play tick after the continue runs at IRQ 741 in the original, 742 in the port, "
+     "with tick_count equal, so think_05's even-tick moves fall on the other parity (Moss)",
+     "Keel", "sent: continue -> play switch a tick late in the port (main_sm)"),
 ]
 
 

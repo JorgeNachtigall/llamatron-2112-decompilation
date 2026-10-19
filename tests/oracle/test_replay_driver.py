@@ -317,3 +317,23 @@ def test_compare_tick_counter_set_one_tick_apart_is_timing():
     assert diffs[1].offsets == [] and diffs[1].timing == [0x39E6]    # set at the jump
     assert diffs[2].offsets == [0x39E6]       # no jump since: a counter out of step is real
     assert "[timing: tick counter set one tick apart]" in compare.report(diffs[1:2])
+
+
+def test_compare_follower_trail_address_is_the_player_index():
+    """A follower's kill_action: the original's trail address 6CC9 / 70C9 is the port's
+    player index 0 / 1 (think_llamas.c)."""
+    mask = bytearray(compare.DGROUP_SIZE)
+    trail = 0x48C1 + 0x40 * 20 + 0x1E      # not a title llama slot
+    mask[trail] = mask[trail + 1] = 1
+
+    def img(think, value):
+        image = bytearray(_image(compare.PLAY_HOOK, 0, 10))
+        image[0x48C1 + 0x40 * 20] = think
+        struct.pack_into("<H", image, trail, value)
+        return bytes(image)
+
+    for think, ref, mine, real in ((6, 0x6CC9, 0, False), (6, 0x70C9, 1, False),
+                                   (6, 0x70C9, 0, True), (5, 0x6CC9, 0, True)):
+        port = compare.PortRun(10, bytes(mask), {10: img(think, mine)})
+        diffs = compare.compare(port, {10: img(think, ref)})
+        assert bool(diffs[0].offsets) == real, (think, ref, mine)

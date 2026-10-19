@@ -49,6 +49,14 @@ LEFTOVER_REASON = ("title llama leftovers in play (slots 0..8, fields +02..+3f, 
                    "since the first play snapshot, port 0): never read before written, "
                    "tests/dosbox/llama_residue.py")
 
+# A follower (think_06, 1000:4bfb) keeps the trail it walks in kill_action (+1e): the original
+# as the trail's DS address (stored by think_05 1000:4d04..4d97), the port as the player index
+# (think_llamas.c FOLLOW_P1/P2). Same value, two representations (Moss; test_think_llamas.py
+# follower_fixup). Only where the reference slot is a follower: once it stops being one, the
+# original keeps the address and the port the index, and the adapter cannot tell them apart.
+THINK_FOLLOWER, FOLLOWER_TRAIL = 0x06, 0x1E
+TRAIL_ADDRESS = {0x6CC9: 0, 0x70C9: 1}
+
 # DEVIATIONS #10: the loaded image has trail_head[1] = 2 (not entry-aligned) until P2's
 # first trail write; the port starts at entry 0. Skipped while the reference still holds 2.
 P2_TRAIL_HEAD = 0x2CF9
@@ -346,6 +354,12 @@ def _differences(a: bytes, b: bytes, mask: bytes, ignore: set, attract: bool):
     for i in free:
         base = ENTITIES + ENTITY_SIZE * i
         skip.update(range(base + 2, base + ENTITY_SIZE))
+    for i in range(ENTITY_COUNT):
+        trail = ENTITIES + ENTITY_SIZE * i + FOLLOWER_TRAIL
+        if a[ENTITIES + ENTITY_SIZE * i] == THINK_FOLLOWER and \
+                TRAIL_ADDRESS.get(struct.unpack_from("<H", a, trail)[0], -1) == \
+                struct.unpack_from("<h", b, trail)[0]:
+            skip.update((trail, trail + 1))
     offs = [i for i in range(DGROUP_SIZE)
             if mask[i] and a[i] != b[i] and i not in ignore and i not in skip]
     return offs, skipped
