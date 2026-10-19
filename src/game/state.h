@@ -184,10 +184,11 @@ typedef struct GameState {
     Point16 ship[PLAYER_COUNT];         /* 2CFB/2CFD P1, 2CFF/2D01 P2 */
     Point16 target;                     /* 2D03/2D05 ship the current entity aims at */
     /* 4441/4449, there 8 decimal digits, one per byte, most significant first. Kept as a number
-     * modulo 10^8: score_add's digit carries are plain addition, its extra life fires when a
-     * carry reaches the 10,000s digit (= a multiple of 10,000 crossed), the high-score compare
-     * is digit-wise (= numeric) and the HUD converts to digits when drawing. */
+     * modulo 10^8: score_add's digit carries are plain addition (score.h says when its extra
+     * life fires), the high-score compare is digit-wise (= numeric) and the HUD converts to
+     * digits when drawing. */
     uint32_t score[PLAYER_COUNT];
+    bool hud_dirty;                     /* 0309 g_hud_dirty: redraw the HUD this frame */
     int16_t continues;                  /* 061F 4 per game */
     int16_t respawn_timer[PLAYER_COUNT];/* 07F3 / 0634 [H] 0x64 at wave start, P1 0xFFFE = dying */
     int16_t loop_count;                 /* 233C times the level scripts wrapped to level 0 */

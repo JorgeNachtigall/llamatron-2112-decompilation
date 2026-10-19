@@ -4,6 +4,7 @@
 # target's sources and settings, so keep a single source list and keep it PIC.
 add_library(llamatron_game STATIC
     game.c
+    score.c
     rng.c
     draw_page.c
     draw_rect.c

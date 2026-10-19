@@ -6,9 +6,9 @@
  *
  * The original passes the entity in DI (SI for spawns) and reaches everything else through
  * DGROUP. In the port every handler gets the GameState and the entity; extra inputs that the
- * original passed in registers or scratch variables are explicit parameters. The tables are
- * defined by W5 next to the handlers (src/game/entities/tables.c); W4 owns the loops that
- * index them:
+ * original passed in registers or scratch variables are explicit parameters. Each table is
+ * defined by its handlers' owner (W5 think_table.c / init_table.c / hit.c, W6 anim.c);
+ * W4 owns the loops that index them:
  *   think   entities_think_all     game86 1000:432b   per tick, every live entity
  *   animate entities_animate_all   game86 1000:4374   per frame, every live entity
  *   hit     shots_update           game86 1000:0d15 / 0d8f
@@ -40,13 +40,15 @@ typedef void (*ThinkFn)(GameState *game, Entity *e);
 /* Per frame, into the page being drawn. The loop draws e->overlay afterwards. */
 typedef void (*AnimFn)(GameState *game, Entity *e, const DrawTarget *target);
 
-/* What hit the entity. game86 passes the shot in SI and the hit point in [0x413]/[0x417];
- * with the "hit everything" flag [0x615] (smart bomb) every solid entity is hit once and
- * there is no shot. */
+/* What hit the entity: always a shot (game86 SI). The shot loop calls the hit handler after
+ * the shot has moved (1000:0c40..0c6b) and passed the tick-parity test (0cd1); with the
+ * smart-bomb flag [0x615] every solid entity is hit once by that same shot (0cf7..0d27).
+ * Before a normal hit the loop also does 0d6d..0d85 (kills the shot when level_flags < 0,
+ * copies 2338 -> 2336 unless the entity's think is 0x13). */
 typedef struct EntityHit {
-    Shot *shot;                 /* NULL for the smart bomb */
-    int player;                 /* [H] 0/1: whose shot; to be confirmed in shots_update */
-    Point16 at;                 /* hit point */
+    Shot *shot;                 /* never NULL; handlers read its direction and velocity */
+    bool smart_bomb;            /* hit through [0x615], not by overlap */
+    Point16 at;                 /* the shot's new position ([0x413]/[0x417]) */
 } EntityHit;
 
 typedef void (*HitFn)(GameState *game, Entity *e, const EntityHit *hit);
@@ -60,7 +62,8 @@ extern const AnimFn entity_anim_handlers[ANIM_HANDLER_COUNT];
 extern const HitFn entity_hit_handlers[HIT_HANDLER_COUNT];
 extern const EnemyInitFn enemy_init_handlers[ENEMY_INIT_COUNT];
 
-/* Services W4 provides to the handlers. */
+/* Services W4 provides to the handlers (scores: score.h; sound: engine snd.h snd_play, which
+ * is driver AH=3 including the stub-driver toggle). */
 
 /* First free slot, reset to the idle state like game86 1000:3d43 (overlay off, anim
  * ANIM_IDLE, scale 0); NULL when all 70 are in use. [H] The original then returns SI one
