@@ -26,6 +26,8 @@ typedef struct PlatConfig {
     int window_scale;          /* initial window = scale x 320x240 (4:3); 0 = default (3) */
     bool fullscreen;
     bool vsync;                /* native: present with vsync; ignored on the web (rAF) */
+    int web_timer_fps;         /* web only: > 0 drives frames by a timer instead of
+                                  requestAnimationFrame (headless tests: rAF barely runs there) */
 } PlatConfig;
 
 /* One RGB colour, 8 bits per channel. */

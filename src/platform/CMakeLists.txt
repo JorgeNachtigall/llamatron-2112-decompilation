@@ -86,6 +86,16 @@ if(EMSCRIPTEN)
             --expect "title 320x400 hash=c7ab74c4 canvas 1000x750 hash=1b1b4ce3")
         add_test(NAME web_smoke_title_ega COMMAND ${Python3_EXECUTABLE} ${_smoke} --query frames=2&ega
             --expect "title 640x350 hash=d0a1684d canvas 1000x750 hash=aae527de")
+        # One Space press + release dispatched back to back (inside one frame) through SDL's
+        # browser event path must still rotate the palette once (input latch, input.h).
+        set(_tp ${CMAKE_CURRENT_SOURCE_DIR}/tools/web_smoke.py --dir ${CMAKE_CURRENT_BINARY_DIR}
+            --page platform_testpattern.html)
+        add_test(NAME web_smoke_tap_space COMMAND ${Python3_EXECUTABLE} ${_tp} --query frames=4&tap=Space
+            --expect "frames=4 ticks=2 display_hash=3cbbd24e palette_phase=1")
+        add_test(NAME web_smoke_no_tap COMMAND ${Python3_EXECUTABLE} ${_tp} --query frames=4
+            --expect "frames=4 ticks=2 display_hash=3cbbd24e palette_phase=0")
+        set_tests_properties(web_smoke_tap_space web_smoke_no_tap PROPERTIES
+            SKIP_RETURN_CODE 77 LABELS web TIMEOUT 180)
         set_tests_properties(web_smoke_title_vga web_smoke_title_ega PROPERTIES
             SKIP_RETURN_CODE 77 LABELS web TIMEOUT 180)
     endif()

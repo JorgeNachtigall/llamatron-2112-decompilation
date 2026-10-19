@@ -96,6 +96,36 @@ static void test_input(void)
     input_tick_fire();
     CHECK(!(in->controls[0] & INPUT_FIRE));
 
+    /* Taps inside one host frame (press + release delivered in the same event batch) must be
+     * seen once by their consumer, then released. */
+    input_init(INPUT_DEVICE_KEYBOARD, true);
+    in = input_state();
+    input_key_event(PC_KEY_SPACE, true);
+    input_key_event(PC_KEY_SPACE, false);
+    input_key_event(PC_KEY_LEFT, true);
+    input_key_event(PC_KEY_LEFT, false);
+    CHECK(in->last_make_code == PC_KEY_LEFT);
+    input_frame_read(false);
+    CHECK(in->controls[0] & INPUT_LEFT);
+    input_tick_fire();
+    CHECK(in->controls[0] & INPUT_FIRE);
+    input_tick_fire();
+    CHECK(!(in->controls[0] & INPUT_FIRE));
+    input_frame_read(false);
+    CHECK(!(in->controls[0] & INPUT_LEFT));
+    CHECK(in->keys_held == 0);
+    /* A held key released after it was sampled goes up immediately (original behaviour). */
+    input_key_event(PC_KEY_UP, true);
+    input_frame_read(false);
+    input_key_event(PC_KEY_UP, false);
+    CHECK(in->keys_held == 0);
+    /* Press, release, press again before a sample: stays held. */
+    input_key_event(PC_KEY_DOWN, true);
+    input_key_event(PC_KEY_DOWN, false);
+    input_key_event(PC_KEY_DOWN, true);
+    input_frame_read(false);
+    CHECK(in->keys_held == INPUT_DOWN && (in->controls[0] & INPUT_DOWN));
+
     /* Calibration halvings as in game86 1000:6014. */
     JoystickCalibration c = input_calibrate(101, 100);
     CHECK(c.x_high == 151 && c.x_low == 75);

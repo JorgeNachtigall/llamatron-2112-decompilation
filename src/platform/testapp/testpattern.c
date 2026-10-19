@@ -5,7 +5,7 @@
  * dirty-rectangle restore, sprite drawing, palette and the 50.16 Hz tick scheduler.
  *
  *   arrows / gamepad : move the cursor sprite (moved in game ticks, drawn per frame)
- *   space / pad A    : hold to cycle the palette of colours 1..15
+ *   space / pad A    : each press rotates the palette of colours 1..15
  *   T                : cycle display size 320x200 -> 320x400 -> 640x350 (title screen formats)
  *   E                : toggle EGA / VGA palette path
  *   F11 / Alt-Enter  : fullscreen;  Esc / Q : quit
@@ -21,6 +21,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
 
 enum { SPRITE_SIZE = 16, BIG_W = 640, BIG_H = 400 };
 
@@ -40,6 +44,7 @@ typedef struct App {
 
     int cursor_x, cursor_y;
     uint8_t palette_phase;
+    bool fire_was_down;
     DisplayFormat format;
 
     uint8_t sprite_pixels[SPRITE_SIZE * SPRITE_SIZE];
@@ -163,7 +168,9 @@ static void game_tick(App *app)
     if (app->cursor_x > GFX_WIDTH - 1) app->cursor_x = GFX_WIDTH - 1;
     if (app->cursor_y < 0) app->cursor_y = 0;
     if (app->cursor_y > GFX_HEIGHT - 1) app->cursor_y = GFX_HEIGHT - 1;
-    if ((c & INPUT_FIRE) && app->scheduler.ticks % 5 == 0) {
+    bool fire_pressed = (c & INPUT_FIRE) && !app->fire_was_down;
+    app->fire_was_down = (c & INPUT_FIRE) != 0;
+    if (fire_pressed) {
         app->palette_phase = (uint8_t)((app->palette_phase + 1) % 15);
         build_palette(app);
     }
@@ -243,8 +250,9 @@ static bool frame(void *user)
     app->frames++;
 
     if (app->frames_left > 0 && --app->frames_left == 0) {
-        printf("frames=%llu ticks=%llu display_hash=%08x\n", (unsigned long long)app->frames,
-               (unsigned long long)app->scheduler.ticks, fnv1a(gfx_display_pixels(), GFX_WIDTH * GFX_HEIGHT));
+        printf("frames=%llu ticks=%llu display_hash=%08x palette_phase=%u\n", (unsigned long long)app->frames,
+               (unsigned long long)app->scheduler.ticks, fnv1a(gfx_display_pixels(), GFX_WIDTH * GFX_HEIGHT),
+               app->palette_phase);
         running = false;
     }
     if (!running)
@@ -267,7 +275,18 @@ int main(int argc, char **argv)
         }
     }
 
-    PlatConfig config = { "Llamatron platform test pattern", 3, false, true };
+#ifdef __EMSCRIPTEN__
+    /* The page URL stands in for the command line: ?frames=N */
+    const char *frames = strstr(emscripten_run_script_string("location.search"), "frames=");
+    if (frames) {
+        app->frames_left = strtol(frames + 7, NULL, 10);
+        app->fixed_step = true;
+    }
+#endif
+
+    PlatConfig config = { "Llamatron platform test pattern", 3, false, true, 0 };
+    if (app->frames_left > 0)
+        config.web_timer_fps = 70;   /* deterministic frame pacing for test runs */
     if (!plat_init(&config))
         return 1;
 

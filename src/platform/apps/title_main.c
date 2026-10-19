@@ -136,7 +136,9 @@ int main(int argc, char **argv)
 
     if (!title_load(&app->title, adapter, device))
         return 1;
-    PlatConfig config = { "Llamatron 2112", 3, false, true };
+    PlatConfig config = { "Llamatron 2112", 3, false, true, 0 };
+    if (app->frames_left > 0)
+        config.web_timer_fps = 70;   /* deterministic frame pacing for test runs */
     if (!plat_init(&config))
         return 1;
     input_init(device, true);

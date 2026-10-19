@@ -34,6 +34,7 @@ static struct {
     SDL_GameController *pads[PLAT_MAX_GAMEPADS];
     SDL_AudioDeviceID audio;
     uint32_t rgb_buffer[MAX_IMAGE_W * MAX_IMAGE_H];
+    int web_timer_fps;
     bool capture;
     uint32_t capture_hash;
     int capture_w, capture_h;
@@ -41,7 +42,7 @@ static struct {
 
 bool plat_init(const PlatConfig *config)
 {
-    PlatConfig defaults = { "Llamatron 2112", DEFAULT_WINDOW_SCALE, false, true };
+    PlatConfig defaults = { "Llamatron 2112", DEFAULT_WINDOW_SCALE, false, true, 0 };
     if (!config)
         config = &defaults;
 
@@ -69,6 +70,7 @@ bool plat_init(const PlatConfig *config)
     }
 
     g_plat.vsync = config->vsync;
+    g_plat.web_timer_fps = config->web_timer_fps;
     Uint32 renderer_flags = SDL_RENDERER_ACCELERATED | (config->vsync ? SDL_RENDERER_PRESENTVSYNC : 0);
     g_plat.renderer = SDL_CreateRenderer(g_plat.window, -1, renderer_flags);
     if (!g_plat.renderer)
@@ -343,7 +345,7 @@ void plat_run_main_loop(PlatFrameFn frame, void *user)
     g_loop.frame = frame;
     g_loop.user = user;
     /* fps 0 = requestAnimationFrame; simulate_infinite_loop 1 = this call does not return. */
-    emscripten_set_main_loop_arg(emscripten_frame, NULL, 0, 1);
+    emscripten_set_main_loop_arg(emscripten_frame, NULL, g_plat.web_timer_fps, 1);
 #else
     /* Without vsync, pace at ~60 Hz so we do not spin a core. */
     const uint64_t fallback_period_us = 16667;

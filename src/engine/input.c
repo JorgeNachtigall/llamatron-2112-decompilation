@@ -64,10 +64,29 @@ void input_keyboard_byte(uint8_t scan_code)
     case PC_KEY_DOWN: bit = INPUT_DOWN; break;
     default: return;
     }
-    if (released)
-        g_input.keys_held &= (uint8_t)~bit;
-    else
+    if (released) {
+        /* Port deviation (documented): the original's INT 09 runs asynchronously, so a real
+         * key press always overlaps at least one sample. Here press and release can arrive in
+         * the same host event batch; keep the key held until its consumer has seen it once
+         * (directions: frame read, fire: tick). Longer presses behave exactly as before. */
+        if (g_input.unsampled & bit)
+            g_input.release_pending |= bit;
+        else
+            g_input.keys_held &= (uint8_t)~bit;
+    } else {
         g_input.keys_held |= bit;
+        g_input.unsampled |= bit;
+        g_input.release_pending &= (uint8_t)~bit;
+    }
+}
+
+/* The consumer of `bits` has sampled keys_held: finish releases that were waiting for it. */
+static void keys_sampled(uint8_t bits)
+{
+    g_input.unsampled &= (uint8_t)~bits;
+    uint8_t done = g_input.release_pending & bits;
+    g_input.keys_held &= (uint8_t)~done;
+    g_input.release_pending &= (uint8_t)~done;
 }
 
 void input_key_event(uint8_t make_code, bool pressed)
@@ -137,6 +156,7 @@ void input_frame_read(bool force_both_sticks)
         else if (held & INPUT_DOWN)
             c |= INPUT_DOWN;
         g_input.controls[0] = c;
+        keys_sampled(INPUT_DIRECTIONS);
         return;
     }
 
@@ -165,7 +185,9 @@ void input_tick_fire(void)
             g_input.controls[0] |= INPUT_FIRE;
         if (g_input.joystick_buttons & JOY_BUTTONS_STICK2)
             g_input.controls[1] |= INPUT_FIRE;
-    } else if (g_input.keys_held & INPUT_FIRE) {
-        g_input.controls[0] |= INPUT_FIRE;
+    } else {
+        if (g_input.keys_held & INPUT_FIRE)
+            g_input.controls[0] |= INPUT_FIRE;
+        keys_sampled(INPUT_FIRE);
     }
 }

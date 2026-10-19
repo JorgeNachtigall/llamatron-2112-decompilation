@@ -60,8 +60,25 @@
       output.textContent += text + '\n';
       console.log(text);
     }
+    /* Test hook for web_smoke.py: ?tap=Space sends one key press and release back to back
+       (inside one frame) right after start-up. Does nothing without the parameter. */
+    var KEY_CODES = { Space: 32, ArrowLeft: 37, ArrowUp: 38, ArrowRight: 39, ArrowDown: 40 };
+    var tapMatch = /[?&]tap=(\w+)/.exec(location.search);
+    function tap(code) {
+      ['keydown', 'keyup'].forEach(function (type) {
+        var e = new KeyboardEvent(type, { code: code, key: code === 'Space' ? ' ' : code,
+                                          bubbles: true, cancelable: true });
+        Object.defineProperty(e, 'keyCode', { get: function () { return KEY_CODES[code] || 0; } });
+        Object.defineProperty(e, 'which', { get: function () { return KEY_CODES[code] || 0; } });
+        canvas.dispatchEvent(e);
+      });
+    }
+
     window.Module = {
       canvas: canvas,
+      onRuntimeInitialized: function () {
+        if (tapMatch) setTimeout(function () { tap(tapMatch[1]); }, 0);
+      },
       print: print,
       printErr: function (text) { output.textContent += text + '\n'; console.error(text); },
       setStatus: function (text) { status.textContent = text; status.style.display = text ? '' : 'none'; },
