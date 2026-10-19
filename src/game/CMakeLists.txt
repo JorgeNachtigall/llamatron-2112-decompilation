@@ -32,6 +32,8 @@ add_library(llamatron_game STATIC
     entities/think_herders.c
     entities/think_chasers.c
     entities/think_orbiters.c
+    entities/think_snake.c
+    entities/think_llamas.c
     entities/think_table.c
     entities/think_w5a.c
 )

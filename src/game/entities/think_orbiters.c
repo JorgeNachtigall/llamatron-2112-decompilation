@@ -51,6 +51,25 @@ static void orbit_step(Entity *e)
     e->y = (int16_t)(sine_half((uint8_t)(angle + QUARTER_TURN)) + ORBIT_CENTRE_Y);
 }
 
+/* A think_01 spawn at `at` in the first free slot among the first 61, counted as roster
+ * kind 1; NULL when none is free. Its slot is not taken from free_slots. game86 1000:366f */
+Entity *entity_spawn_01_at(GameState *game, const Entity *at)
+{
+    for (int i = 0; i < CORE_SEARCH_SLOTS; i++) {
+        Entity *spawn = &game->entities[i];
+        if (!entity_is_free(spawn))
+            continue;
+        spawn->x = at->x;
+        spawn->y = at->y;
+        spawn->anim = ANIM_IDLE;
+        spawn->scale = 0;
+        enemy_setup_01(game, spawn);
+        spawn->kind = 1;
+        return spawn;
+    }
+    return NULL;
+}
+
 /* Core of the orbit: speeds the whole wave up (orbit_angle's integer part becomes the enemy
  * speed) and launches a think_01 spawn every period of its hp byte pair; aux1a = frames of
  * the "hit" sprite left. game86 1000:2a75 */
@@ -59,24 +78,9 @@ void think_20(GameState *game, Entity *e)
     if (game->wave_intro_timer != 0)
         return;
     if (pair_passed_zero(&e->hp)) {
-        /* game86 1000:366f */
-        Entity *spawn = NULL;
-        for (int i = 0; i < CORE_SEARCH_SLOTS; i++) {
-            if (entity_is_free(&game->entities[i])) {
-                spawn = &game->entities[i];
-                break;
-            }
-        }
-        if (spawn) {
-            spawn->x = e->x;
-            spawn->y = e->y;
-            spawn->anim = ANIM_IDLE;
-            spawn->scale = 0;
-            enemy_setup_01(game, spawn);
-        } else {
-            /* The search leaves SI on slot 61, whose kind the caller then overwrites. */
+        Entity *spawn = entity_spawn_01_at(game, e);
+        if (!spawn) /* the search leaves SI on slot 61, whose kind the caller then overwrites */
             spawn = &game->entities[CORE_SEARCH_SLOTS];
-        }
         spawn->kind = -1;
     }
     game->orbit_angle += ORBIT_SPEED_STEP;

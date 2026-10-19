@@ -44,6 +44,7 @@ OPTIONS = 0x2CF6
 SHIPS = 0x2CFB            # P1 x, y, P2 x, y
 TARGET = 0x2D03
 TICKS = 0x39E6
+RNG_TABLE, RNG_TABLE_SIZE, RNG_INDEX = 0x6AC9, 512, 0x39E9
 SINE8 = 0x4141            # filled by the data loader at start-up, not in the EXE image
 
 STUB_SEG = 0x9800
@@ -108,6 +109,11 @@ class ThinkOracle:
         the other records and returns extra {DS offset: word}; `extra` = {DS offset: word}."""
         image = bytearray(machine.read_dgroup(0, 0x10000))
         image[SINE8:SINE8 + 256] = self.sine8
+        # The start-up shuffle fills the RNG table (zeros in the EXE image); without it every
+        # random branch would always go the same way.
+        rng_table = [i & 0xFF for i in range(RNG_TABLE_SIZE)]
+        rnd.shuffle(rng_table)
+        image[RNG_TABLE:RNG_TABLE + RNG_TABLE_SIZE] = bytes(rng_table)
         records = entity_table(rnd, n_think=THINK_COUNT)
         slot = rnd.randrange(ENTITY_COUNT)
         rec = records[slot]
@@ -147,6 +153,7 @@ class ThinkOracle:
             SPEED_Y: rnd.randrange(1, 9),
             REAIM_PERIOD: rnd.randrange(3, 40),
             TICKS: rnd.randrange(0x10000),
+            RNG_INDEX: rnd.randrange(RNG_TABLE_SIZE),
             FREE_SLOTS: rnd.randrange(0x46),
             SWARM_COUNT: rnd.randrange(40),
             DEATH_SOUND_TIMER: rnd.randrange(0x15),
@@ -206,10 +213,17 @@ class ThinkOracle:
                     out[ref:ref + 2] = w16(frame)
         return bytes(out)
 
-    def check(self, machine, case: ThinkCase, think: int):
+    def check(self, machine, case: ThinkCase, think: int, fixup=None):
+        """`fixup(image) -> image` maps the original's representation of a value to the
+        port's where the two differ by design; it is applied to the port's input image and to
+        the original's result."""
         want, want_sounds = self.run_original(machine, case, think)
         want = self.with_sprite_frames(case.image, want)
-        got, got_sounds = self.run_port(case, think)
+        port_case = case
+        if fixup:
+            want = fixup(want)
+            port_case = ThinkCase(fixup(case.image), case.slot, case.status)
+        got, got_sounds = self.run_port(port_case, think)
         bad = self.dg.mismatches(want, got)
         detail = [(hex(o), want[o], got[o]) for o in bad[:16]]
         assert not bad, f"slot {case.slot}: DGROUP differs at {detail}"

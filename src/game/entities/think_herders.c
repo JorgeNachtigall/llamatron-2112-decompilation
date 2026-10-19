@@ -53,8 +53,9 @@ static int16_t magnitude16(int16_t v)
 
 /* Claims the first unclaimed egg; the search gives up after g_unhatched eggs. The original
  * scans on past the table when there are fewer eggs than unhatched says; the port stops at
- * the table's end and returns as if all eggs were taken. game86 1000:3a17 */
-static void herder_pick_egg(GameState *game, Entity *e)
+ * the table's end and returns as if all eggs were taken. Also think_08's search
+ * (1000:498e). game86 1000:3a17 */
+void herder_pick_egg(GameState *game, Entity *e)
 {
     int16_t eggs_left = game->unhatched;
     if (eggs_left != 0) {

@@ -66,6 +66,9 @@ void think_2b(GameState *game, Entity *e);
 void think_0e(GameState *game, Entity *e);
 void think_15(GameState *game, Entity *e);
 void think_16(GameState *game, Entity *e);
+/* Sets e->timer to the slot of the first unclaimed think_05 entity (claiming it, hp = 1), or
+ * to -2 = none left. Also used by think_08. game86 1000:3a17 */
+void herder_pick_egg(GameState *game, Entity *e);
 /* think_chasers.c */
 void think_17(GameState *game, Entity *e);
 void think_18(GameState *game, Entity *e);
@@ -75,6 +78,16 @@ void think_21(GameState *game, Entity *e);
 void think_22(GameState *game, Entity *e);
 void think_2c(GameState *game, Entity *e);
 void think_2d(GameState *game, Entity *e);
+/* A think_01 spawn at `at` in one of the first 61 slots (roster kind 1), NULL if none is
+ * free. game86 1000:366f */
+Entity *entity_spawn_01_at(GameState *game, const Entity *at);
+/* think_snake.c */
+void think_1d(GameState *game, Entity *e);
+void think_1e(GameState *game, Entity *e);
+/* think_llamas.c */
+void think_05(GameState *game, Entity *e);
+void think_06(GameState *game, Entity *e);
+void think_08(GameState *game, Entity *e);
 /* think_chargers.c */
 void think_25(GameState *game, Entity *e);
 void think_29(GameState *game, Entity *e);
