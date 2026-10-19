@@ -25,13 +25,14 @@ enum {
     SPRITE_REF_LLAMA_BY_WAVE = 0x1b1,
 };
 
-/* The entity's own frame: sprite number `sprite`, or the sprites.bin frame in sprite_ref
+/* The entity's own frame: sprite number `sprite`, or the frame at bank offset sprite_ref
  * when sprite < 0. game86 1000:44ab entity_sprite_setup */
 static const GfxSprite *entity_sprite(const Entity *e)
 {
     if (e->sprite >= 0)
         return asset_sprite_number_gfx((unsigned)e->sprite);
-    return asset_sprite_gfx(SPRITE_BANK_GAME, (uint16_t)e->sprite_ref);
+    int frame = asset_sprite_index_at(SPRITE_BANK_GAME, (uint16_t)e->sprite_ref);
+    return frame < 0 ? NULL : asset_sprite_gfx(SPRITE_BANK_GAME, (unsigned)frame);
 }
 
 static void draw_at(const DrawTarget *target, const GfxSprite *sprite, int x, int y)

@@ -161,19 +161,6 @@ def restore_and_compare(machine, port, page, back):
     compare_pages(machine, port, "restore")
 
 
-def sprite_frames(image, port):
-    """The port's representation: +2c holds the frame index when the sprite field is < 0."""
-    out = bytearray(image)
-    for slot in range(ENTITY_COUNT):
-        base = ENTITY_TABLE + ENTITY_SIZE * slot
-        if out[base + 1] & 0x80 or not out[base + 0x0D] & 0x80:
-            continue
-        frame = port.frame_of_offset(struct.unpack_from("<H", out, base + 0x2C)[0])
-        if frame >= 0:
-            struct.pack_into("<H", out, base + 0x2C, frame)
-    return bytes(out)
-
-
 def run_anim(machine, dg, port, bank, rnd, anim):
     numbers, offsets = bank
     # anim 04 on page-0 frames draws a stray record (docs/DEVIATIONS.md #16)
@@ -195,9 +182,9 @@ def run_anim(machine, dg, port, bank, rnd, anim):
     machine.write_dgroup(0, image)
     machine.write_u16(CODE0, CS_DIRTY_ENABLE, 1)
     machine.call("1000:4374", max_insns=5_000_000)
-    want_state = sprite_frames(machine.read_dgroup(0, 0x10000), port)
+    want_state = machine.read_dgroup(0, 0x10000)
 
-    state = dg.from_dgroup(sprite_frames(image, port))
+    state = dg.from_dgroup(image)
     target = port.target(PAGE_IDS[page])
     port.set_dirty(True)
     port.animate(state, ctypes.byref(target))
