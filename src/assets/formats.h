@@ -127,6 +127,20 @@ typedef struct FlashList {
                                  * bits 0..11 are colour, 0x1000 = black */
 } FlashList;
 
+/* palettes.dat's flash lists in file order, named where the meaning is known (the extractor
+ * writes them in this order; the DS offset each stands for is in the comment). */
+typedef enum FlashListId {
+    FLASH_LIST_PLAYER_DEATH, /* DS:06C9 */
+    FLASH_LIST_06CD,
+    FLASH_LIST_06FD,
+    FLASH_LIST_0707,
+    FLASH_LIST_0713,
+    FLASH_LIST_0721,
+    FLASH_LIST_0729,
+    FLASH_LIST_072D,
+    FLASH_LIST_COUNT,
+} FlashListId;
+
 typedef struct PaletteSet {
     uint8_t vga_attribute_registers[VGA_ATTRIBUTE_REGISTERS]; /* DS:2122 */
     uint8_t nibble_to_dac[16];          /* DS:2134, for gfx_set_adapter() */

@@ -89,6 +89,11 @@ static void check_palettes(void)
         for (uint16_t w = 0; list && w < list->word_count; w++)
             CHECK(list->words[w] != 0 && (list->words[w] & ~0x1FFFu) == 0);
     }
+    /* FlashListId order = the extractor's order */
+    CHECK(asset_palettes() && asset_palettes()->flash_list_count == FLASH_LIST_COUNT);
+    for (int id = 0; id < FLASH_LIST_COUNT; id++)
+        CHECK(asset_flash_list((FlashListId)id) == asset_flash_list_at(flash_lists[id]));
+    CHECK(asset_flash_list(FLASH_LIST_COUNT) == NULL);
     const GfxGamePalette *black = asset_palette_at(0x2175);
     for (int c = 0; black && c < GFX_GAME_COLORS; c++)
         CHECK(black->st_words[c] == 0);

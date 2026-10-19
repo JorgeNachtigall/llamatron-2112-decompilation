@@ -51,7 +51,9 @@ const SineTables *asset_sine(void);
 const PaletteSet *asset_palettes(void);
 /* Palette the original passes to palette_set as DS:ds_offset (0x2144, 0x2164, 0x2175). */
 const GfxGamePalette *asset_palette_at(uint16_t ds_offset);
-/* Flash list the original stores in g_flash_list as DS:ds_offset. */
+/* Flash list by name (store it in GameState.flash_list; NULL = none). */
+const FlashList *asset_flash_list(FlashListId id);
+/* Flash list the original stores in g_flash_list as DS:ds_offset (for adapters/tests). */
 const FlashList *asset_flash_list_at(uint16_t ds_offset);
 
 /* ---- Texts ---- */

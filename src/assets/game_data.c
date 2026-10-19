@@ -143,6 +143,13 @@ const GfxGamePalette *asset_palette_at(uint16_t ds_offset)
     return p ? &p->palette : NULL;
 }
 
+const FlashList *asset_flash_list(FlashListId id)
+{
+    if (!data.loaded || (unsigned)id >= FLASH_LIST_COUNT || id >= data.palettes.flash_list_count)
+        return NULL;
+    return &data.palettes.flash_lists[id];
+}
+
 const FlashList *asset_flash_list_at(uint16_t ds_offset)
 {
     return data.loaded ? palettes_find_flash_list(&data.palettes, ds_offset) : NULL;
