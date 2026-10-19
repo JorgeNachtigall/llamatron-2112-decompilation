@@ -136,6 +136,9 @@ def triage(name: str) -> str:
 # DS:84D0..85E1, above the LZSS ring buffer at SS:0000 (re-notes §2). The interrupt frames
 # there depend on where each IRQ lands, i.e. on host speed: not state, left out of the hash.
 GAME_STACK = range(0x84D0, 0x85E2)
+# g_page_front/back, g_draw_page (re-notes §8): where game86's frames fall between IRQs, which
+# moves with host load. Checked through the pages (shown_page() and its flip rule), not here.
+PAGE_BOOKKEEPING = range(0x39D3, 0x39D9)
 
 
 def sha(data: bytes) -> str:
@@ -145,6 +148,7 @@ def sha(data: bytes) -> str:
 def dgroup_hash(dgroup: bytes) -> str:
     image = bytearray(dgroup)
     image[GAME_STACK.start:GAME_STACK.stop] = bytes(len(GAME_STACK))
+    image[PAGE_BOOKKEEPING.start:PAGE_BOOKKEEPING.stop] = bytes(len(PAGE_BOOKKEEPING))
     return sha(bytes(image))
 
 
