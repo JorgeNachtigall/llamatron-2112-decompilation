@@ -81,6 +81,10 @@ int entity_slot_counter(const GameState *game, const Entity *e);
  * game86 1000:432b */
 void entities_think_all(GameState *game);
 
+/* Every live entity's animate handler (NULL skipped), then its overlay sprite, which counts
+ * down its frames. game86 1000:4374 */
+void entities_animate_all(GameState *game, const DrawTarget *target);
+
 #ifdef __cplusplus
 }
 #endif
