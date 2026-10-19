@@ -238,13 +238,13 @@ game86,1000:5eae,43,unk_1000_5eae,,,todo,W6,E,
 game86,1000:5ed9,146,game_exit,game_exit,src/game/main_sm.c,todo,W4,E,
 game86,1000:5f6b,316,config_init,config_from_options,src/game/init.c,todo,W4,E,PSP tail -> port options
 game86,1000:60aa,104,data_load,assets_load,src/assets/,todo,W1,E,assets come from build/generated
-game86,1000:6112,130,vram_fill_rect,vram_fill_rect,src/engine/gfx.c,todo,W6,E,renderer API (W2) semantics
-game86,1000:619c,61,vram_fill_span,vram_fill_span,src/engine/gfx.c,todo,W6,E,renderer API (W2) semantics
-game86,1000:61d9,38,vram_latch_copy_setup,vram_latch_copy_setup,src/engine/gfx.c,todo,W6,E,renderer API (W2) semantics
+game86,1000:6112,130,vram_fill_rect,draw_rect_outline,src/game/draw_rect.c,diff-tested,W6,E,tests/oracle/test_draw_basic.py::test_rect_outline
+game86,1000:619c,61,vram_fill_span,draw_rect_outline,src/game/draw_rect.c,diff-tested,W6,E,draw_dot(); via test_rect_outline
+game86,1000:61d9,38,vram_latch_copy_setup,draw_save_screen_as_background,src/game/draw_page.c,diff-tested,W6,E,latch setup of the page copies; no C equivalent needed
 game86,1000:61ff,233,screen_reveal_bg,screen_reveal_bg,src/engine/gfx.c,todo,W2,E,
-game86,1000:62e8,14,vram_copy_page_to_bg,vram_copy_page_to_bg,src/engine/gfx.c,todo,W6,E,renderer API (W2) semantics
-game86,1000:62f6,14,vram_copy_bg_to_page,vram_copy_bg_to_page,src/engine/gfx.c,todo,W6,E,renderer API (W2) semantics
-game86,1000:6304,96,vram_copy_page,vram_copy_page,src/engine/gfx.c,todo,W6,E,renderer API (W2) semantics
+game86,1000:62e8,14,vram_copy_page_to_bg,draw_save_screen_as_background,src/game/draw_page.c,diff-tested,W6,E,test_draw_basic.py::test_page_copy
+game86,1000:62f6,14,vram_copy_bg_to_page,draw_show_background,src/game/draw_page.c,diff-tested,W6,E,test_draw_basic.py::test_page_copy
+game86,1000:6304,96,vram_copy_page,draw_copy_screen_to_draw_page,src/game/draw_page.c,diff-tested,W6,E,test_draw_basic.py::test_page_copy
 game86,1000:6364,31,vram_fill_setup,vram_fill_setup,src/engine/gfx.c,todo,W6,E,renderer API (W2) semantics
 game86,1000:6383,12,vram_clear_from_1f40,vram_clear_from_1f40,src/engine/gfx.c,todo,W6,E,renderer API (W2) semantics
 game86,1000:638f,16,vram_clear_line,vram_clear_line,src/engine/gfx.c,todo,W6,E,renderer API (W2) semantics
@@ -314,60 +314,60 @@ game86,1000:e788,34,mem_shrink,mem_shrink,,todo,W0,S,not ported: DOS memory
 game86,1e7b:0000,315,input_poll,input_state,src/engine/input.c,todo,W2,F,
 game86,1e7b:013f,439,frame_run,frame_run,src/engine/timing.c,todo,W2,F,frame callback
 game86,1e7b:029a,38,page_swap,gfx_flip,src/engine/gfx.c,todo,W2,F,
-game86,1e7b:03dc,87,restore_w1_h00,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
-game86,1e7b:0433,233,restore_w1_h06,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
-game86,1e7b:051c,269,restore_w1_h07,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
-game86,1e7b:0629,305,restore_w1_h08,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
-game86,1e7b:075a,341,restore_w1_h09,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
-game86,1e7b:08af,377,restore_w1_h10,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
-game86,1e7b:0a28,413,restore_w1_h11,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
-game86,1e7b:0bc5,14,restore_w1_h12,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
-game86,1e7b:0bd3,14,restore_w1_h13,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
-game86,1e7b:0be1,14,restore_w1_h14,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
-game86,1e7b:0bef,14,restore_w1_h15,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
-game86,1e7b:0bfd,14,restore_w1_h16,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
-game86,1e7b:0c0b,14,restore_w1_h17,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
-game86,1e7b:0c19,14,restore_w1_h18,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
-game86,1e7b:0c27,14,restore_w1_h19,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
-game86,1e7b:0c35,14,restore_w1_h20,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
-game86,1e7b:0c43,14,restore_w1_h21,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
-game86,1e7b:0c51,14,restore_w1_h22,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
-game86,1e7b:0c5f,115,restore_w2_h00,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
-game86,1e7b:0cd2,417,restore_w2_h06,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
-game86,1e7b:0e73,489,restore_w2_h07,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
-game86,1e7b:105c,561,restore_w2_h08,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
-game86,1e7b:128d,633,restore_w2_h09,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
-game86,1e7b:1506,705,restore_w2_h10,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
-game86,1e7b:17c7,777,restore_w2_h11,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
-game86,1e7b:1ad0,31,restore_w2_h12,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
-game86,1e7b:1ade,14,restore_w2_h13,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
-game86,1e7b:1aec,14,restore_w2_h14,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
-game86,1e7b:1afa,14,restore_w2_h15,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
-game86,1e7b:1b08,14,restore_w2_h16,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
-game86,1e7b:1b16,14,restore_w2_h17,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
-game86,1e7b:1b24,448,restore_w2_h18,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
-game86,1e7b:1b32,14,restore_w2_h19,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
-game86,1e7b:1b40,14,restore_w2_h20,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
-game86,1e7b:1b4e,14,restore_w2_h21,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
-game86,1e7b:1b5c,164,restore_w2_h22,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
-game86,1e7b:1b6a,147,restore_w3_h00,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
-game86,1e7b:1bfd,601,restore_w3_h06,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
-game86,1e7b:1e56,709,restore_w3_h07,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
-game86,1e7b:211b,817,restore_w3_h08,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
-game86,1e7b:244c,747,restore_w3_h09,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
-game86,1e7b:27e9,1033,restore_w3_h10,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
-game86,1e7b:2bf2,1141,restore_w3_h11,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
-game86,1e7b:3067,14,restore_w3_h12,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
-game86,1e7b:3075,14,restore_w3_h13,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
-game86,1e7b:3083,14,restore_w3_h14,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
-game86,1e7b:3091,14,restore_w3_h15,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
-game86,1e7b:309f,14,restore_w3_h16,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
-game86,1e7b:30ad,14,restore_w3_h17,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
-game86,1e7b:30bb,14,restore_w3_h18,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
-game86,1e7b:30c9,14,restore_w3_h19,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
-game86,1e7b:30d7,14,restore_w3_h20,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
-game86,1e7b:30e5,14,restore_w3_h21,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
-game86,1e7b:30f3,14,restore_w3_h22,gfx_restore_rect,src/engine/gfx.c,todo,W6,F,restore family: one C routine
+game86,1e7b:03dc,87,restore_w1_h00,gfx_restore_rect,src/engine/gfx.c,diff-tested,W6,F,restore family: gfx_restore_rect linear spans; test_draw_basic.py::test_restore_dirty_list (whole 1e7b:0213 pass)
+game86,1e7b:0433,233,restore_w1_h06,gfx_restore_rect,src/engine/gfx.c,diff-tested,W6,F,restore family: gfx_restore_rect linear spans; test_draw_basic.py::test_restore_dirty_list (whole 1e7b:0213 pass)
+game86,1e7b:051c,269,restore_w1_h07,gfx_restore_rect,src/engine/gfx.c,diff-tested,W6,F,restore family: gfx_restore_rect linear spans; test_draw_basic.py::test_restore_dirty_list (whole 1e7b:0213 pass)
+game86,1e7b:0629,305,restore_w1_h08,gfx_restore_rect,src/engine/gfx.c,diff-tested,W6,F,restore family: gfx_restore_rect linear spans; test_draw_basic.py::test_restore_dirty_list (whole 1e7b:0213 pass)
+game86,1e7b:075a,341,restore_w1_h09,gfx_restore_rect,src/engine/gfx.c,diff-tested,W6,F,restore family: gfx_restore_rect linear spans; test_draw_basic.py::test_restore_dirty_list (whole 1e7b:0213 pass)
+game86,1e7b:08af,377,restore_w1_h10,gfx_restore_rect,src/engine/gfx.c,diff-tested,W6,F,restore family: gfx_restore_rect linear spans; test_draw_basic.py::test_restore_dirty_list (whole 1e7b:0213 pass)
+game86,1e7b:0a28,413,restore_w1_h11,gfx_restore_rect,src/engine/gfx.c,diff-tested,W6,F,restore family: gfx_restore_rect linear spans; test_draw_basic.py::test_restore_dirty_list (whole 1e7b:0213 pass)
+game86,1e7b:0bc5,14,restore_w1_h12,gfx_restore_rect,src/engine/gfx.c,diff-tested,W6,F,restore family: gfx_restore_rect linear spans; test_draw_basic.py::test_restore_dirty_list (whole 1e7b:0213 pass)
+game86,1e7b:0bd3,14,restore_w1_h13,gfx_restore_rect,src/engine/gfx.c,diff-tested,W6,F,restore family: gfx_restore_rect linear spans; test_draw_basic.py::test_restore_dirty_list (whole 1e7b:0213 pass)
+game86,1e7b:0be1,14,restore_w1_h14,gfx_restore_rect,src/engine/gfx.c,diff-tested,W6,F,restore family: gfx_restore_rect linear spans; test_draw_basic.py::test_restore_dirty_list (whole 1e7b:0213 pass)
+game86,1e7b:0bef,14,restore_w1_h15,gfx_restore_rect,src/engine/gfx.c,diff-tested,W6,F,restore family: gfx_restore_rect linear spans; test_draw_basic.py::test_restore_dirty_list (whole 1e7b:0213 pass)
+game86,1e7b:0bfd,14,restore_w1_h16,gfx_restore_rect,src/engine/gfx.c,diff-tested,W6,F,restore family: gfx_restore_rect linear spans; test_draw_basic.py::test_restore_dirty_list (whole 1e7b:0213 pass)
+game86,1e7b:0c0b,14,restore_w1_h17,gfx_restore_rect,src/engine/gfx.c,diff-tested,W6,F,restore family: gfx_restore_rect linear spans; test_draw_basic.py::test_restore_dirty_list (whole 1e7b:0213 pass)
+game86,1e7b:0c19,14,restore_w1_h18,gfx_restore_rect,src/engine/gfx.c,diff-tested,W6,F,restore family: gfx_restore_rect linear spans; test_draw_basic.py::test_restore_dirty_list (whole 1e7b:0213 pass)
+game86,1e7b:0c27,14,restore_w1_h19,gfx_restore_rect,src/engine/gfx.c,diff-tested,W6,F,restore family: gfx_restore_rect linear spans; test_draw_basic.py::test_restore_dirty_list (whole 1e7b:0213 pass)
+game86,1e7b:0c35,14,restore_w1_h20,gfx_restore_rect,src/engine/gfx.c,diff-tested,W6,F,restore family: gfx_restore_rect linear spans; test_draw_basic.py::test_restore_dirty_list (whole 1e7b:0213 pass)
+game86,1e7b:0c43,14,restore_w1_h21,gfx_restore_rect,src/engine/gfx.c,diff-tested,W6,F,restore family: gfx_restore_rect linear spans; test_draw_basic.py::test_restore_dirty_list (whole 1e7b:0213 pass)
+game86,1e7b:0c51,14,restore_w1_h22,gfx_restore_rect,src/engine/gfx.c,diff-tested,W6,F,restore family: gfx_restore_rect linear spans; test_draw_basic.py::test_restore_dirty_list (whole 1e7b:0213 pass)
+game86,1e7b:0c5f,115,restore_w2_h00,gfx_restore_rect,src/engine/gfx.c,diff-tested,W6,F,restore family: gfx_restore_rect linear spans; test_draw_basic.py::test_restore_dirty_list (whole 1e7b:0213 pass)
+game86,1e7b:0cd2,417,restore_w2_h06,gfx_restore_rect,src/engine/gfx.c,diff-tested,W6,F,restore family: gfx_restore_rect linear spans; test_draw_basic.py::test_restore_dirty_list (whole 1e7b:0213 pass)
+game86,1e7b:0e73,489,restore_w2_h07,gfx_restore_rect,src/engine/gfx.c,diff-tested,W6,F,restore family: gfx_restore_rect linear spans; test_draw_basic.py::test_restore_dirty_list (whole 1e7b:0213 pass)
+game86,1e7b:105c,561,restore_w2_h08,gfx_restore_rect,src/engine/gfx.c,diff-tested,W6,F,restore family: gfx_restore_rect linear spans; test_draw_basic.py::test_restore_dirty_list (whole 1e7b:0213 pass)
+game86,1e7b:128d,633,restore_w2_h09,gfx_restore_rect,src/engine/gfx.c,diff-tested,W6,F,restore family: gfx_restore_rect linear spans; test_draw_basic.py::test_restore_dirty_list (whole 1e7b:0213 pass)
+game86,1e7b:1506,705,restore_w2_h10,gfx_restore_rect,src/engine/gfx.c,diff-tested,W6,F,restore family: gfx_restore_rect linear spans; test_draw_basic.py::test_restore_dirty_list (whole 1e7b:0213 pass)
+game86,1e7b:17c7,777,restore_w2_h11,gfx_restore_rect,src/engine/gfx.c,diff-tested,W6,F,restore family: gfx_restore_rect linear spans; test_draw_basic.py::test_restore_dirty_list (whole 1e7b:0213 pass)
+game86,1e7b:1ad0,31,restore_w2_h12,gfx_restore_rect,src/engine/gfx.c,diff-tested,W6,F,restore family: gfx_restore_rect linear spans; test_draw_basic.py::test_restore_dirty_list (whole 1e7b:0213 pass)
+game86,1e7b:1ade,14,restore_w2_h13,gfx_restore_rect,src/engine/gfx.c,diff-tested,W6,F,restore family: gfx_restore_rect linear spans; test_draw_basic.py::test_restore_dirty_list (whole 1e7b:0213 pass)
+game86,1e7b:1aec,14,restore_w2_h14,gfx_restore_rect,src/engine/gfx.c,diff-tested,W6,F,restore family: gfx_restore_rect linear spans; test_draw_basic.py::test_restore_dirty_list (whole 1e7b:0213 pass)
+game86,1e7b:1afa,14,restore_w2_h15,gfx_restore_rect,src/engine/gfx.c,diff-tested,W6,F,restore family: gfx_restore_rect linear spans; test_draw_basic.py::test_restore_dirty_list (whole 1e7b:0213 pass)
+game86,1e7b:1b08,14,restore_w2_h16,gfx_restore_rect,src/engine/gfx.c,diff-tested,W6,F,restore family: gfx_restore_rect linear spans; test_draw_basic.py::test_restore_dirty_list (whole 1e7b:0213 pass)
+game86,1e7b:1b16,14,restore_w2_h17,gfx_restore_rect,src/engine/gfx.c,diff-tested,W6,F,restore family: gfx_restore_rect linear spans; test_draw_basic.py::test_restore_dirty_list (whole 1e7b:0213 pass)
+game86,1e7b:1b24,448,restore_w2_h18,gfx_restore_rect,src/engine/gfx.c,diff-tested,W6,F,restore family: gfx_restore_rect linear spans; test_draw_basic.py::test_restore_dirty_list (whole 1e7b:0213 pass)
+game86,1e7b:1b32,14,restore_w2_h19,gfx_restore_rect,src/engine/gfx.c,diff-tested,W6,F,restore family: gfx_restore_rect linear spans; test_draw_basic.py::test_restore_dirty_list (whole 1e7b:0213 pass)
+game86,1e7b:1b40,14,restore_w2_h20,gfx_restore_rect,src/engine/gfx.c,diff-tested,W6,F,restore family: gfx_restore_rect linear spans; test_draw_basic.py::test_restore_dirty_list (whole 1e7b:0213 pass)
+game86,1e7b:1b4e,14,restore_w2_h21,gfx_restore_rect,src/engine/gfx.c,diff-tested,W6,F,restore family: gfx_restore_rect linear spans; test_draw_basic.py::test_restore_dirty_list (whole 1e7b:0213 pass)
+game86,1e7b:1b5c,164,restore_w2_h22,gfx_restore_rect,src/engine/gfx.c,diff-tested,W6,F,restore family: gfx_restore_rect linear spans; test_draw_basic.py::test_restore_dirty_list (whole 1e7b:0213 pass)
+game86,1e7b:1b6a,147,restore_w3_h00,gfx_restore_rect,src/engine/gfx.c,diff-tested,W6,F,restore family: gfx_restore_rect linear spans; test_draw_basic.py::test_restore_dirty_list (whole 1e7b:0213 pass)
+game86,1e7b:1bfd,601,restore_w3_h06,gfx_restore_rect,src/engine/gfx.c,diff-tested,W6,F,restore family: gfx_restore_rect linear spans; test_draw_basic.py::test_restore_dirty_list (whole 1e7b:0213 pass)
+game86,1e7b:1e56,709,restore_w3_h07,gfx_restore_rect,src/engine/gfx.c,diff-tested,W6,F,restore family: gfx_restore_rect linear spans; test_draw_basic.py::test_restore_dirty_list (whole 1e7b:0213 pass)
+game86,1e7b:211b,817,restore_w3_h08,gfx_restore_rect,src/engine/gfx.c,diff-tested,W6,F,restore family: gfx_restore_rect linear spans; test_draw_basic.py::test_restore_dirty_list (whole 1e7b:0213 pass)
+game86,1e7b:244c,747,restore_w3_h09,gfx_restore_rect,src/engine/gfx.c,diff-tested,W6,F,restore family: gfx_restore_rect linear spans; test_draw_basic.py::test_restore_dirty_list (whole 1e7b:0213 pass)
+game86,1e7b:27e9,1033,restore_w3_h10,gfx_restore_rect,src/engine/gfx.c,diff-tested,W6,F,restore family: gfx_restore_rect linear spans; test_draw_basic.py::test_restore_dirty_list (whole 1e7b:0213 pass)
+game86,1e7b:2bf2,1141,restore_w3_h11,gfx_restore_rect,src/engine/gfx.c,diff-tested,W6,F,restore family: gfx_restore_rect linear spans; test_draw_basic.py::test_restore_dirty_list (whole 1e7b:0213 pass)
+game86,1e7b:3067,14,restore_w3_h12,gfx_restore_rect,src/engine/gfx.c,diff-tested,W6,F,restore family: gfx_restore_rect linear spans; test_draw_basic.py::test_restore_dirty_list (whole 1e7b:0213 pass)
+game86,1e7b:3075,14,restore_w3_h13,gfx_restore_rect,src/engine/gfx.c,diff-tested,W6,F,restore family: gfx_restore_rect linear spans; test_draw_basic.py::test_restore_dirty_list (whole 1e7b:0213 pass)
+game86,1e7b:3083,14,restore_w3_h14,gfx_restore_rect,src/engine/gfx.c,diff-tested,W6,F,restore family: gfx_restore_rect linear spans; test_draw_basic.py::test_restore_dirty_list (whole 1e7b:0213 pass)
+game86,1e7b:3091,14,restore_w3_h15,gfx_restore_rect,src/engine/gfx.c,diff-tested,W6,F,restore family: gfx_restore_rect linear spans; test_draw_basic.py::test_restore_dirty_list (whole 1e7b:0213 pass)
+game86,1e7b:309f,14,restore_w3_h16,gfx_restore_rect,src/engine/gfx.c,diff-tested,W6,F,restore family: gfx_restore_rect linear spans; test_draw_basic.py::test_restore_dirty_list (whole 1e7b:0213 pass)
+game86,1e7b:30ad,14,restore_w3_h17,gfx_restore_rect,src/engine/gfx.c,diff-tested,W6,F,restore family: gfx_restore_rect linear spans; test_draw_basic.py::test_restore_dirty_list (whole 1e7b:0213 pass)
+game86,1e7b:30bb,14,restore_w3_h18,gfx_restore_rect,src/engine/gfx.c,diff-tested,W6,F,restore family: gfx_restore_rect linear spans; test_draw_basic.py::test_restore_dirty_list (whole 1e7b:0213 pass)
+game86,1e7b:30c9,14,restore_w3_h19,gfx_restore_rect,src/engine/gfx.c,diff-tested,W6,F,restore family: gfx_restore_rect linear spans; test_draw_basic.py::test_restore_dirty_list (whole 1e7b:0213 pass)
+game86,1e7b:30d7,14,restore_w3_h20,gfx_restore_rect,src/engine/gfx.c,diff-tested,W6,F,restore family: gfx_restore_rect linear spans; test_draw_basic.py::test_restore_dirty_list (whole 1e7b:0213 pass)
+game86,1e7b:30e5,14,restore_w3_h21,gfx_restore_rect,src/engine/gfx.c,diff-tested,W6,F,restore family: gfx_restore_rect linear spans; test_draw_basic.py::test_restore_dirty_list (whole 1e7b:0213 pass)
+game86,1e7b:30f3,14,restore_w3_h22,gfx_restore_rect,src/engine/gfx.c,diff-tested,W6,F,restore family: gfx_restore_rect linear spans; test_draw_basic.py::test_restore_dirty_list (whole 1e7b:0213 pass)
 fs,1000:0010,131,entry,entry,src/sound/title.c,todo,W2,fs,front screen (ILBM decode in W1 extractor)
 fs,1000:00de,44,timer_hook,timer_hook,src/sound/title.c,todo,W2,fs,front screen (ILBM decode in W1 extractor)
 fs,1000:010a,18,wait_vsync,wait_vsync,src/sound/title.c,todo,W2,fs,front screen (ILBM decode in W1 extractor)
