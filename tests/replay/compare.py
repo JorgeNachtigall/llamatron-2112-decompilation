@@ -31,6 +31,11 @@ TICK_HOOK = 0x39E4
 TITLE_HOOKS = {0x3F6F, 0x084E}  # title_tick_hook, title_tune_tick
 PLAY_HOOK = 0x1562              # play_tick_hook
 
+# DEVIATIONS #10: the loaded image has trail_head[1] = 2 (not entry-aligned) until P2's
+# first trail write; the port starts at entry 0. Skipped while the reference still holds 2.
+P2_TRAIL_HEAD = 0x2CF9
+P2_TRAIL_HEAD_LOADED = 2
+
 # Named DGROUP regions for reports (docs/re-notes-game86.md §8).
 _SCALARS = {  # DS offset: (size, name), src/game/state.h
     0x0429: (1, "frame_drawn"), 0x0453: (8, "rng.mixer"), 0x0589: (1, "flash_mode"),
@@ -59,6 +64,8 @@ _SCALARS = {  # DS offset: (size, name), src/game/state.h
     0x0682: (2, "droid_aim_timer"), 0x409C: (4, "droid_aim_votes"), 0x0919: (2, "droid_quarry"),
     0x0625: (2, "tune.fire_pressed"), 0x0627: (2, "tune.period"), 0x0629: (2, "tune.countdown"),
     0x062B: (2, "tune.position"), 0x062D: (2, "tune.restart"), 0x059E: (1, "options_default"),
+    0x0621: (2, "continue_seconds"), 0x0623: (2, "continue_ticks"),
+    0x0686: (2, "sound_key_latch"), 0x09EC: (2, "pause_message"),
     0x2104: (20, "title_objects"), 0x0904: (2, "title_timer"), 0x0906: (1, "title_key_latch"),
     0x0872: (2, "death_sound_timer"), 0x0874: (2, "rude_name"), 0x0876: (2, "debris_alt"),
     0x08F8: (2, "unhatched_left"), 0x08FA: (2, "spawn_remaining"),
@@ -145,7 +152,8 @@ def compare(port: PortRun, reference: dict[int, bytes], ignore=()) -> list[TickD
     From the first reference snapshot with a title hook until the first one with the play
     hook, the title llamas (ATTRACT_LLAMAS) are skipped and listed as ignored: the original
     keeps them in the entity table, the port in attract.c. hook_nop transitions in between
-    stay in the attract phase, because the bytes survive until entities_clear."""
+    stay in the attract phase, because the bytes survive until entities_clear. P2's trail
+    head is skipped while the reference still holds its loaded value (DEVIATIONS #10)."""
     ignore = set(ignore)
     out = []
     attract = False
@@ -157,6 +165,9 @@ def compare(port: PortRun, reference: dict[int, bytes], ignore=()) -> list[TickD
         elif hook == PLAY_HOOK:
             attract = False
         skipped = [(ATTRACT_LLAMAS, "attract llamas")] if attract else []
+        if struct.unpack_from("<H", a, P2_TRAIL_HEAD)[0] == P2_TRAIL_HEAD_LOADED:
+            skipped.append((range(P2_TRAIL_HEAD, P2_TRAIL_HEAD + 2),
+                            "trail_head[1] = 2 (DEVIATIONS #10)"))
         skip = set().union(*(r for r, _ in skipped))
         offs = [i for i in range(DGROUP_SIZE)
                 if port.mask[i] and a[i] != b[i] and i not in ignore and i not in skip]

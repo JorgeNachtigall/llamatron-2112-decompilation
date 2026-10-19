@@ -107,6 +107,11 @@ enum {
     DS_HISCORES = 0x40A0,       /* 10 x {8 ASCII digits, 8 name bytes} */
     DS_HISCORE_MARK = 0x09DE,   /* 2 words */
     DS_RUDE_NAME = 0x0874,      /* word */
+    DS_CONTINUE_SECONDS = 0x0621,
+    DS_CONTINUE_TICKS = 0x0623,
+    DS_SOUND_KEY_LATCH = 0x0686,    /* word flag */
+    DS_PAUSE_MESSAGE = 0x09EC,  /* one of the words at 09E2 (sprite bank offsets), or 0 */
+    PAUSE_POINTERS = 0x09E2,
 
     ENTITY_SIZE = 0x40,
     PLAYER_BLOCK_SIZE = 0xC8,
@@ -402,26 +407,30 @@ static void spawn_from(SpawnCursor *c, uint16_t off)
 }
 
 /* The spawn pairs a think_13 drop zeroes (game86 1000:123c..1241 via 10b0, levels.dat
- * clobber_10b0): DS address and length, false if this extraction has none. */
-static bool clobber_bytes(unsigned *off, unsigned *n)
+ * clobber_10b0): DS address, length and the intact pairs, false if this extraction has none. */
+static bool clobber_bytes(unsigned *off, unsigned *n, const LevelSpawn **intact)
 {
     const LevelSet *set = asset_levels();
     if (!set || set->clobber_10b0.level == LEVEL_NONE)
         return false;
     const LevelScript *level = asset_level(set->clobber_10b0.level);
-    if (!level)
+    if (!level || set->clobber_10b0.first_spawn + set->clobber_10b0.spawn_count
+                      > level->spawn_count)
         return false;
     *off = level_spawn_list(level) + 2u * set->clobber_10b0.first_spawn;
     *n = 2u * set->clobber_10b0.spawn_count;
+    *intact = level->spawns + set->clobber_10b0.first_spawn;
     return true;
 }
 
 /* Read as set when every byte is zero (pairs that are (0, 0) anyway read the same either
- * way). Written only when set: the original never restores the script bytes. */
+ * way). Written as zeros when set, else as the intact pairs from levels.dat, so a state
+ * written into a blank image (the replay driver) still holds the script bytes. */
 static bool clobber_from(Reader r)
 {
     unsigned off, n;
-    if (!clobber_bytes(&off, &n))
+    const LevelSpawn *intact;
+    if (!clobber_bytes(&off, &n, &intact))
         return false;
     for (unsigned i = 0; i < n; i++)
         if (get8(r, off + i) != 0)
@@ -432,14 +441,46 @@ static bool clobber_from(Reader r)
 static void clobber_to(bool clobbered, Writer w)
 {
     unsigned off, n;
-    if (!clobber_bytes(&off, &n))
+    const LevelSpawn *intact;
+    if (!clobber_bytes(&off, &n, &intact))
         return;
     for (unsigned i = 0; i < n; i++) {
-        if (w.mask)     /* compared even while not written */
-            put8k((Writer){ NULL, w.mask, w.overlaps }, off + i, 0, DGROUP_MASK_FIELD);
-        if (w.dg && clobbered)
-            w.dg[(off + i) & 0xFFFF] = 0;
+        const LevelSpawn *pair = &intact[i / 2];
+        uint8_t v = clobbered ? 0 : (i % 2 == 0 ? pair->enemy_type : pair->count);
+        put8(w, off + i, v);
     }
+}
+
+/* The word the original stores in [09EC] for pause message k (1..PAUSE_MESSAGES): the bank
+ * offset of pause picture k-1 (game86 1000:15aa reads it from DS:09E2). From the extracted
+ * sprites when they are loaded, else from the image's own table. */
+static uint16_t pause_pointer(int k, const uint8_t *image)
+{
+    if (have_data()) {
+        int index = asset_sprite_id_index((SpriteId)(SPRITE_ID_PAUSE_FIRST + k - 1));
+        const SpriteFrame *f = index >= 0 ? asset_sprite_frame(SPRITE_BANK_GAME, (unsigned)index)
+                                          : NULL;
+        if (f)
+            return f->bank_offset;
+    }
+    if (!image)
+        return 0;
+    unsigned off = PAUSE_POINTERS + 2u * (unsigned)(k - 1);
+    return (uint16_t)(image[off] | image[off + 1] << 8);
+}
+
+static int16_t pause_from(Reader r)
+{
+    uint16_t v = get16(r, DS_PAUSE_MESSAGE);
+    for (int k = 1; v && k <= PAUSE_MESSAGES; k++)
+        if (pause_pointer(k, r.dg) == v)
+            return (int16_t)k;
+    return 0;   /* 0, or not one of the pictures (never stored by the original) */
+}
+
+static uint16_t pause_to(int16_t k, const uint8_t *image)
+{
+    return k >= 1 && k <= PAUSE_MESSAGES ? pause_pointer(k, image) : 0;
 }
 
 static uint16_t spawn_to(const SpawnCursor *c)
@@ -614,6 +655,10 @@ void gamestate_from_dgroup(GameState *g, const uint8_t *dgroup)
     g->hiscore_mark[0] = gets16(r, DS_HISCORE_MARK);
     g->hiscore_mark[1] = gets16(r, DS_HISCORE_MARK + 2);
     g->rude_name = getflag16(r, DS_RUDE_NAME);
+    g->continue_seconds = gets16(r, DS_CONTINUE_SECONDS);
+    g->continue_ticks = gets16(r, DS_CONTINUE_TICKS);
+    g->sound_key_latch = getflag16(r, DS_SOUND_KEY_LATCH);
+    g->pause_message = pause_from(r);
 }
 
 static void write_state(const GameState *g, Writer w)
@@ -777,6 +822,10 @@ static void write_state(const GameState *g, Writer w)
     put16(w, DS_HISCORE_MARK, (uint16_t)g->hiscore_mark[0]);
     put16(w, DS_HISCORE_MARK + 2, (uint16_t)g->hiscore_mark[1]);
     putflag16(w, DS_RUDE_NAME, g->rude_name);
+    put16(w, DS_CONTINUE_SECONDS, (uint16_t)g->continue_seconds);
+    put16(w, DS_CONTINUE_TICKS, (uint16_t)g->continue_ticks);
+    putflag16(w, DS_SOUND_KEY_LATCH, g->sound_key_latch);
+    put16(w, DS_PAUSE_MESSAGE, pause_to(g->pause_message, w.dg));
 }
 
 void gamestate_to_dgroup(const GameState *game, uint8_t *dgroup)

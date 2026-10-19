@@ -117,6 +117,23 @@ def test_spawns_clobbered_10b0(dg, image):
     zeroed[clobber.start:clobber.stop] = bytes(4)
     state = dg.from_dgroup(bytes(zeroed))           # reads as clobbered ...
     assert dg.to_dgroup(state, image)[clobber.start:clobber.stop] == bytes(4)   # ... and writes 0
+    # intact: written from levels.dat, so a blank base (the replay driver) gets the script bytes
+    blank = dg.to_dgroup(dg.from_dgroup(image))
+    assert blank[clobber.start:clobber.stop] == image[clobber.start:clobber.stop]
+
+
+PAUSE_MESSAGE, PAUSE_POINTERS = 0x09EC, 0x09E2
+
+
+def test_pause_message(dg, image):
+    assert all(dg.mask[i] == MASK_FIELD for i in (PAUSE_MESSAGE, PAUSE_MESSAGE + 1))
+    pointers = struct.unpack_from("<4H", image, PAUSE_POINTERS)
+    assert u16(dg.canonical(put16(image, PAUSE_MESSAGE, 0)), PAUSE_MESSAGE) == 0
+    for p in pointers:                              # 1000:15aa stores one of these words
+        state = dg.from_dgroup(put16(image, PAUSE_MESSAGE, p))
+        assert u16(dg.to_dgroup(state, image), PAUSE_MESSAGE) == p
+        if dg.has_data:                             # from the extracted sprites, not the image
+            assert u16(dg.to_dgroup(state), PAUSE_MESSAGE) == p
 
 
 def test_tune_pointers_are_list_offsets(dg, image):

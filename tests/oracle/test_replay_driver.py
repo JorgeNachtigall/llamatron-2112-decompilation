@@ -95,3 +95,17 @@ def test_compare_names_fields():
     assert diffs[0].offsets == []
     assert diffs[1].fields() == ["player+00", "entities[3]+02"]
     assert "first divergence at tick 20" in compare.report(diffs)
+
+
+def test_compare_skips_p2_trail_head_until_p2_writes():
+    mask = bytearray(compare.DGROUP_SIZE)
+    mask[0x2CF9] = mask[0x2CFA] = 1
+    mine = bytes(compare.DGROUP_SIZE)                    # the port starts at entry 0
+    loaded, written = bytearray(mine), bytearray(mine)
+    loaded[0x2CF9] = 2
+    written[0x2CF9] = 8                                  # P2 wrote entry 1
+    port = compare.PortRun(10, bytes(mask), {10: mine, 20: mine})
+    diffs = compare.compare(port, {10: bytes(loaded), 20: bytes(written)})
+    assert diffs[0].offsets == [] and diffs[0].ignored
+    assert diffs[1].offsets == [0x2CF9] and not diffs[1].ignored
+    assert "[ignored trail_head[1] = 2 (DEVIATIONS #10) 2CF9..2CFA]" in compare.report(diffs)
