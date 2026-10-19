@@ -29,6 +29,8 @@ foreach(_src IN LISTS _game_srcs)
     list(APPEND _testlib_srcs "${_game_dir}/${_src}")
   endif()
 endforeach()
+# GameState <-> DGROUP adapter (tests/adapters/dgroup_map.h), only in the test build
+list(APPEND _testlib_srcs "${CMAKE_CURRENT_LIST_DIR}/../adapters/dgroup_map.c")
 
 add_library(llamatron_game_testlib SHARED ${_testlib_srcs})
 set(_game "llamatron_game")
@@ -40,6 +42,11 @@ target_compile_options(llamatron_game_testlib PRIVATE
   "$<TARGET_PROPERTY:${_game},COMPILE_OPTIONS>")
 target_link_libraries(llamatron_game_testlib PRIVATE
   "$<TARGET_PROPERTY:${_game},LINK_LIBRARIES>")
+target_include_directories(llamatron_game_testlib PRIVATE "${CMAKE_CURRENT_LIST_DIR}/../adapters")
+# dgroup_map resolves DS pointers ([0x39EB], [0x06C7]) through the extracted data
+if(TARGET llamatron_assets AND TARGET llama_assets_files)
+  target_link_libraries(llamatron_game_testlib PRIVATE llamatron_assets llama_assets_files)
+endif()
 set_target_properties(llamatron_game_testlib PROPERTIES
   C_VISIBILITY_PRESET default           # ctypes needs every game function exported
   POSITION_INDEPENDENT_CODE ON)
