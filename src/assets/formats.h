@@ -127,18 +127,27 @@ typedef struct FlashList {
                                  * bits 0..11 are colour, 0x1000 = black */
 } FlashList;
 
-/* palettes.dat's flash lists in file order, named where the meaning is known (the extractor
- * writes them in this order; the DS offset each stands for is in the comment). */
+/* palettes.dat's flash lists in file order (the extractor writes them in this order; the DS
+ * offset each stands for is in the comment). Meanings from the hit / pickup code (W5a Thorn). */
 typedef enum FlashListId {
-    FLASH_LIST_PLAYER_DEATH, /* DS:06C9 */
-    FLASH_LIST_06CD,
-    FLASH_LIST_06FD,
-    FLASH_LIST_0707,
-    FLASH_LIST_0713,
-    FLASH_LIST_0721,
-    FLASH_LIST_0729,
-    FLASH_LIST_072D,
+    FLASH_LIST_KILL,          /* DS:06C9 enemy kill (ent_hit_00) and player death */
+    FLASH_LIST_DEADLY_TOUCH,  /* DS:06CD deadly pickup / deadly touch (1000:37c2) */
+    FLASH_LIST_SMART_BOMB,    /* DS:06FD */
+    FLASH_LIST_HIT,           /* DS:0707 non-lethal hit (ent_hit handlers) */
+    FLASH_LIST_HIT_ALT,       /* DS:0713 non-lethal hit (ent_hit handlers) */
+    FLASH_LIST_0721,          /* DS:0721 meaning not known yet */
+    FLASH_LIST_HIT_0C,        /* DS:0729 ent_hit_0c hit */
+    FLASH_LIST_KILL_0C,       /* DS:072D ent_hit_0c kill */
     FLASH_LIST_COUNT,
+
+    /* Old names, kept until hit.c / think_basic.c switch; to be removed. */
+    FLASH_LIST_PLAYER_DEATH = FLASH_LIST_KILL,
+    FLASH_LIST_06CD = FLASH_LIST_DEADLY_TOUCH,
+    FLASH_LIST_06FD = FLASH_LIST_SMART_BOMB,
+    FLASH_LIST_0707 = FLASH_LIST_HIT,
+    FLASH_LIST_0713 = FLASH_LIST_HIT_ALT,
+    FLASH_LIST_0729 = FLASH_LIST_HIT_0C,
+    FLASH_LIST_072D = FLASH_LIST_KILL_0C,
 } FlashListId;
 
 typedef struct PaletteSet {
