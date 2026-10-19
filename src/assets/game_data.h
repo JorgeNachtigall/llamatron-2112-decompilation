@@ -52,23 +52,30 @@ const SineTables *asset_sine(void);
 
 /* ---- Palettes ---- */
 
+/* Game code uses the named accessors (asset_palette, asset_flash_list, asset_text,
+ * asset_dos_message, asset_sprite_id_gfx); the *_at(ds_offset) forms are for adapters and tests
+ * that map original memory. game_data_load() fails if any named ID is missing. */
+
 const PaletteSet *asset_palettes(void);
+const GfxGamePalette *asset_palette(PaletteId id);
 /* Palette the original passes to palette_set as DS:ds_offset (0x2144, 0x2164, 0x2175). */
 const GfxGamePalette *asset_palette_at(uint16_t ds_offset);
 /* Flash list by name (store it in GameState.flash_list; NULL = none). */
 const FlashList *asset_flash_list(FlashListId id);
-/* Flash list the original stores in g_flash_list as DS:ds_offset (for adapters/tests). */
+/* Flash list the original stores in g_flash_list as DS:ds_offset. */
 const FlashList *asset_flash_list_at(uint16_t ds_offset);
 
 /* ---- Texts ---- */
 
 const TextSet *asset_texts(void);
+const GameText *asset_text(TextId id);   /* GameText.raw: the original bytes */
 const GameText *asset_text_at(uint16_t ds_offset);
 /* Raw bytes of the text at DS:ds_offset (see GameText.raw), or NULL. */
 const char *asset_text_raw(uint16_t ds_offset);
 /* Title text shown before `level` (DS:2340 table), or NULL. */
 const GameText *asset_level_title(int level);
-/* DOS message at DS:ds_offset, NUL-terminated without the '$', or NULL. */
+/* DOS message, NUL-terminated without the '$', or NULL. */
+const char *asset_dos_message(MessageId id);
 const char *asset_dos_message_at(uint16_t ds_offset);
 
 /* ---- Levels, samples, scores, config ---- */

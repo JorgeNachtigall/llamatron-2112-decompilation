@@ -167,10 +167,15 @@ typedef enum FlashListId {
     FLASH_LIST_HIT_0C,        /* DS:0729 ent_hit_0c hit */
     FLASH_LIST_KILL_0C,       /* DS:072D ent_hit_0c kill */
     FLASH_LIST_COUNT,
-
-    /* Old name, kept until think_orbiters.c switches; to be removed. */
-    FLASH_LIST_0721 = FLASH_LIST_STORM,
 } FlashListId;
+
+/* Palettes the original passes to palette_set (1000:1be6), by name (asset_palette()). */
+typedef enum PaletteId {
+    PALETTE_ID_GAME,    /* DS:2144 the in-game palette, set everywhere in play */
+    PALETTE_ID_EGA,     /* DS:2164 EGA register block, video init on EGA (1000:e510) */
+    PALETTE_ID_BLACK,   /* DS:2175 all black, while a new background is revealed (1000:61ff) */
+    PALETTE_ID_COUNT,
+} PaletteId;
 
 typedef struct PaletteSet {
     uint8_t vga_attribute_registers[VGA_ATTRIBUTE_REGISTERS]; /* DS:2122 */
@@ -246,6 +251,32 @@ typedef struct TextSet {
     uint16_t message_count;
     DosMessage *messages;
 } TextSet;
+
+/* Texts by name (asset_text()); the DS offset is SI at the call site. */
+typedef enum TextId {
+    TEXT_ID_WARP_BANNER,       /* DS:05A5 "warp five levels", g_wave_result == 4 (1000:0646) */
+    TEXT_ID_HERD_WAVE_BANNER,  /* DS:05DB at wave start when g_wave_type != 0 (1000:05a5) */
+    TEXT_ID_DEMO_BANNER,       /* DS:05F4 at wave start in demo mode (1000:05b2) */
+    TEXT_ID_HISCORE_ENTRY,     /* DS:094B name entry heading (1000:5a50) */
+    TEXT_ID_HISCORE_NAME,      /* DS:09B5 name entry line (1000:5af3) */
+    TEXT_ID_HISCORE_TITLE,     /* DS:0AAE high-score table heading (1000:5c9f) */
+    TEXT_ID_VERSION_SCROLL,    /* DS:0B7A scroller at start-up, video_init (1000:5987) */
+    TEXT_ID_CREDITS_SCROLL,    /* DS:117A attract scroller, case 2 (1000:02f9) */
+    TEXT_ID_STORY_SCROLL,      /* DS:14E1 attract scroller, case 0 (1000:02d7) */
+    TEXT_ID_STORY_LATE,        /* DS:1BC8 the story scroller's late text, mode 2 (1000:58f1) */
+    TEXT_ID_COUNT,
+} TextId;
+
+/* DOS messages ('$'-terminated, INT 21h/09h) by name (asset_dos_message()). */
+typedef enum MessageId {
+    MESSAGE_ID_FILE_ERROR,      /* DS:0463 */
+    MESSAGE_ID_REINSTALL,       /* DS:0471 "try running Install again" */
+    MESSAGE_ID_NO_MEMORY,       /* DS:04B3 */
+    MESSAGE_ID_NO_JOYSTICK,     /* DS:04E1 falls back to the keyboard */
+    MESSAGE_ID_NO_CONFIG,       /* DS:0520 no or invalid llama.inf */
+    MESSAGE_ID_NO_SOUND_CARD,   /* DS:0563 */
+    MESSAGE_ID_COUNT,
+} MessageId;
 
 bool texts_parse(const uint8_t *data, size_t size, TextSet *out);
 void texts_free(TextSet *set);

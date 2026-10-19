@@ -43,11 +43,60 @@ static struct {
     ControlTables controls;
     TitleTables title;
     NamedSprites named_sprites;
+    const GfxGamePalette *palette_by_id[PALETTE_ID_COUNT];
+    const FlashList *flash_by_id[FLASH_LIST_COUNT];
+    const GameText *text_by_id[TEXT_ID_COUNT];
+    const char *message_by_id[MESSAGE_ID_COUNT];
 } data;
+
+static bool named_id_missing(const char *what, uint16_t ds_offset);
+
+/* DS offsets behind the named IDs (formats.h). */
+static const uint16_t palette_offsets[PALETTE_ID_COUNT] = {0x2144, 0x2164, 0x2175};
+static const uint16_t flash_offsets[FLASH_LIST_COUNT] = {0x06C9, 0x06CD, 0x06FD, 0x0707, 0x0713, 0x0721, 0x0729, 0x072D};
+static const uint16_t text_offsets[TEXT_ID_COUNT] = {
+    0x05A5, 0x05DB, 0x05F4, 0x094B, 0x09B5, 0x0AAE, 0x0B7A, 0x117A, 0x14E1, 0x1BC8,
+};
+static const uint16_t message_offsets[MESSAGE_ID_COUNT] = {0x0463, 0x0471, 0x04B3, 0x04E1, 0x0520, 0x0563};
+
+static const char *find_message(uint16_t ds_offset)
+{
+    for (uint16_t i = 0; i < data.texts.message_count; i++)
+        if (data.texts.messages[i].ds_offset == ds_offset)
+            return data.texts.messages[i].text;
+    return NULL;
+}
+
+/* Looks up every named ID; false (with a message) if the data lacks one. */
+static bool resolve_ids(void)
+{
+    for (int i = 0; i < PALETTE_ID_COUNT; i++) {
+        const NamedPalette *p = palettes_find(&data.palettes, palette_offsets[i]);
+        if (!p)
+            return named_id_missing("palette", palette_offsets[i]);
+        data.palette_by_id[i] = &p->palette;
+    }
+    for (int i = 0; i < FLASH_LIST_COUNT; i++)
+        if (!(data.flash_by_id[i] = palettes_find_flash_list(&data.palettes, flash_offsets[i])))
+            return named_id_missing("flash list", flash_offsets[i]);
+    for (int i = 0; i < TEXT_ID_COUNT; i++)
+        if (!(data.text_by_id[i] = texts_find(&data.texts, text_offsets[i])))
+            return named_id_missing("text", text_offsets[i]);
+    for (int i = 0; i < MESSAGE_ID_COUNT; i++)
+        if (!(data.message_by_id[i] = find_message(message_offsets[i])))
+            return named_id_missing("DOS message", message_offsets[i]);
+    return true;
+}
 
 static bool report(const char *name)
 {
     fprintf(stderr, "game data: %s: %s\n", name, format_error());
+    return false;
+}
+
+static bool named_id_missing(const char *what, uint16_t ds_offset)
+{
+    fprintf(stderr, "game data: no %s at DS:%04X\n", what, ds_offset);
     return false;
 }
 
@@ -78,7 +127,8 @@ bool game_data_load(void)
               LOAD(LLAMA_ASSET_CONTROLS_DAT, control_tables_parse(bytes, size, &data.controls)) &&
               LOAD(LLAMA_ASSET_TITLE_DAT, title_tables_parse(bytes, size, &data.title)) &&
               (pcm = asset_get(LLAMA_ASSET_SAMPLES_BIN, &pcm_size)) != NULL &&
-              LOAD(LLAMA_ASSET_SAMPLES_IDX, samples_parse(bytes, size, pcm, pcm_size, &data.samples));
+              LOAD(LLAMA_ASSET_SAMPLES_IDX, samples_parse(bytes, size, pcm, pcm_size, &data.samples)) &&
+              resolve_ids();
 #undef LOAD
     data.loaded = ok;
     return ok;
@@ -166,11 +216,14 @@ const GfxGamePalette *asset_palette_at(uint16_t ds_offset)
     return p ? &p->palette : NULL;
 }
 
+const GfxGamePalette *asset_palette(PaletteId id)
+{
+    return data.loaded && (unsigned)id < PALETTE_ID_COUNT ? data.palette_by_id[id] : NULL;
+}
+
 const FlashList *asset_flash_list(FlashListId id)
 {
-    if (!data.loaded || (unsigned)id >= FLASH_LIST_COUNT || id >= data.palettes.flash_list_count)
-        return NULL;
-    return &data.palettes.flash_lists[id];
+    return data.loaded && (unsigned)id < FLASH_LIST_COUNT ? data.flash_by_id[id] : NULL;
 }
 
 const FlashList *asset_flash_list_at(uint16_t ds_offset)
@@ -188,6 +241,11 @@ const GameText *asset_text_at(uint16_t ds_offset)
     return data.loaded ? texts_find(&data.texts, ds_offset) : NULL;
 }
 
+const GameText *asset_text(TextId id)
+{
+    return data.loaded && (unsigned)id < TEXT_ID_COUNT ? data.text_by_id[id] : NULL;
+}
+
 const char *asset_text_raw(uint16_t ds_offset)
 {
     const GameText *text = asset_text_at(ds_offset);
@@ -202,12 +260,14 @@ const GameText *asset_level_title(int level)
     return NULL;
 }
 
+const char *asset_dos_message(MessageId id)
+{
+    return data.loaded && (unsigned)id < MESSAGE_ID_COUNT ? data.message_by_id[id] : NULL;
+}
+
 const char *asset_dos_message_at(uint16_t ds_offset)
 {
-    for (uint16_t i = 0; data.loaded && i < data.texts.message_count; i++)
-        if (data.texts.messages[i].ds_offset == ds_offset)
-            return data.texts.messages[i].text;
-    return NULL;
+    return data.loaded ? find_message(ds_offset) : NULL;
 }
 
 const LevelSet *asset_levels(void)

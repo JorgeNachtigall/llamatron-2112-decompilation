@@ -110,6 +110,9 @@ static void check_palettes(void)
     for (int c = 0; black && c < GFX_GAME_COLORS; c++)
         CHECK(black->st_words[c] == 0);
     CHECK(asset_palette_at(0x2146) == NULL);
+    for (int id = 0; id < PALETTE_ID_COUNT; id++)
+        CHECK(asset_palette((PaletteId)id) == asset_palette_at(palettes[id]));
+    CHECK(asset_palette(PALETTE_ID_BLACK) == black && asset_palette(PALETTE_ID_COUNT) == NULL);
 }
 
 static void check_texts(void)
@@ -137,6 +140,17 @@ static void check_texts(void)
         const char *message = asset_dos_message_at(set->messages[i].ds_offset);
         CHECK(message && strlen(message) == set->messages[i].length && !strchr(message, '$'));
     }
+    /* named IDs: the call-site offsets listed in formats.h, every one a different entry */
+    static const uint16_t text_ids[] = {0x05A5, 0x05DB, 0x05F4, 0x094B, 0x09B5, 0x0AAE, 0x0B7A, 0x117A, 0x14E1, 0x1BC8};
+    _Static_assert(sizeof text_ids / sizeof *text_ids == TEXT_ID_COUNT, "text ids");
+    for (int id = 0; id < TEXT_ID_COUNT; id++)
+        CHECK(asset_text((TextId)id) != NULL && asset_text((TextId)id) == asset_text_at(text_ids[id]));
+    CHECK(asset_text(TEXT_ID_COUNT) == NULL);
+    static const uint16_t message_ids[] = {0x0463, 0x0471, 0x04B3, 0x04E1, 0x0520, 0x0563};
+    _Static_assert(sizeof message_ids / sizeof *message_ids == MESSAGE_ID_COUNT, "message ids");
+    for (int id = 0; id < MESSAGE_ID_COUNT; id++)
+        CHECK(asset_dos_message((MessageId)id) != NULL && asset_dos_message((MessageId)id) == asset_dos_message_at(message_ids[id]));
+    CHECK(MESSAGE_ID_COUNT == LLAMA_MESSAGE_COUNT && asset_dos_message(MESSAGE_ID_COUNT) == NULL);
 }
 
 static void check_levels(void)
