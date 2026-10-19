@@ -203,14 +203,21 @@ static void attract_llamas_draw(const DrawTarget *target, const AttractArt *art)
 void title_tick_hook(GameState *game)
 {
     if (game->title_timer == TITLE_TIMER_START) {
+        /* Quirk kept: the original's "still dropping" flag is AX (1000:3f85 MOV AX,1), and
+         * the landing sound's driver call (3f97) overwrites it before the test at 3fa1. The
+         * driver leaves AX = 0300h (nonzero); with sound off the stub 1000:e785 returns
+         * AX = 0. So with sound off, a tick on which the last dropping letter lands already
+         * counts as done and starts title_timer one tick early. */
         bool dropping = false;
         for (int i = 0; i < TITLE_LETTERS; i++) {
             if (game->title_objects[i] <= 0)
                 continue;
             dropping = true;
             game->title_objects[i] = (int16_t)(game->title_objects[i] - LETTER_STEP);
-            if (game->title_objects[i] <= 0)
+            if (game->title_objects[i] <= 0) {
                 play(SOUND_LETTER_LANDS);
+                dropping = game->sound_on;
+            }
         }
         if (dropping)
             return;

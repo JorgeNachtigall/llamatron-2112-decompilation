@@ -1,6 +1,7 @@
 """W5b title screen (src/game/attract.c) against game86: title_tune_start (083b) and the tune
 set-up 5c3f..5c54, title_tune_tick (084e), title_draw (3ee0..3f6b), attract_llamas_init
-(44d7), title_tick_hook (3f6f with attract_llamas_tick 4571) and title_draw_hook (402c with
+(44d7), title_tick_hook (3f6f with attract_llamas_tick 4571; with the sound driver and with
+the sound-off stub e785) and title_draw_hook (402c with
 title_draw_logo_row 40fc and attract_llamas_draw 4603).
 
 The title llamas live in the entity table's first 576 bytes in the original and in attract.c's
@@ -40,6 +41,8 @@ TUNE_LIST = 0x09D5
 OPTIONS, OPTIONS_DEFAULT = 0x2CF6, 0x059E
 TITLE_OBJECTS, TITLE_TIMER, KEY_LATCH = 0x2104, 0x0904, 0x0906
 TICKS = 0x39E6
+SOUND_ON = 0x0688
+SOUND_OFF_STUB = (0x1000, 0xE785)     # XOR AX,AX; RETF
 LLAMAS, LLAMA_COUNT, LLAMA_SIZE = 0x48C1, 32, 18
 assert set(ATTRACT_LLAMAS) == set(range(LLAMAS, LLAMAS + LLAMA_COUNT * LLAMA_SIZE))
 DRAW_STATE = {DRAW_PAGE, DRAW_PAGE + 1, DRAW_FLAGS, DRAW_SCALE, DRAW_SCALE + 1, DRAW_MIRROR,
@@ -201,13 +204,23 @@ def test_tune(machine, oracle, c, name, entry, stop, case):
     assert got_sounds == want_sounds
 
 
+@pytest.mark.parametrize("sound", ["driver", "stub"])
 @pytest.mark.parametrize("case", fuzz_cases(128))
-def test_title_tick_hook(machine, oracle, c, case):
-    rnd = case_rng("title_tick_hook", case)
+def test_title_tick_hook(machine, oracle, c, sound, case):
+    # 1000:1514 swaps sound_on and [0400] together: the driver (AX = 0300h after a request)
+    # with sound on, game86's stub (AX = 0) with it off. The landing request's AX is 3fa1's
+    # "still dropping" flag (see attract.c).
+    rnd = case_rng(f"title_tick_hook_{sound}", case)
     img = base_image(oracle, machine, rnd, c)
+    if rnd.random() < 0.4:                  # the last dropping letters land on this tick
+        for i in range(10):
+            struct.pack_into("<h", img, TITLE_OBJECTS + 2 * i, rnd.choice([-1, 0, 0, 1, 2]))
+        struct.pack_into("<h", img, TITLE_TIMER, 0x50)
+    img[SOUND_ON] = sound == "driver"
     put_llamas(img, c, llama_records(rnd, c))
     case_ = finish(oracle, img, rnd)
-    want, want_sounds = oracle.run_original(machine, case_, None, "1000:3f6f")
+    want, want_sounds = oracle.run_original(machine, case_, None, "1000:3f6f",
+                                            driver=None if sound == "driver" else SOUND_OFF_STUB)
     got, got_sounds = oracle.run_port(case_, None, port_call(c, case_, c.fn["title_tick_hook"]))
     compare(oracle, want, got)
     assert got_sounds == want_sounds

@@ -184,8 +184,10 @@ class ThinkOracle:
     # ---- running both sides -----------------------------------------------------------
 
     def run_original(self, machine, case: ThinkCase, think: int | None, entry: str | None = None,
-                     stop: str | None = None):
-        """Runs think handler `think`, or the code at `entry` (until its RET, or until `stop`)."""
+                     stop: str | None = None, driver: tuple[int, int] | None = None):
+        """Runs think handler `think`, or the code at `entry` (until its RET, or until `stop`).
+        `driver` (segment, offset) replaces the stub as [0400], e.g. game86's own sound-off
+        stub 1000:e785 (XOR AX,AX; RETF); its requests are recorded the same way."""
         machine.write_dgroup(0, case.image)
         # Stub driver: AH=6 answers the status (AH = sample playing, AL = priority); every
         # other function returns AL = 0 with AH unchanged, as sblaster.bin's (e.g. AH=3 at
@@ -197,9 +199,10 @@ class ThinkOracle:
                                           0xCB,                       # RETF
                                           0xB0, 0x00,                 # MOV AL,0
                                           0xCB]))                     # RETF
-        machine.write_dgroup(SND_DRIVER, struct.pack("<2H", 0, STUB_SEG))
+        seg, off = driver or (STUB_SEG, 0)
+        machine.write_dgroup(SND_DRIVER, struct.pack("<2H", off, seg))
         heard = []
-        bp = machine.add_breakpoint((STUB_SEG, 0), lambda m: heard.append(m.get_regs()))
+        bp = machine.add_breakpoint((seg, off), lambda m: heard.append(m.get_regs()))
         try:
             if entry is None:
                 # entities_think_all calls through SI (1000:4363 MOV SI,[BX+1FD2]; CALL SI), and
