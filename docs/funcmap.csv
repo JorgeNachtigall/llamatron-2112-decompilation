@@ -1,5 +1,5 @@
 program,orig_addr,size,name,c_symbol,file,status,owner,range,notes
-game86,1000:0010,676,main,game_main,src/game/main_sm.c,todo,W4,A,
+game86,1000:0010,676,main,game_main,src/game/main_sm.c,todo,W4,A,RNG table build 007b..00ab = rng_shuffle (diff-tested in oracle.rng + dosbox.probe_rng)
 game86,1000:0309,44,hud_refresh_if_dirty,hud_refresh_if_dirty,src/game/hud.c,todo,W6,A,
 game86,1000:0335,93,score_add,score_add,src/game/player.c,todo,W4,A,
 game86,1000:0392,10,script_op7,script_op7,src/game/script.c,todo,W4,A,
@@ -236,7 +236,7 @@ game86,1000:5d5d,69,text_draw_row_coloured,text_draw_row_coloured,src/game/text.
 game86,1000:5da2,268,hiscore_check_insert,hiscore_check_insert,src/game/hiscore.c,todo,W6,E,
 game86,1000:5eae,43,unk_1000_5eae,,,todo,W6,E,
 game86,1000:5ed9,146,game_exit,game_exit,src/game/main_sm.c,todo,W4,E,
-game86,1000:5f6b,316,config_init,config_from_options,src/game/init.c,todo,W4,E,PSP tail -> port options
+game86,1000:5f6b,316,config_init,config_from_options,src/game/init.c,todo,W4,E,PSP tail -> port options; RNG seed step = rng_seed (diff-tested in oracle.rng)
 game86,1000:60aa,104,data_load,assets_load,src/assets/,todo,W1,E,assets come from build/generated
 game86,1000:6112,130,vram_fill_rect,draw_rect_outline,src/game/draw_rect.c,diff-tested,W6,E,tests/oracle/test_draw_basic.py::test_rect_outline
 game86,1000:619c,61,vram_fill_span,draw_rect_outline,src/game/draw_rect.c,diff-tested,W6,E,draw_dot(); via test_rect_outline
@@ -305,7 +305,7 @@ game86,1000:e519,78,irq_install,irq_install,src/platform/,todo,W2,S,not ported: 
 game86,1000:e567,140,irq09_keyboard,kbd_on_scancode,src/engine/input.c,todo,W2,S,
 game86,1000:e5f3,18,wait_vsync,wait_vsync,src/platform/,todo,W2,S,platform: end of frame
 game86,1000:e605,17,kbd_flush,kbd_flush,src/platform/,todo,W2,S,platform
-game86,1000:e616,72,rng_mix,rng_mix,src/game/rng.c,diff-tested,W4,S,BIOS tick passed per call (ctest oracle.rng incl. tick schedules); shuffle 007b..00ab = rng_shuffle (RngTickSource); seed part of 5f6b = rng_seed
+game86,1000:e616,72,rng_mix,rng_mix,src/game/rng.c,diff-tested,W4,S,BIOS tick passed per call (ctest oracle.rng incl. tick schedules; DOSBox-X == oracle == C in dosbox.probe_rng); shuffle 007b..00ab = rng_shuffle (RngTickSource); seed part of 5f6b = rng_seed
 game86,1000:e65e,46,cmp_load,cmp_load,tools/extract/,todo,W1,S,build-time extraction
 game86,1000:e6bb,130,lzss_decode,lzss_decode,tools/extract/,todo,W1,S,build-time extraction
 game86,1000:e73d,59,lzss_getbyte,lzss_decode,tools/extract/,todo,W1,S,build-time extraction
