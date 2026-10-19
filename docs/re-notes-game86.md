@@ -35,7 +35,10 @@ Legend: **[C]** confirmed from code, **[H]** hypothesis.
 - `1000:0040` saves DS (`CS:[0x255]`), PSP segment ES (`CS:[0x257]`), SP; stores CS into `1e7b:013d`
   and `DS:[0x39e2]` (segment half of the far frame-hook pointer). Then: `e788` (resize memory block),
   `5f6b` (config), `60aa` (data files), `e519` (hook IRQs + PIT).
-- **`1000:5f6b` config** [C]: seeds RNG from BIOS tick count `0040:006C` (`[0x44d]`=0x40):
+- **`1000:5f6b` config** [C]: seeds RNG from the BIOS tick count: `MOV ES,[0x44d]` then
+  `ES:[0x46c]/[0x46e]`; `[0x44d]` holds **0** in the image, so this reads absolute `0000:046C`
+  (= `0040:006C`) [C, confirmed by W3 running 5f6b/e616 in the unicorn harness,
+  `tests/oracle/test_rng.py`]; `rng_mix` (`e616`) leaves ES=0 on return.
   `[0x453]=[0x457]=low word, [0x455]=[0x459]=high word`. Checks `PSP:81h=='l'` else exits with
   `4CFDh` (`1000:5f66`). Reads `PSP:85h -> [0x589]` (flash option), `PSP:86h -> [0x58a]` (VGA flag),
   `PSP:88h` joystick flag -> `[0x58b]` (joystick) / `[0x58d]` (keyboard). If joystick: calibration loop
@@ -115,7 +118,9 @@ Two independent clocks:
   `[2],[4]` x,y, `[6]` state (-> draw/animate handler table `DS:202E`, 19 entries), `[0x3a]` kind for
   the "counts" list `DS:220A`, `[0x3c]`/`[0x3e]` collision/hit handler index (-> table `CS:0C04`,
   18 entries), `[0x32]` sprite pointer, `[0x36]` frame. Per-type think handlers via `DS:1FD2`
-  (13 entries, `1000:4331..4373` loop) [C]. Player state: `[0x2cfb/0x2cfd]` P1 x,y,
+  (**46 entries**, `1FD2..202D`, indexed by the low byte of `[0]`; `1000:4331..4373` loop) [C]
+  — the earlier "13 entries" was wrong; 33 of the handlers were undisassembled code holes. Full
+  record layout in §8.3. Player state: `[0x2cfb/0x2cfd]` P1 x,y,
   `[0x2cff/0x2d01]` P2 x,y, clamps x in [0x0F,0x130), y in [0x12,0xBC). Direction tables
   `DS:0743/0753/0763/07B3/07C3/07D3/07E3` indexed by 4-bit joystick nibble. Bullets: ring
   buffers `DS:6CC9` (P1) and `DS:70C9` (P2), 128 x 8 bytes. Lives `[0x21a6]`, score digits
@@ -153,13 +158,181 @@ Two independent clocks:
     bright white on EGA, 1010h DAC entry on VGA).
   So 'N' => neither effect; this matches install.exe's menu (see `docs/re-notes-fs-install.md`).
 
-## 7. Coverage after headless passes (see `scratchpad/dis/Disasm.java`, targets files)
-- CODE_0 (1000:0000-e7af): 15,783 instructions, 15,174 undefined bytes left (of which ~9.6 KB are
-  the two CS-resident dirty-rect lists at `1000:673f` and `1000:79f9`, i.e. data). 269 functions.
-- CODE_1 (1e7b): fully code except 211 bytes. CODE_2 (218C): sprite data (1080 "instructions" there
-  are mis-disassembly from the first auto-analysis and should be cleared). CODE_3 (30EB): zero BSS.
-  CODE_4 (3559): DGROUP data; holes are tables/strings (level scripts 2BDA.., enemy tables 2CA4..,
-  palette, text, default scores, font/sine BSS at 39EE/4141, entity table 48C1 BSS).
-- Remaining code holes worth a pass: `1000:0daa` (1160 B), `1000:12c6`, `1000:31d8`, `1000:37c2`
-  (1351 B), `1000:495f` (1917 B): reached via tables not yet followed (check `[SI+0x3c]`-indexed
-  tables and the text-engine escape dispatch).
+## 7. Coverage and annotation (W8)
+Headless project `ghidra/headless/LlamatronCLI.gpr`, scripts in `tools/ghidra/` (README there).
+Names live in `re/symbols.csv` (local) and are applied with `ApplySymbols.java`; the listings in
+`re/listings/` are regenerated with symbolic operands and comments. `docs/funcmap.csv` lists every
+routine (address, name, proposed C symbol, owner, range, status).
+
+- Passes 1-3 (earlier): direct call targets and the dispatch tables known at the time.
+- Pass 4 (`re/targets/game86_pass4.txt`): `table 1000:1047 12` — kill-action table jumped to from
+  `ent_hit_03` (`1000:106f`, index entity `+0x1e`); closed `12c6`, `13a6`, `1416`, `3b92..3dac`.
+- Pass 5: `table 3559:1fd2 46 1000` — the think table really has 46 entries; 33 new handlers
+  (`0f10`, `148d`, `203f`..`3cea`, `504f`), which were most of the big holes (`0daa`, `31d8`,
+  `37c2`, `495f` areas).
+- Pass 6: `table 1000:0f7e 10` (pickup effects, index `+0x14`, from `think_1c` `1000:0f69`),
+  `table 1000:3aff 4` (`think_0e` sub-modes, index `+0x20`), the pause tick hook `14d0`
+  (installed at `159c`), entity callbacks `3119`/`32d7` (stored in `+0x1c` at `30da`/`316c`) and
+  six fall-through routines (`1538`, `424c`, `42bc`, `4bd3`, `5994`, `5eae`).
+- **Result: no code holes left in CODE_0/CODE_1.** The remaining undefined bytes are data only:
+  header/copyright (`0000`, `0017`), CS dispatch tables (`0245`, `0269`, `0c04`, `0f7e`, `1047`,
+  `3aff`, `8e71`, `abd1`, `1e7b:031c`), CS variables (`6194`, `e783`), the two dirty-rect lists
+  (`673f`, `79f9`) and `e68c` (47 bytes inside the LZSS loader, [H] data). 356 functions, plus 13
+  shared tails kept as labels inside other bodies (e.g. `entity_move_bounce` inside `think_03`).
+- Still to do: CODE_2 (218C sprite bank) still has ~1080 mis-disassembled "instructions" from the
+  first auto-analysis (`SUB_218c_*` call targets in the listing are bogus); clear them and type the
+  sprite headers. 9 game86 routines are still `unk_*` (see funcmap).
+
+## 8. DGROUP (segment 3559, 0x74D0 bytes) layout map
+For `tests/adapters/dgroup_map.c` and the meaning of `game/state.h` fields. Offsets are DS
+offsets; names are the `re/symbols.csv` names. The image is fully stored in the EXE but everything
+from `39D7` up is zero (BSS). Ranges marked [H] are inferred from usage, not fully read.
+
+### 8.1 Overview
+| Range | Size | Content |
+|---|---|---|
+| `0000-03FF` | 1024 | `g_io_window`: file read buffer / LZSS input window (BSS) |
+| `0400-0462` | | driver far ptrs, filename, spawn scratch, file handle, IRQ guard, scroller and rect-fill args, BIOS/PIT/RNG/vector state (§8.2) |
+| `0463-0585` | | DOS error message strings |
+| `0586-05A1` | | input + config bytes from the PSP tail, joystick thresholds, attract defaults, HUD dirty |
+| `05A5-0614` | | wave banner strings |
+| `0615-06C7` | | game/wave flags, continue and tune state, fire state, pulse tables, sound flags, demo flag, flash-list pointer |
+| `06C9-0742` | | screen-flash lists (targets of `g_flash_list`) |
+| `0743-07F2` | 7 x 16 | direction tables indexed by the 4-bit input nibble |
+| `07F3-0949` | | per-wave runtime: respawn timers, input bytes, spawn bookkeeping, `g_wave_result`, script parameters `0812..0876`, intro freeze, free-slot count, text cursor vars [H for many] |
+| `0994-0AD1` | | name-entry alphabet, name buffer, title tune list, pause-picture list, HUD digit/label glyphs (`09EE`, 10 x 16 B; `0A8E`/`0A9E`) |
+| `0AD2-0B71` | 160 | default hi-score table |
+| `0B72-0B79` | | last make code, text cursor |
+| `0B7A-1FD1` | | text: attract scroller texts (`117A`, `14E1`), instructions/credits [H], misc tables `1FA2/1FB2/1FBA` used by `think_05` |
+| `1FD2-202D` | 92 | `tbl_think_handlers` (46 near ptrs) |
+| `202E-2053` | 38 | `tbl_anim_handlers` (19 near ptrs) |
+| `2054-2133` | | per-type tables [H] (`2054`/`2056` read by `ent_hit_02`), title objects `2104` (9 x word timers) |
+| `2134-2173` | | `tbl_vga_4to6` (16 B), `tbl_palette_game` (16 words, 12-bit RGB), `tbl_palette_ega` (17 B), black palette `2175` |
+| `21A6-226D` | 200 | **`g_player`: current player state** (§8.4) |
+| `226E-2335` | 200 | `g_player_other`: the other player's saved copy (swapped by `player_swap_state`) |
+| `2336-233F` | | `2336/2338/233a` [H], `g_loop_count` (`233c`), `g_level_flags` (`233e`) |
+| `2340-244B` | | `tbl_level_titles`: 4 records {level, 0, text ptr} + `-1`, then their texts |
+| `244C-26BF` | | level scripts (byte code; pointers in `tbl_level_scripts`) |
+| `26C0-2BD9` | | [H] not referenced by any direct operand; probably wave/text data reached through script pointers — to be followed |
+| `2BDA-2C29` | 80 | `tbl_level_scripts` (40 near ptrs) |
+| `2C2A-2CA3` | | [H] unreferenced directly |
+| `2CA4-2CF5` | 82 | `tbl_enemy_init` (41 near ptrs) |
+| `2CF6-2D06` | | `g_options`, player animation counters, `g_p1_x/y`, `g_p2_x/y`, `g_target_x/y` |
+| `2D07-2E96` | 400 | `tbl_row_offset`: VRAM byte offset per row (y*40) |
+| `2E97-39D2` | ~2.9 KB | [H] initialized, no direct operand references (enemy parameter tables or texts reached via pointers?) — open |
+| `39D3-39ED` | | page offsets (`g_page_front/back`, `g_draw_page`), blitter flags/scale/mirror, `g_draw_hook` (far), `g_tick_hook`, `g_tick_count`, `g_rng_index`, `g_script_ptr` |
+| `39EE-409B` | 1710 | `g_font`: decoded f.cmp |
+| `409C-409F` | | `enemy_aim_update` results [H] |
+| `40A0-413F` | 160 | `g_hiscores` (scores.yak image) |
+| `4141-4440` | 768 | decoded s.cmp: `g_sine8` (256 x s8), `g_sine16` (256 x s16) |
+| `4441-4450` | 16 | `g_score_p1`, `g_score_p2`: 8 decimal digits each, one digit per byte, most significant first |
+| `4451-4480` | 48 | [H] palette conversion buffer used by `palette_set` (`4451`, `4469`) |
+| `4481-4486` | 6 | [H] 3-word state used by `think_1d/1e` and `enemy_init_10` |
+| `4881-48C0` | 64 | `g_companion`: an entity record just before the table (`companion_update`) |
+| `48C1-5A40` | 4480 | `g_entities`: 70 x 64-byte records (§8.3). `entities_clear` initialises 100 records (to `61C0`) |
+| `68C9-69B8` | 240 | `g_shots`: 15 player shots x 16 bytes |
+| `6AC9-6CC8` | 512 | `g_rng_table`: byte permutation shuffled at init |
+| `6CC9-70C8` | 1024 | `g_trail_p1`: 128 x 8-byte position history (x, y, flag, ?) |
+| `70C9-74C8` | 1024 | `g_trail_p2` |
+
+### 8.2 Scalar variables (selection; full list in `re/symbols.csv`)
+| Off | Name | Type | Meaning |
+|---|---|---|---|
+| `0400` | `g_snd_driver` | far ptr | sound driver entry; `0404` `g_snd_stub` is the swap partner |
+| `0413/0415` | `g_tmp_413/415` | word | scratch parameters of child spawns |
+| `0419..0421` | `g_eshot_param0..4` | word | enemy projectile template (copied into the new entity) |
+| `0428` | `g_irq08_busy` | byte | tick re-entrancy guard |
+| `0429` | `g_frame_drawn` | byte | the tick hook idles until the first frame of a wave is drawn |
+| `0444..044a` | `g_rect_x0,y0,x1,y1` | word | `vram_fill_rect` arguments |
+| `044d` | `g_bios_seg` | word | **0** (see §1) |
+| `044f` | `g_pit_accum` | word | BIOS INT 08 chaining accumulator |
+| `0453..0459` | `g_rng_state` | 4 words | `rng_mix` state |
+| `0586` | `g_last_scancode` | byte | last make code |
+| `0588` | `g_kbd_bits` | byte | arrows bits 0..3, space bit 7 |
+| `0589/058a` | `g_flash_mode`, `g_vga` | byte | from PSP:85h/86h |
+| `058e` | `g_joy_thresholds` | 8 words | calibrated joystick thresholds |
+| `061f` | `g_continues` | word | continues left (4 per game) |
+| `062f` | `g_enemies_alive` | word | the wave ends when it reaches 0 |
+| `0650` | `g_shots_bounce` | word | power-up: player shots reflect at the edges |
+| `06c4` | `g_demo_mode` | word | demo running, `score_add` disabled |
+| `06c7` | `g_flash_list` | word | pending screen-flash list (0 = none) |
+| `07f3/0634` | `g_p1/p2_respawn_timer` | word | [H] 0x64 at wave start; P1 `0xfffe` = dying |
+| `07fb/07fc` | `g_input_b/a` | byte | controller bytes (direction nibble, fire bits 4..7) |
+| `0810` | `g_wave_result` | word | 0 running, 1 player dead, 2 cleared, 3 aborted (X), 4 warp (+5 levels) |
+| `08fc` | `g_wave_intro_timer` | word | 0x32 ticks of freeze; most think handlers return while non-zero |
+| `0925` | `g_bounced` | word | set by `entity_move_bounce` |
+| `0927` | `g_free_slots` | word | free entity slots (0x45 at wave start) |
+| `0b74/0b76` | `g_text_x/y` | word | text cursor |
+| `2cf6` | `g_options` | byte | bit0 2 players, bit1 double controller, bit2 shared start, bit4 current player is P2 |
+| `2cfb..2d01` | `g_p1_x,y,g_p2_x,y` | word | x 0x0f..0x130, y 0x12..0xbc |
+| `2d03/2d05` | `g_target_x/y` | word | position of the player the current entity targets (alternates per slot in 2P) |
+| `39d3/39d5/39d7` | `g_page_front/back`, `g_draw_page` | word | VRAM page offsets 0x0000/0x2000, 0x4000 = clean background |
+| `39d9/39da/39dc` | `g_draw_flags/scale/mirror` | | blitter mode (0xff normal draw, 1 scaled) |
+| `39e0` | `g_draw_hook` | far ptr | per-frame hook |
+| `39e4` | `g_tick_hook` | word | per-tick hook |
+| `39e6` | `g_tick_count` | word | 50 Hz counter |
+| `39e9` | `g_rng_index` | word | `rng_next` index |
+| `39eb` | `g_script_ptr` | word | level script position |
+
+### 8.3 Entity record (64 bytes; `g_entities`, `g_companion`) [C unless marked]
+| Off | Type | Meaning |
+|---|---|---|
+| `+00` | word | type; `< 0` = free slot. Low byte = think index (`tbl_think_handlers`), high byte = type it becomes when the spawn "hatches" (`think_00`) |
+| `+02/+04` | word | x / y (screen pixels, sprite centre) |
+| `+06` | word | animate/draw state (`tbl_anim_handlers`); `0x12` = idle (`hook_nop`) |
+| `+08/+0a` | word | velocity x / y (`entity_move_bounce`) |
+| `+0c` | word | sprite index into the sprite bank pointer table (`218C:001C + 2*i`); negative = use `+2c` |
+| `+0e` | word | draw scale / hatch countdown |
+| `+10` | word | solid: shots and players only collide when non-zero |
+| `+14` | word | general timer; pickup kind for `think_1c` (`tbl_pickup_effects`) |
+| `+16..+1a` | word | handler-specific (projectile parameters from `g_eshot_param*`) |
+| `+18` | word | hit points (`ent_hit_03` decrements, < 0 -> kill action) |
+| `+1c` | word | handler-specific: callback near ptr (`3119`, `32d7`) or 32-bit position accumulator with `+1e` |
+| `+1e` | word | kill action index (`tbl_hit_kill_actions`) |
+| `+20` | word | sub-mode (`think_0e`: `tbl_think0e_modes`) |
+| `+22/+23` | byte | reload / countdown pair (`think_25`) |
+| `+24/+26` | word | handler-specific accumulators |
+| `+28` | word | animation toggle (`anim_01`) |
+| `+2c` | word | explicit sprite pointer when `+0c < 0` |
+| `+32` | word | extra sprite drawn after the anim handler (0 = none) |
+| `+36` | word | frame / timer |
+| `+3a` | word | kind index for the per-kind counts `g_type_counts` |
+| `+3c` | word | death sound request: low byte sample, high byte rate index (`1000:0eb0`) |
+| `+3e` | word | hit handler index (`tbl_hit_handlers`) |
+
+Player shots (`g_shots`, 16 bytes): `+0` x (`< 0` free), `+2` y, `+4/+6` velocity, `+8` sprite /
+direction index, `+0c` lifetime when bouncing [H].
+
+### 8.4 Player state block (`g_player`, 200 bytes at `21A6`; same layout at `226E`)
+Swapped wholesale on player change (`player_swap_state`) and copied for a shared start
+(`player_copy_state`, `g_options` bit 2). Bytes `21AC..21C8` are initialized in the image (default
+speeds/parameters); everything else starts at 0.
+| Off | Name | Meaning |
+|---|---|---|
+| `21A6` | `g_lives` (block start) | lives (5 at new game) |
+| `21A8` | `g_wave` | wave within the level |
+| `21AA` | `g_level` | level 0..39 |
+| `21AC/21AE` | `g_enemy_speed_x/y` | set by script op 0 |
+| `21B0` | `g_wave_type` | first byte of the current wave record |
+| `21B2..21C2` | | per-level script parameters (ops 1..2) [H] |
+| `21C4` | `g_powerup` | [H] power-up state |
+| `21C6` | `g_extra_life_flag` | [H] |
+| `21C8/21CA` | | [H] |
+| `220A-226D` | `g_type_counts` | 50 words, per-kind live counts (`-1` = unused) |
+
+## 9. CS-resident data and dispatch tables (segment 1000 unless noted)
+| Address | Name | Entries | Index |
+|---|---|---|---|
+| `0245` | `tbl_script_ops` | 7 | negative script byte |
+| `0255..0265` | `cs_saved_ds`, `cs_psp_seg`, `cs_vram_seg`, `cs_code1_seg`, `cs_sprite_seg` (218C), `cs_g3_seg` (30EB), clip temps | | |
+| `0269` | `tbl_attract_cases` | 3 | attract rotation |
+| `0c04` | `tbl_hit_handlers` | 18 | entity `+3e` |
+| `0f7e` | `tbl_pickup_effects` | 10 | entity `+14` |
+| `1047` | `tbl_hit_kill_actions` | 12 | entity `+1e` |
+| `3aff` | `tbl_think0e_modes` | 4 | entity `+20` |
+| `582d`, `5362`, `559b..559e`, `e131/e133`, `e783/e784` | self-modified bytes / temps | | see asm-idioms |
+| `672f` | `cs_dirty_enable` | | dirty-rect recording on/off |
+| `6733/6735` | `cs_dirty_ptr_a/b` | | write pointers into the two dirty lists `673f`/`79f9` |
+| `8e71` | `tbl_blit_by_height` | 25 | sprite rows: 0-5 and 23-24 generic loop, 6-11 unrolled, 12-22 two-call wrappers |
+| `abd1` | `tbl_blit_shifted_by_height` | 25 | same scheme for x%8 != 0 |
+| `1e7b:031c` | `tbl_restore_by_size` | 96 | (words-1)*32 + rows; same 6/6/11 scheme per width |
