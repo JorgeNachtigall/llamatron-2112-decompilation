@@ -126,3 +126,20 @@ def test_ega_runs_on_the_ega_display_clock(driver, tmp_path):
 def test_first_snapshot_tick(driver, tmp_path):
     port = run(driver, tmp_path, "f", "--ticks", "64", "--every", "1", "--first", "60")
     assert sorted(port.snapshots) == [60, 61, 62, 63, 64]
+
+
+def test_compare_skips_stale_bytes_of_free_slots():
+    mask = bytes([1]) * compare.DGROUP_SIZE
+    ref, mine = bytearray(compare.DGROUP_SIZE), bytearray(compare.DGROUP_SIZE)
+    for img in (ref, mine):                     # play hook, every slot allocated (type 0)
+        struct.pack_into("<H", img, compare.TICK_HOOK, compare.PLAY_HOOK)
+    slot = 0x48C1 + 0x40 * 20
+    struct.pack_into("<hH", ref, slot, -1, 7)   # free in both, different stale x
+    struct.pack_into("<hH", mine, slot, -1, 9)
+    port = compare.PortRun(10, mask, {10: bytes(mine), 20: bytes(mine)})
+    allocated = bytearray(ref)
+    struct.pack_into("<h", allocated, slot, 3)  # the reference allocated it: compared again
+    diffs = compare.compare(port, {10: bytes(ref), 20: bytes(allocated)})
+    assert diffs[0].offsets == []
+    assert "[ignored stale bytes of 1 free entity slots]" in compare.report(diffs[:1])
+    assert diffs[1].offsets == [slot, slot + 1, slot + 2]

@@ -31,6 +31,11 @@ TICK_HOOK = 0x39E4
 TITLE_HOOKS = {0x3F6F, 0x084E}  # title_tick_hook, title_tune_tick
 PLAY_HOOK = 0x1562              # play_tick_hook
 
+# Entity slots: a free slot (type word < 0) keeps stale bytes from its last user in the
+# original (e.g. the title llamas) and whatever the port leaves there; only its type word
+# is state. Compared again as soon as either side allocates the slot.
+ENTITIES, ENTITY_COUNT, ENTITY_SIZE = 0x48C1, 70, 0x40
+
 # DEVIATIONS #10: the loaded image has trail_head[1] = 2 (not entry-aligned) until P2's
 # first trail write; the port starts at entry 0. Skipped while the reference still holds 2.
 P2_TRAIL_HEAD = 0x2CF9
@@ -160,7 +165,8 @@ def compare(port: PortRun, reference: dict[int, bytes], ignore=()) -> list[TickD
     hook, the title llamas (ATTRACT_LLAMAS) are skipped and listed as ignored: the original
     keeps them in the entity table, the port in attract.c. hook_nop transitions in between
     stay in the attract phase, because the bytes survive until entities_clear. P2's trail
-    head is skipped while the reference still holds its loaded value (DEVIATIONS #10)."""
+    head is skipped while the reference still holds its loaded value (DEVIATIONS #10).
+    Entity slots free on both sides are compared by their type word only."""
     ignore = set(ignore)
     out = []
     attract = False
@@ -175,19 +181,30 @@ def compare(port: PortRun, reference: dict[int, bytes], ignore=()) -> list[TickD
         if struct.unpack_from("<H", a, P2_TRAIL_HEAD)[0] == P2_TRAIL_HEAD_LOADED:
             skipped.append((range(P2_TRAIL_HEAD, P2_TRAIL_HEAD + 2),
                             "trail_head[1] = 2 (DEVIATIONS #10)"))
-        skip = set().union(*(r for r, _ in skipped))
+        free = [i for i in range(ENTITY_COUNT)
+                if _type(a, i) < 0 and _type(b, i) < 0]
+        if free:
+            skipped.append((None, f"stale bytes of {len(free)} free entity slots"))
+        skip = set().union(*(r for r, _ in skipped if r is not None))
+        for i in free:
+            base = ENTITIES + ENTITY_SIZE * i
+            skip.update(range(base + 2, base + ENTITY_SIZE))
         offs = [i for i in range(DGROUP_SIZE)
                 if port.mask[i] and a[i] != b[i] and i not in ignore and i not in skip]
         out.append(TickDiff(tick, offs, skipped))
     return out
 
 
+def _type(image: bytes, slot: int) -> int:
+    return struct.unpack_from("<h", image, ENTITIES + ENTITY_SIZE * slot)[0]
+
+
 def report(diffs: list[TickDiff]) -> str:
     lines = []
     for d in diffs:
         state = "ok" if not d.offsets else f"{len(d.offsets)} bytes: " + ", ".join(d.fields())
-        skipped = "".join(f"  [ignored {name} {r.start:04X}..{r.stop - 1:04X}]"
-                          for r, name in d.ignored)
+        skipped = "".join(f"  [ignored {name} {r.start:04X}..{r.stop - 1:04X}]" if r else
+                          f"  [ignored {name}]" for r, name in d.ignored)
         lines.append(f"tick {d.tick:6d}  {state}{skipped}")
     first = next((d.tick for d in diffs if d.offsets), None)
     lines.append("identical on every common tick" if first is None
