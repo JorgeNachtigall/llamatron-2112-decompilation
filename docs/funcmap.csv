@@ -22,7 +22,7 @@ game86,1000:0c28,386,shots_update,shots_update,src/game/bullets.c,todo,W4,B,
 game86,1000:0dbf,267,ent_hit_02,ent_hit_02,src/game/entities/hit.c,diff-tested,W5a,B,
 game86,1000:0dfe,,ent_hit_00,entity_kill,src/game/entities/hit.c,diff-tested,W5a,B,
 game86,1000:0eb5,3,ent_hit_10,entity_kill,src/game/entities/hit.c,diff-tested,W5a,B,
-game86,1000:0eb8,88,unk_1000_0eb8,,,todo,W4,B,
+game86,1000:0eb8,88,become_pickup,become_pickup,src/game/entities/hit.c,diff-tested,W5a,B,via ent_hit_00 tests
 game86,1000:0f10,110,think_1c,think_1c,src/game/entities/think_basic.c,diff-tested,W5,B,
 game86,1000:0f92,7,pickup_effect_07,pickup_effect_07,src/game/entities/pickups.c,diff-tested,W5a,B,
 game86,1000:0f99,9,pickup_effect_08,pickup_effect_08,src/game/entities/pickups.c,diff-tested,W5a,B,
@@ -37,12 +37,12 @@ game86,1000:1022,37,ent_hit_07,ent_hit_07,src/game/entities/hit.c,diff-tested,W5
 game86,1000:105f,81,ent_hit_03,ent_hit_03,src/game/entities/hit.c,diff-tested,W5a,B,
 game86,1000:1074,,ent_hit_01,ent_hit_01,src/game/entities/hit.c,diff-tested,W5a,B,
 game86,1000:10f8,16,ent_hit_05,ent_hit_05,src/game/entities/hit.c,diff-tested,W5a,B,
-game86,1000:1108,85,unk_1000_1108,,,todo,W4,B,
+game86,1000:1108,85,fire_back_tail_05,fire_back,src/game/entities/hit.c,diff-tested,W5a,B,shared tail of ent_hit_05
 game86,1000:115d,111,ent_hit_08,ent_hit_08,src/game/entities/hit.c,diff-tested,W5a,B,
 game86,1000:11b0,6,ent_hit_09,ent_hit_09,src/game/entities/hit.c,diff-tested,W5a,B,
 game86,1000:11b6,,ent_hit_06,ent_hit_06,src/game/entities/hit.c,diff-tested,W5a,B,
 game86,1000:11d2,16,ent_hit_04,ent_hit_04,src/game/entities/hit.c,diff-tested,W5a,B,
-game86,1000:11e2,63,unk_1000_11e2,,,todo,W4,B,
+game86,1000:11e2,63,fire_back_tail_04,fire_back,src/game/entities/hit.c,diff-tested,W5a,B,shared tail of ent_hit_04
 game86,1000:1221,165,enemy_shot_alloc,enemy_shot_alloc,src/game/entities/spawn.c,diff-tested,W5a,B,via ent_hit_04/05
 game86,1000:1232,,enemy_shot_init,enemy_shot_init,src/game/entities/spawn.c,diff-tested,W5a,B,via ent_hit_04/05
 game86,1000:12c6,12,hit_kill_action_08,kill_action_08,src/game/entities/kill_actions.c,diff-tested,W5a,B,via ent_hit_03 (tests/oracle/test_hit.py)
