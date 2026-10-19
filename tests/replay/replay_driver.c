@@ -7,7 +7,8 @@
  *                    [--keys PROBE.KEY] [--pokes PROBE.POK] [--out FILE] [--data DIR]
  *
  * Sequencing is the shell's replay mode (src/platform/apps/llamatron_main.c): game_init, then
- * per frame of the fixed 70.086 Hz display clock the due timer ticks (each: the script bytes
+ * per frame of the fixed display clock (VGA mode 0Dh 70.086 Hz, or the EGA monitor's
+ * 59.92 Hz with --ega, as the reference run's machine) the due timer ticks (each: the script bytes
  * due at that tick into the keyboard handler, then game_tick) and one game_frame. Ticks count
  * from 1 after game_init, like the probe's IRQs. After every K-th tick (as the probe, after
  * the game's handler) the GameState goes through gamestate_to_dgroup into the output.
@@ -197,12 +198,13 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    const DisplayTiming *display = launch.vga ? &DISPLAY_VGA_MODE_0D : &DISPLAY_EGA_MODE_0D;
     TickScheduler sched;
-    timing_init_display(&sched, &DISPLAY_VGA_MODE_0D);
+    timing_init_display(&sched, display);
     GameHostInput host = { 0, true };
     unsigned long frames = 0;
     while (r->ticks < r->max_ticks && !game_wants_quit(&r->game)) {
-        timing_advance_frame(&sched, &DISPLAY_VGA_MODE_0D);
+        timing_advance_frame(&sched, display);
         timing_run_timer_ticks(&sched, tick_cb, r);
         game_frame(&r->game, &host);
         frames++;

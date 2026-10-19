@@ -109,3 +109,15 @@ def test_compare_skips_p2_trail_head_until_p2_writes():
     assert diffs[0].offsets == [] and diffs[0].ignored
     assert diffs[1].offsets == [0x2CF9] and not diffs[1].ignored
     assert "[ignored trail_head[1] = 2 (DEVIATIONS #10) 2CF9..2CFA]" in compare.report(diffs)
+
+
+def test_ega_runs_on_the_ega_display_clock(driver, tmp_path):
+    """Same ticks, fewer frames: EGA retraces at 59.92 Hz, VGA mode 0Dh at 70.086 Hz."""
+    def frames(machine):
+        proc = subprocess.run([driver, "--ticks", "500", machine], capture_output=True,
+                              text=True, timeout=120)
+        assert proc.returncode == 0, proc.stderr
+        return int(proc.stdout.split("frames=")[1].split()[0])
+    vga, ega = frames("--vga"), frames("--ega")
+    assert abs(vga - 500 * 70.086 / 50.16) <= 2
+    assert abs(ega - 500 * 59.92 / 50.16) <= 2
