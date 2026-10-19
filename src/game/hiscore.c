@@ -49,24 +49,17 @@ static int current_player(const GameState *game)
 /* ---- The table ------------------------------------------------------------------------ */
 
 /* game86 1000:5da2..5dd8 */
-int hiscore_find_rank(const HiscoreEntry table[HISCORE_COUNT], const uint8_t score[SCORE_DIGITS])
+int hiscore_find_rank(const HiscoreEntry table[HISCORE_COUNT], uint32_t score)
 {
-    for (int rank = 0; rank < HISCORE_COUNT; rank++) {
-        for (int d = 0; d < SCORE_DIGITS; d++) {
-            int8_t held = (int8_t)(table[rank].digits[d] - '0');
-            int8_t mine = (int8_t)score[d];
-            if (held < mine)
-                return rank;
-            if (held > mine)
-                break;
-        }
-    }
+    for (int rank = 0; rank < HISCORE_COUNT; rank++)
+        if (table[rank].score < score)
+            return rank;
     return HISCORE_NO_RANK;
 }
 
 /* game86 1000:5dda..5e44 */
 void hiscore_insert(HiscoreEntry table[HISCORE_COUNT], int16_t marks[PLAYER_COUNT], int player,
-                    int rank, const uint8_t score[SCORE_DIGITS])
+                    int rank, uint32_t score)
 {
     int16_t *other = &marks[1 - player];
     marks[player] = (int16_t)rank;
@@ -77,8 +70,7 @@ void hiscore_insert(HiscoreEntry table[HISCORE_COUNT], int16_t marks[PLAYER_COUN
     }
     if (rank != LAST_ROW)
         memmove(&table[rank + 1], &table[rank], (size_t)(LAST_ROW - rank) * sizeof table[0]);
-    for (int d = 0; d < SCORE_DIGITS; d++)
-        table[rank].digits[d] = (char)(score[d] + '0');
+    table[rank].score = score;
 }
 
 int hiscore_check_insert(GameState *game)
@@ -100,6 +92,7 @@ void hiscore_set_name(HiscoreEntry *entry, const char name[HISCORE_NAME_LENGTH],
             *rude = true;
     for (int i = 0; i < HISCORE_NAME_LENGTH; i++)
         entry->name[i] = name[i] == NAME_ENTRY_BLANK ? ' ' : name[i];
+    entry->name[HISCORE_NAME_LENGTH] = '\0';
 }
 
 /* text_draw_char 1000:54f6 at an explicit position: returns x after the glyph. */
@@ -116,12 +109,14 @@ void hiscore_draw_row(const DrawTarget *target, TextState *text, const HiscoreEn
 {
     text->color = color & 0x0f;
     text->clear_planes = (uint8_t)(~color & 0x0f);   /* rows are drawn opaque */
+    uint8_t digits[SCORE_DIGITS];
+    score_to_digits(entry->score, digits);
     int first = 0;
-    while (first < SCORE_DIGITS && entry->digits[first] == '0')
+    while (first < SCORE_DIGITS && digits[first] == 0)
         first++;
     int x = ROW_SCORE_X;
     for (int d = first; d < SCORE_DIGITS; d++)
-        x = draw_char_at(target, text, (unsigned char)entry->digits[d], x, y);
+        x = draw_char_at(target, text, (unsigned char)('0' + digits[d]), x, y);
     x = ROW_NAME_X;
     for (int i = 0; i < HISCORE_NAME_LENGTH; i++)
         x = draw_char_at(target, text, (unsigned char)entry->name[i], x, y);

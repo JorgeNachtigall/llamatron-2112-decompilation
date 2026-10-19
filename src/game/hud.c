@@ -5,6 +5,8 @@
 
 #include <stddef.h>
 
+#include "score.h"
+
 static const HudGlyphs *s_glyphs;
 
 static const GfxPageId HUD_PAGES[] = { GFX_PAGE_0, GFX_PAGE_1, GFX_PAGE_BACKGROUND };
@@ -117,7 +119,9 @@ void hud_refresh(const GameState *game)
     int player = current_player(game);
     hud_draw_level(player, game->player.level);
     hud_draw_lives(player, game->player.lives);
-    hud_draw_score(game->score[player], player ? HUD_SCORE_CELL_P2 : HUD_SCORE_CELL_P1);
+    uint8_t digits[SCORE_DIGITS];
+    score_to_digits(game->score[player], digits);
+    hud_draw_score(digits, player ? HUD_SCORE_CELL_P2 : HUD_SCORE_CELL_P1);
 }
 
 /* game86 1000:59ab; both through g3_draw 1000:42da with g_draw_flags 0xff (plain draw). */

@@ -47,8 +47,8 @@ NAME_ENTRY, SAVE, TUNE_START, REVEAL = 0x59FA, 0x5E89, 0x083B, 0x61FF
 PAGE_IDS = {0x0000: 0, 0x2000: 1, 0x4000: 2}
 
 
-class HiscoreEntry(ctypes.Structure):
-    _fields_ = [("digits", ctypes.c_char * 8), ("name", ctypes.c_char * 8)]
+class HiscoreEntry(ctypes.Structure):      # HighScore (formats.h)
+    _fields_ = [("score", ctypes.c_uint32), ("name", ctypes.c_char * 9)]
 
 
 class HiscoreData(ctypes.Structure):
@@ -77,7 +77,6 @@ class NameEntrySound(ctypes.Structure):
 SHAPE_LOOKUP = ctypes.CFUNCTYPE(ctypes.c_void_p, ctypes.c_uint)
 ENTRIES = HiscoreEntry * 10
 MARKS2 = ctypes.c_int16 * 2
-DIGITS8 = ctypes.c_uint8 * 8
 
 
 class C:
@@ -90,10 +89,10 @@ class C:
         self.set_dirty = bind(lib, "draw_set_dirty_recording", None, ctypes.c_bool)
         self.set_wrapped = bind(lib, "draw_set_canvas_wrapped", None, ctypes.c_bool)
         self.find_rank = bind(lib, "hiscore_find_rank", ctypes.c_int, ctypes.POINTER(HiscoreEntry),
-                              ctypes.POINTER(ctypes.c_uint8))
+                              ctypes.c_uint32)
         self.insert = bind(lib, "hiscore_insert", None, ctypes.POINTER(HiscoreEntry),
                            ctypes.POINTER(ctypes.c_int16), ctypes.c_int, ctypes.c_int,
-                           ctypes.POINTER(ctypes.c_uint8))
+                           ctypes.c_uint32)
         self.set_name = bind(lib, "hiscore_set_name", None, ctypes.POINTER(HiscoreEntry),
                              ctypes.c_char_p, ctypes.c_char_p, ctypes.POINTER(ctypes.c_bool))
         self.table_draw = bind(lib, "hiscore_table_draw", None, ctypes.POINTER(Scroller),
@@ -136,11 +135,24 @@ def random_table(rnd):
 
 
 def entries_from(rows):
+    """C rows from the original's DS:40A0 rows (8 ASCII digits + 8 name bytes)."""
     t = ENTRIES()
     for i, r in enumerate(rows):
-        t[i].digits = r[:8]
+        t[i].score = int(r[:8])
         t[i].name = r[8:]
     return t
+
+
+def rows_of(table_bytes):
+    return [(int(table_bytes[i:i + 8]), table_bytes[i + 8:i + 16]) for i in range(0, 160, 16)]
+
+
+def c_rows(t):
+    return [(e.score, ctypes.string_at(ctypes.addressof(e) + HiscoreEntry.name.offset, 8)) for e in t]
+
+
+def as_number(digits):
+    return int("".join(str(d) for d in digits))
 
 
 def random_score(rnd, rows):
@@ -170,7 +182,7 @@ def test_check_insert(machine, c, case):
     marks = [rnd.choice([-1, -1, rnd.randrange(10)]) for _ in range(2)]
     if rnd.random() < 0.4:      # the other player's mark at or next to the new row
         table = entries_from(rows)
-        rank = c.find_rank(table, DIGITS8(*scores[player]))
+        rank = c.find_rank(table, as_number(scores[player]))
         if rank >= 0:
             marks[1 - player] = min(9, max(0, rank + rnd.choice([-1, 0, 0, 1])))
     name = random_name(rnd, word)
@@ -189,16 +201,17 @@ def test_check_insert(machine, c, case):
 
     table = entries_from(rows)
     cmarks = MARKS2(*marks)
-    score = DIGITS8(*scores[player])
+    score = as_number(scores[player])
     rank = c.find_rank(table, score)
     rude = ctypes.c_bool(rude_in)
     if rank >= 0:
         c.insert(table, cmarks, player, rank, score)
         c.set_name(ctypes.byref(table[rank]), name, word, ctypes.byref(rude))
 
-    want_table = machine.read_dgroup(TABLE, 160)
-    got_table = b"".join(ctypes.string_at(ctypes.addressof(e), 16) for e in table)
-    assert got_table == want_table, f"rank {rank}"
+    assert c_rows(table) == rows_of(machine.read_dgroup(TABLE, 160)), f"rank {rank}"
+    if rank >= 0:
+        assert table[rank].name.endswith(b"") and ctypes.string_at(
+            ctypes.addressof(table[rank]) + HiscoreEntry.name.offset + 8, 1) == b"\0"
     assert tuple(cmarks) == struct.unpack("<2h", machine.read_dgroup(MARKS, 4))
     assert rude.value == bool(struct.unpack("<H", machine.read_dgroup(RUDE, 2))[0])
 

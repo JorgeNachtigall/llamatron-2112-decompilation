@@ -2,8 +2,8 @@
  * hiscore.h - the hi-score table: ranking a score, inserting it, the name-entry screen and
  * drawing the table (game86 1000:59fa..5ead).
  *
- * The table is GameState.hiscores (best first, 8 ASCII digits + 8 name characters per entry,
- * as game86 keeps it at DS:40A0; the host converts it from and to scores.yak). A new entry's
+ * The table is GameState.hiscores (best first; game86 keeps 8 ASCII digits + 8 name
+ * characters per row at DS:40A0, here a score number and the space-padded name). A new entry's
  * row is marked for each player (GameState.hiscore_mark) and drawn with a marker sprite.
  *
  * The original runs the name entry and the table's scroll as blocking loops; here they are
@@ -19,6 +19,7 @@
 #include "draw.h"
 #include "formats.h"
 #include "hud.h"
+#include "score.h"
 #include "scroller.h"
 #include "state.h"
 #include "text.h"
@@ -52,22 +53,22 @@ typedef struct HiscoreArt {
 
 /* ---- The table ------------------------------------------------------------------------ */
 
-/* Row a score would take: the first entry whose score is lower (digit by digit; equal scores
- * go below), or HISCORE_NO_RANK. game86 1000:5da2..5dd8 */
-int hiscore_find_rank(const HiscoreEntry table[HISCORE_COUNT], const uint8_t score[SCORE_DIGITS]);
+/* Row a score would take: the first entry whose score is lower (equal scores go below), or
+ * HISCORE_NO_RANK. game86 1000:5da2..5dd8 (a digit-by-digit compare, the same for digits) */
+int hiscore_find_rank(const HiscoreEntry table[HISCORE_COUNT], uint32_t score);
 
 /* Put the score of `player` at row `rank`: the rows below move down one (the last drops
  * out), the row keeps the moved-down entry's name until hiscore_set_name, and the marks
  * follow (`player`'s mark becomes rank; the other player's moves down with its row).
  * game86 1000:5dda..5e44 */
 void hiscore_insert(HiscoreEntry table[HISCORE_COUNT], int16_t marks[PLAYER_COUNT], int player,
-                    int rank, const uint8_t score[SCORE_DIGITS]);
+                    int rank, uint32_t score);
 
 /* Rank and insert the current player's score (OPT_CURRENT_IS_P2); HISCORE_NO_RANK if it
  * does not make the table. Then run the name entry and hiscore_set_name. */
 int hiscore_check_insert(GameState *game);
 
-/* Store the entered name in row `rank` (NAME_ENTRY_BLANK -> ' '); a name containing the rude
+/* Store the entered name in the row (NAME_ENTRY_BLANK -> ' '); a name containing the rude
  * word sets *rude. game86 1000:5e4b..5e85 */
 void hiscore_set_name(HiscoreEntry *entry, const char name[HISCORE_NAME_LENGTH],
                       const char rude_word[HISCORE_RUDE_WORD_SIZE], bool *rude);
