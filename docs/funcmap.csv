@@ -216,11 +216,11 @@ game86,1000:52e7,48,hud_draw_score,hud_draw_score,src/game/hud.c,todo,W6,E,
 game86,1000:5317,31,player_swap_state,player_swap_state,src/game/player.c,todo,W4,E,
 game86,1000:5336,26,player_copy_state,player_copy_state,src/game/player.c,todo,W4,E,
 game86,1000:5350,18,level_select_variant,level_select_variant,src/game/script.c,todo,W4,E,
-game86,1000:5363,12,text_print_home,text_print_home,src/game/text.c,todo,W6,E,
-game86,1000:536f,391,text_print,text_print,src/game/text.c,todo,W6,E,
-game86,1000:54f6,65,text_draw_char,text_draw_char,src/game/text.c,todo,W6,E,
-game86,1000:5537,100,text_draw_char_alt,text_draw_char_alt,src/game/text.c,todo,W6,E,
-game86,1000:559f,640,glyph_blit,glyph_blit,src/game/text.c,todo,W6,E,
+game86,1000:5363,12,text_print_home,text_print_home,src/game/text.c,ported,W6,E,"pen to (0,0) + text_print"
+game86,1000:536f,391,text_print,text_print,src/game/text.c,diff-tested,W6,E,"test_text.py (random fonts/strings, whole 64 KB canvas); \s inline sprite still TODO"
+game86,1000:54f6,65,text_draw_char,text_draw_char,src/game/text.c,diff-tested,W6,E,via test_text.py::test_text_print_*
+game86,1000:5537,100,text_draw_char_alt,text_draw_centred,src/game/text.c,diff-tested,W6,E,\q escape in test_text.py
+game86,1000:559f,640,glyph_blit,text_draw_glyph,src/game/text.c,diff-tested,W6,E,"test_text.py::test_glyph_clipping (edge drift, top clip, no bottom clip)"
 game86,1000:581f,14,crtc_set_start,gfx_flip,src/engine/gfx.c,todo,W2,E,
 game86,1000:582f,21,display_page_reset,display_page_reset,src/engine/gfx.c,todo,W2,E,
 game86,1000:5844,284,text_scroller,text_scroller,src/game/text.c,todo,W6,E,
@@ -294,7 +294,7 @@ game86,1000:e0b1,13,blit_shifted_h19,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,
 game86,1000:e0be,13,blit_shifted_h20,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,blitter family: one C routine
 game86,1000:e0cb,13,blit_shifted_h21,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,blitter family: one C routine
 game86,1000:e0d8,13,blit_shifted_h22,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,blitter family: one C routine
-game86,1000:e0e5,76,vram_addr_from_xy,vram_addr_from_xy,src/engine/gfx.c,todo,W6,F,renderer API (W2) semantics
+game86,1000:e0e5,76,vram_addr_from_xy,draw_cell_pos,src/game/draw_target.c,diff-tested,W6,F,via glyph tests incl. x<0 and canvas wrap shift ([0x442]>=2)
 game86,1000:e135,267,sprite_draw_scaled,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,
 game86,1000:e240,168,sprite_draw_scaled_col,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,
 game86,1000:e2e8,420,sprite_draw_scaled_rows,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,
