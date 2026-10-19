@@ -4,8 +4,16 @@ Sources: `re/listings/fs.exe.lst`, `re/listings/install.exe.lst` (Ghidra, image 
 hexdumps of `unpacked/fs.exe` / `unpacked/install.exe` (MZ header 0x200 bytes; file offset =
 0x200 + (seg-0x1000)*16 + off). "Confirmed" = read directly from code/data; "Hypothesis" = inferred.
 
-Ghidra rendering quirk (both listings): `MOV Sreg,reg` is printed with operands swapped, e.g.
-`1000:0013 MOV DX,DS` is really `MOV DS,DX` (8E DA), `fs 1000:02df MOV BP,DS` is `MOV DS,BP`.
+Ghidra rendering quirk (all four programs): Ghidra 12.1.4's x86 SLEIGH (`ia.sinc`
+`:MOV Rmr16,Sreg ... byte=0x8e; mod=3`) prints the register form of `8E /r` with its operands
+swapped. The p-code (`Sreg = Rmr16`) is correct, so only the text is wrong. Memory forms
+(`8E 1E ..`) and `8C` print correctly. `tools/ghidra/Export.java` fixes the text, so listings
+regenerated after W8 commit e125fee show the real direction. Older listings show, e.g.:
+`1000:0013 MOV DX,DS` (really `MOV DS,DX`, 8E DA), `fs 1000:02df MOV BP,DS` (`MOV DS,BP`), and
+install `0194/01b4/01dc/03a2/0433/0697 MOV AX,ES`. Those six are really `MOV ES,AX` (8E C0) after
+`MOV AX,0xB800`: each text-screen routine points ES at colour text VRAM [Confirmed, W1/Forge].
+A byte-level recheck of every register-register ModRM instruction (ALU 00-3B, 84-8B, 8C, 8E;
+1,651 in all four listings) finds no other direction errors.
 
 Both EXEs share the same hand-written prologue: `1000:0010` loads DS with the data segment,
 sets SS=DS and adjusts SP to keep the same linear address, then `JMP 0052`. The 41 "undefined"
