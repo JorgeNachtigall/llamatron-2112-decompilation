@@ -56,6 +56,7 @@
 #include "gfx.h"
 #include "input.h"
 #include "input_script.h"
+#include "options_screen.h"
 #include "padmap.h"
 #include "platform.h"
 #include "settings.h"
@@ -80,6 +81,10 @@ typedef struct App {
     GfxAdapter adapter;
     InputDevice device;
     TitleScreen title;
+    bool in_options;                /* the options screen (F2 on the title, src/options) */
+    OptionsScreen options;
+    uint8_t options_pixels[GFX_HEIGHT][GFX_WIDTH];
+    GfxColor options_palette[GFX_PALETTE_SIZE];
     GameState game;
 
     const DisplayTiming *display;   /* the emulated monitor: its retraces pace the frames */
@@ -191,6 +196,15 @@ static void on_key(uint8_t code, bool pressed, void *user)
     code &= 0x7f;
     uint8_t scan_code = pressed ? code : (uint8_t)(code | PC_KEY_BREAK);
     if (app->phase == PHASE_TITLE) {
+        if (app->in_options) {
+            options_key(&app->options, code, pressed);
+            return;
+        }
+        if (pressed && code == OPTIONS_KEY && !app->replaying && game_data_load()) {
+            options_open(&app->options, &app->settings);
+            app->in_options = true;
+            return;
+        }
         input_keyboard_byte(scan_code);
         title_key(&app->title, code, pressed);
     } else if (!app->replaying) {
@@ -478,6 +492,39 @@ static bool start_game(App *app)
     return true;
 }
 
+/* The options screen is done: store and apply saved settings (DEVIATIONS.md #23). Video and
+ * control change the title at once; the rest is read by start_game. */
+static bool close_options(App *app)
+{
+    app->in_options = false;
+    if (app->options.state != OPTIONS_SAVED)
+        return true;
+    app->settings = app->options.settings;
+    uint8_t inf[SETTINGS_INF_SIZE];
+    settings_format_inf(&app->settings, inf);
+    printf("llamatron: options saved %s (%s)\n", (const char *)inf,
+           plat_settings_save(&app->settings) ? "stored" : "NOT stored");
+    GfxAdapter adapter = app->settings.vga ? GFX_ADAPTER_VGA : GFX_ADAPTER_EGA;
+    InputDevice device = app->settings.joystick ? INPUT_DEVICE_JOYSTICK : INPUT_DEVICE_KEYBOARD;
+    if (adapter == app->adapter && device == app->device)
+        return true;
+    app->adapter = adapter;
+    app->device = device;
+    input_init(app->device, true);
+    title_free(&app->title);
+    return title_load(&app->title, app->adapter, app->device);
+}
+
+static void present_options(App *app)
+{
+    PlatColor pal[GFX_PALETTE_SIZE];
+    if (!options_render(&app->options, app->options_pixels, app->options_palette))
+        return;
+    for (int i = 0; i < GFX_PALETTE_SIZE; i++)
+        pal[i] = (PlatColor){ app->options_palette[i].r, app->options_palette[i].g, app->options_palette[i].b };
+    plat_present(&app->options_pixels[0][0], GFX_WIDTH, GFX_HEIGHT, GFX_WIDTH, pal);
+}
+
 static void present_title(const App *app)
 {
     PlatColor pal[GFX_PALETTE_SIZE];
@@ -561,9 +608,13 @@ static bool frame(void *user)
             on_key(PC_KEY_SPACE, false, app);
         }
         request_title_sample(app);
+        if (app->in_options && options_finished(&app->options) && !close_options(app))
+            running = false;
         for (uint32_t i = 0; i < due && running && app->phase == PHASE_TITLE; i++) {
             run_retrace_ticks(app);
             input_frame_read(false);
+            if (app->in_options)
+                continue;                       /* the title waits behind the options */
             title_frame(&app->title, input_state()->joystick_buttons);
             if (title_finished(&app->title) && !start_game(app))
                 running = false;
@@ -582,7 +633,9 @@ static bool frame(void *user)
                 running = false;
         }
     }
-    if (app->phase == PHASE_TITLE)
+    if (app->phase == PHASE_TITLE && app->in_options)
+        present_options(app);
+    else if (app->phase == PHASE_TITLE)
         present_title(app);
     else if (app->phase == PHASE_GAME)
         present_game();
