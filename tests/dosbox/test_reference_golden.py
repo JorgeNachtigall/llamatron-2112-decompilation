@@ -44,15 +44,27 @@ RUNS = {
 }
 
 
+# game86's stack: SS = DGROUP + 74Dh paragraphs, SP = 1112h (EXE header), so SS:1000..1111 =
+# DS:84D0..85E1, above the LZSS ring buffer at SS:0000 (re-notes §2). The interrupt frames
+# there depend on where each IRQ lands, i.e. on host speed: not state, left out of the hash.
+GAME_STACK = range(0x84D0, 0x85E2)
+
+
 def sha(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
+
+
+def dgroup_hash(dgroup: bytes) -> str:
+    image = bytearray(dgroup)
+    image[GAME_STACK.start:GAME_STACK.stop] = bytes(len(GAME_STACK))
+    return sha(bytes(image))
 
 
 def summary(result) -> dict:
     return {
         "irq_count": result.irq_count,
         "exit_code": result.exit_code,
-        "snapshots": {str(s.irq): {"dgroup": sha(s.dgroup),
+        "snapshots": {str(s.irq): {"dgroup": dgroup_hash(s.dgroup),
                                    "vram": sha(b"".join(s.vram)) if s.vram else None}
                       for s in result.snapshots},
     }
