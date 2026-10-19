@@ -66,7 +66,7 @@ static int shot_nibble(const ControlTables *t, const Shot *s)
 
 /* At an edge: without the bounce power-up the shot dies; with it, it takes the velocity
  * and direction of its nibble's mirror image. It does not move this tick. A shot that
- * matches no nibble dies (docs/DEVIATIONS.md: the original searches on past the tables).
+ * matches no nibble dies (docs/DEVIATIONS.md #19: the original searches on past the tables).
  * game86 1000:0c77..0ccc */
 static void shot_reach_edge(GameState *game, Shot *s, ShotEdge edge)
 {
