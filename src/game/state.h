@@ -18,6 +18,7 @@
 
 #include "formats.h"   /* HighScore (src/assets) */
 #include "rng.h"
+#include "text.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -293,6 +294,11 @@ typedef struct GameState {
 
     Entity companion;                   /* 4881 */
     Entity entities[ENTITY_COUNT];      /* 48C1 */
+    /* Port only: the record just past the table (DS:5A41). With every slot taken, entity_alloc
+     * leaves the original's pointer there and the spawn code (1d4b, 1db5) still fills it and
+     * runs the enemy's init handler on it; the port does the same here, so the handler's side
+     * effects (RNG, counters) still happen. entity_alloc itself returns NULL. */
+    Entity entity_overflow;
     int16_t free_slots;                 /* 0927 0x45 at wave start */
     int16_t enemies_alive;              /* 062F the wave ends at 0 */
     int16_t bounced;                    /* 0925 set by entity_move_bounce */
@@ -346,6 +352,10 @@ typedef struct GameState {
     int16_t death_sound_timer;          /* 0872 0x14 when < 10 enemies are left (43f7); sample 0x11 at 0 */
     int16_t swarm_count;                /* 091D think_03 entities this tick (reset 1a1f) */
     const FlashList *flash_list;        /* 06C7 pending screen-flash list, NULL = none */
+    uint16_t flash_pos;                 /* 06C7 advances one word per frame: words of flash_list
+                                           already shown (06C7 = list start + 2 * flash_pos) */
+    uint8_t flash_frame_timer;          /* 044C -1 per flash frame; at 0 the game palette is set
+                                           again and it restarts at 0x1E (1e7b:019d) */
 
     /* Wave-wide enemy state (W5 handlers; [H] names are proposals) */
     int16_t spawn_sprite;               /* 0806 from tbl_spawn_kind (0808) by level & 3 or random (1daa) */
@@ -368,8 +378,11 @@ typedef struct GameState {
                                            (045d), 2 once both players had a turn (07a8) */
     int16_t wave_start_delay;           /* 068A 0x32 at a new game / respawn; the play tick
                                            counts it down (156a) and the draw hook tests it (1a40) */
-    int16_t player_label_offset;        /* 07F5 0x0C, or 0x5E for P2 in shared-start mode (0471);
-                                           a draw offset of play_draw_hook (1aab) */
+    int16_t player_label_offset;        /* 07F5 0x0C, or 0x5E for P2's turn in shared-start mode
+                                           (0471); a draw offset of play_draw_hook (1aab) */
+    int16_t player2_label_offset;       /* 07F7 always 0x5E (no writer); P2's twin (1b75) */
+    int16_t level_variant;              /* 0941 from LevelSet.warp_sprites by level & 3 at each
+                                           wave start (5350); the spawn effect's sprite (1d60) */
     int16_t spawn_delay;                /* 07FE 7 at wave start; the spawn tick (1d40) counts it
                                            down, wave_spawn_enemies sets -1 (1cfe) */
     int16_t play_flag_0617;             /* 0617 [H] -1 at wave start (05f3), 1 from the play tick
@@ -384,6 +397,9 @@ typedef struct GameState {
     /* 09DE/09E0 table row of each player's new entry, -1 = none: set by hiscore_insert
      * (1000:5da2, which also shifts the other mark), reset at 1000:0933, drawn by 5c3c. */
     int16_t hiscore_mark[PLAYER_COUNT];
+    /* The one text pen everything prints with (0B74 x, 0B76 y, 0B78 margin; colour and mode
+     * in CS); zero at load, and kept between prints (text.h). */
+    TextState text;
     bool rude_name;                     /* 0874 set by 1000:5e6d; 1000:160d then skips sample 0x11 */
 
     /* Title screen and attract mode (attract.c, W5b; the loop is main_sm's 00db..0306). The
