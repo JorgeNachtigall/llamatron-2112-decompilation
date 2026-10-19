@@ -513,7 +513,7 @@ static bool warp_sound(GameState *game)
     if (flow.phase++ == 0 || game_sound_status().playing != 0)
         return false;
     game->player.level += WARP_LEVELS;
-    score_add(game, 4, 0x31);
+    score_add(game, 4, 0x32);                     /* 0671: AX = 0x31 = increments - 1 */
     go(MS_WAVE_NEXT);
     return true;
 }
