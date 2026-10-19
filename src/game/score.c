@@ -38,7 +38,7 @@ void score_add(GameState *game, int place, int increments)
     int player = (game->options & OPT_CURRENT_IS_P2) ? 1 : 0;
     uint32_t unit = place_value(place);
     uint32_t carry_limit = place_value(EXTRA_LIFE_PLACE - 1);    /* 10,000 */
-    long repeats = countdown_passes(game->player.score_scale);
+    long repeats = countdown_passes(game->player.multi_shot);
     long steps = countdown_passes((int16_t)(increments - 1));    /* the original's AX */
 
     for (long r = 0; r < repeats; r++) {

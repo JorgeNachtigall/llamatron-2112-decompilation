@@ -109,7 +109,13 @@ typedef struct Player {
     int16_t enemy_speed_y;      /* 21AE */
     int16_t wave_type;          /* 21B0 first byte of the current wave record */
     int16_t swarm_reaim_period; /* 21B2 think_03's re-aim period: max(swarm_count / 2, 3) (1a28) */
-    int16_t score_scale;        /* 21B4 score_add awards every increment score_scale+1 times */
+    /* 21B4 the multi-shot power-up level (pickup 04, 1000:0fdb, sets 1 for the rest of the
+     * wave): player_fire adds the 3-way spread while it is non-zero (0a00/0b26), and
+     * score_add awards every increment multi_shot+1 times. score_scale is the old name, kept until every user has switched. */
+    union {
+        int16_t multi_shot;
+        int16_t score_scale;
+    };
     int16_t script_param[7];    /* 21B6..21C2 per-level parameters set by script ops 1..2 [H] */
     int16_t powerup;            /* 21C4 [H] power-up state, sign tested by anim_10 */
     int16_t pickup_pending;     /* 21C6 k+1: the next killed enemy becomes pickup kind k (0eb8);
