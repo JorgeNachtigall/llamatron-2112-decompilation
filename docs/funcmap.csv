@@ -299,13 +299,13 @@ game86,1000:e135,267,sprite_draw_scaled,gfx_draw_sprite,src/engine/gfx.c,todo,W6
 game86,1000:e240,168,sprite_draw_scaled_col,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,
 game86,1000:e2e8,420,sprite_draw_scaled_rows,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,
 game86,1000:e48c,82,vram_addr_from_xy_signed,vram_addr_from_xy_signed,src/engine/gfx.c,todo,W6,F,renderer API (W2) semantics
-game86,1000:e4de,23,rng_next,rng_next_byte,src/game/rng.c,ported,W4,S,scratch-checked vs oracle; ctest pending (Sentinel)
+game86,1000:e4de,23,rng_next,rng_next_byte,src/game/rng.c,diff-tested,W4,S,ctest oracle.rng (test_c_next_byte)
 game86,1000:e4f5,36,video_set_mode,video_set_mode,src/engine/gfx.c,todo,W2,S,
 game86,1000:e519,78,irq_install,irq_install,src/platform/,todo,W2,S,not ported: platform timer/input
 game86,1000:e567,140,irq09_keyboard,kbd_on_scancode,src/engine/input.c,todo,W2,S,
 game86,1000:e5f3,18,wait_vsync,wait_vsync,src/platform/,todo,W2,S,platform: end of frame
 game86,1000:e605,17,kbd_flush,kbd_flush,src/platform/,todo,W2,S,platform
-game86,1000:e616,72,rng_mix,rng_mix,src/game/rng.c,ported,W4,S,BIOS tick passed per call; shuffle 007b..00ab = rng_shuffle (RngTickSource); seed part of 5f6b = rng_seed
+game86,1000:e616,72,rng_mix,rng_mix,src/game/rng.c,diff-tested,W4,S,BIOS tick passed per call (ctest oracle.rng incl. tick schedules); shuffle 007b..00ab = rng_shuffle (RngTickSource); seed part of 5f6b = rng_seed
 game86,1000:e65e,46,cmp_load,cmp_load,tools/extract/,todo,W1,S,build-time extraction
 game86,1000:e6bb,130,lzss_decode,lzss_decode,tools/extract/,todo,W1,S,build-time extraction
 game86,1000:e73d,59,lzss_getbyte,lzss_decode,tools/extract/,todo,W1,S,build-time extraction
