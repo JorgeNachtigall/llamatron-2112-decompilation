@@ -262,8 +262,8 @@ typedef struct GameState {
     /* Configuration from the launcher's command tail (game86 1000:5f6b) */
     bool vga;                           /* 058A */
     bool joystick;                      /* 058B (058D keyboard = !joystick) */
-    bool sound_present;                 /* 0688 a sound driver was loaded */
-    bool sound_on;                      /* 0689 toggled at runtime by 1000:1514 */
+    bool sound_present;                 /* 0689 a sound driver was loaded (609c) */
+    bool sound_on;                      /* 0688 toggled at runtime by 1000:1514 */
     uint8_t flash_mode;                 /* 0589 0 none, 1 pulsing, 2 pulsing and flashes */
     bool quit;                          /* leave the game (exit path 1000:5ed9) */
 
