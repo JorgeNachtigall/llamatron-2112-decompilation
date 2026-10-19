@@ -1,0 +1,104 @@
+/*
+ * platform.h - host services for the Llamatron port (SDL2, native and Emscripten).
+ *
+ * This layer knows nothing about the game. It provides:
+ *   - a window that shows an indexed (8-bit) image of any size, scaled to a 4:3 display
+ *     like a 1992 monitor would (320x200, the title's 320x400 and 640x350 all fill 4:3);
+ *   - keyboard events translated to IBM PC scan code set 1 (what the original read from
+ *     port 60h), plus up to two gamepads as analogue sticks + buttons;
+ *   - a monotonic clock and a callback-driven main loop that runs natively and under
+ *     emscripten_set_main_loop (never blocks inside the callback);
+ *   - a mono audio output stream (used by src/sound/).
+ */
+#ifndef LLAMATRON_PLATFORM_H
+#define LLAMATRON_PLATFORM_H
+
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+typedef struct PlatConfig {
+    const char *window_title;
+    int window_scale;          /* initial window = scale x 320x240 (4:3); 0 = default (3) */
+    bool fullscreen;
+    bool vsync;                /* native: present with vsync; ignored on the web (rAF) */
+} PlatConfig;
+
+/* One RGB colour, 8 bits per channel. */
+typedef struct PlatColor {
+    uint8_t r, g, b;
+} PlatColor;
+
+bool plat_init(const PlatConfig *config);
+void plat_shutdown(void);
+
+/* ---- Display ------------------------------------------------------------------------- */
+
+/* Show an indexed image: `pixels` is width*height bytes (row stride `pitch`), each byte an
+ * index into `palette` (256 entries). The image is stretched to the largest 4:3 rectangle
+ * that fits the window, with nearest-neighbour filtering. */
+void plat_present(const uint8_t *pixels, int width, int height, int pitch,
+                  const PlatColor palette[256]);
+
+void plat_toggle_fullscreen(void);
+
+/* ---- Input --------------------------------------------------------------------------- */
+
+/* Called for every key press/release with the PC set-1 make code (0x01..0x7f) of the key.
+ * Extended keys (cursor block, keypad Enter, right Ctrl/Alt) report their base make code,
+ * the way the original's INT 09 handler saw them after ignoring the 0xE0 prefix byte. */
+typedef void (*PlatKeyFn)(uint8_t pc_make_code, bool pressed, void *user);
+
+/* Pump host events. Returns false once the user closed the window (or pressed Cmd-Q). */
+bool plat_poll_events(PlatKeyFn on_key, void *user);
+
+enum { PLAT_MAX_GAMEPADS = 2 };
+
+enum PlatGamepadButton {
+    PLAT_PAD_BUTTON_A = 1u << 0,   /* fire 1 */
+    PLAT_PAD_BUTTON_B = 1u << 1,   /* fire 2 */
+    PLAT_PAD_BUTTON_START = 1u << 2,
+};
+
+typedef struct PlatGamepad {
+    bool connected;
+    float x, y;                    /* -1 .. +1, +x = right, +y = down (d-pad gives +-1) */
+    unsigned buttons;              /* PlatGamepadButton bits */
+} PlatGamepad;
+
+void plat_gamepad(int index, PlatGamepad *out);
+
+/* ---- Time and main loop -------------------------------------------------------------- */
+
+/* Microseconds since plat_init(), monotonic. */
+uint64_t plat_time_us(void);
+
+/* One iteration of the program: poll input, advance time, draw, present.
+ * Return false to end the main loop. */
+typedef bool (*PlatFrameFn)(void *user);
+
+/* Run `frame` once per display refresh until it returns false. Natively this loops with
+ * vsync (or sleeps to ~60 Hz if vsync is unavailable) and returns. Under Emscripten it
+ * registers the callback with requestAnimationFrame timing and never returns (code after
+ * the call does not run), so do any cleanup inside `frame` before returning false. */
+void plat_run_main_loop(PlatFrameFn frame, void *user);
+
+/* ---- Audio --------------------------------------------------------------------------- */
+
+/* Open a mono unsigned 8-bit output at `rate` Hz. On the web the device only starts
+ * producing sound after the first user gesture. */
+bool plat_audio_open(int rate);
+void plat_audio_close(void);
+/* Append samples to the output queue; returns the number of bytes still queued. */
+size_t plat_audio_queue(const uint8_t *samples, size_t count);
+size_t plat_audio_queued(void);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* LLAMATRON_PLATFORM_H */
