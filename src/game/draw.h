@@ -44,6 +44,7 @@ typedef struct DrawTarget {
     uint8_t *pixels;        /* cell_count * DRAW_CELL_PIXELS indexed pixels */
     int32_t cell_count;
     bool wraps;
+    int page;               /* GfxPageId whose dirty list records sprite draws, or -1 */
 } DrawTarget;
 
 DrawTarget draw_target_page(GfxPageId page);
@@ -65,6 +66,8 @@ typedef struct DrawCellPos {
 } DrawCellPos;
 
 DrawCellPos draw_cell_pos(int x, int y);
+/* The same without the canvas-wrap shift (game86 1000:e48c, used by the sheared draw). */
+DrawCellPos draw_cell_pos_unshifted(int x, int y);
 static inline bool draw_cell_pos_aligned(DrawCellPos pos) { return (pos.shift & 7) == 0; }
 
 /* Paint the pixels of `bits` (bit 7 = leftmost) in cell `cell`: each such pixel becomes
@@ -72,6 +75,36 @@ static inline bool draw_cell_pos_aligned(DrawCellPos pos) { return (pos.shift & 
  * (clear pass, then colour pass). Cells outside a non-wrapping target are ignored. */
 void draw_cell_paint(const DrawTarget *target, int32_t cell, uint8_t bits,
                      uint8_t clear_planes, uint8_t set_planes);
+
+/* Copy the pixels of `mask` (bit 7 = leftmost) from colors[0..7] into cell `cell`: the
+ * original's bit-masked write of the four plane bytes of a sprite. */
+void draw_cell_blit(const DrawTarget *target, int32_t cell, uint8_t mask, const uint8_t colors[8]);
+
+/* ---- Sprites (draw_sprite.c) --------------------------------------------------------- */
+
+/* Sprites are GfxSprite frames from the sprite bank: width = 16 x columns, transparent
+ * pixels GFX_TRANSPARENT (or mask 0), hotspot (nominal width / 2, (height - 1) / 2).
+ *
+ * While dirty recording is on (game86 cs_dirty_enable CS:672f, switched on by the frame loop
+ * every frame) a draw is clipped to the 320x200 screen first and the rectangle it may touch
+ * is added to the target page's dirty list, in whole 16-pixel words like the original. While
+ * it is off nothing is clipped vertically and nothing is recorded (used for the background
+ * page, the HUD and inline text sprites). */
+void draw_set_dirty_recording(bool on);
+bool draw_dirty_recording(void);
+
+/* Draw `sprite` with its hotspot at (x, y). One-column sprites have at most 24 rows (the
+ * original dispatches on the row count through 25-entry tables; real frames have <= 23). game86 1000:8cbb (one column: 8dc9 and the
+ * tables at 8e71 / abd1, shifted 1000:aa29, ac10), 1000:63d2 / 6566 (several columns) */
+void draw_sprite(const DrawTarget *target, const GfxSprite *sprite, int x, int y);
+
+/* The original's "scaled" draw (game86 1000:e135, selected by g_draw_flags >= 0): a
+ * one-column sprite is drawn row by row, row r at (x0 + r * shear, y0 + r * row_step),
+ * so row_step spreads (> 1) or squashes (0) it vertically and shear slants it; drawing
+ * stops below the screen. shear is row_step with the sign of g_draw_mirror, or 0. Wider
+ * sprites are drawn unsheared, as draw_sprite does, at the shifted origin. */
+void draw_sprite_sheared(const DrawTarget *target, const GfxSprite *sprite, int x, int y,
+                         int row_step, int shear);
 
 /* ---- Whole pages (draw_page.c) ------------------------------------------------------- */
 

@@ -8,6 +8,7 @@ add_library(llamatron_game STATIC
     draw_rect.c
     draw_target.c
     text.c
+    draw_sprite.c
 )
 target_include_directories(llamatron_game PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(llamatron_game PUBLIC llama_engine)   # W6 draw_*.c use engine/gfx.h

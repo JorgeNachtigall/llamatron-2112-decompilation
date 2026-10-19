@@ -55,7 +55,7 @@ class TextState(ctypes.Structure):
 
 class DrawTarget(ctypes.Structure):
     _fields_ = [("pixels", ctypes.c_void_p), ("cell_count", ctypes.c_int32),
-                ("wraps", ctypes.c_bool)]
+                ("wraps", ctypes.c_bool), ("page", ctypes.c_int)]
 
 
 # ---- planes <-> linear pixels ------------------------------------------------------
@@ -193,7 +193,7 @@ def run_canvas_case(machine, ctext, rnd, text, x, y, opaque, wrapped):
     font.to_c(ctext)
     bind(ctext, "draw_set_canvas_wrapped", None, ctypes.c_bool)(wrapped)
     state = c_state(x, y, colour, opaque)
-    target = DrawTarget(ctypes.cast(canvas, ctypes.c_void_p), CELLS, True)
+    target = DrawTarget(ctypes.cast(canvas, ctypes.c_void_p), CELLS, True, -1)
     end = bind(ctext, "text_print", ctypes.c_void_p, ctypes.POINTER(DrawTarget),
                ctypes.POINTER(TextState), ctypes.c_char_p)
     text_buf = ctypes.create_string_buffer(text, len(text))

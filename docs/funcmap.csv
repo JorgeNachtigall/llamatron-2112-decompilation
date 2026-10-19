@@ -250,55 +250,55 @@ game86,1000:6383,12,vram_clear_from_1f40,vram_clear_from_1f40,src/engine/gfx.c,t
 game86,1000:638f,16,vram_clear_line,vram_clear_line,src/engine/gfx.c,todo,W6,E,renderer API (W2) semantics
 game86,1000:639f,37,vram_clear_lower,vram_clear_lower,src/engine/gfx.c,todo,W6,E,renderer API (W2) semantics
 game86,1000:63c4,9,vram_clear_page,vram_clear_page,src/engine/gfx.c,todo,W6,E,renderer API (W2) semantics
-game86,1000:63d2,393,sprite_draw_wide,gfx_draw_sprite,src/engine/gfx.c,todo,W6,E,
-game86,1000:655b,2,sprite_draw_wide_ret,gfx_draw_sprite,src/engine/gfx.c,todo,W6,E,
-game86,1000:655d,9,sprite_draw_wide_clip,gfx_draw_sprite,src/engine/gfx.c,todo,W6,E,
-game86,1000:6566,457,sprite_draw_wide_shifted,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,
-game86,1000:8cbb,436,sprite_draw_core,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,
-game86,1000:8e6f,2,unk_1000_8e6f,,,todo,W6,F,
-game86,1000:8ea3,135,blit_rows,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,blitter family: one C routine
-game86,1000:8f2a,783,blit_h06,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,blitter family: one C routine
-game86,1000:9239,921,blit_h07,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,blitter family: one C routine
-game86,1000:95d2,1059,blit_h08,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,blitter family: one C routine
-game86,1000:99f5,1197,blit_h09,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,blitter family: one C routine
-game86,1000:9ea2,1335,blit_h10,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,blitter family: one C routine
-game86,1000:a3d9,1473,blit_h11,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,blitter family: one C routine
-game86,1000:a99a,13,blit_h12,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,blitter family: one C routine
-game86,1000:a9a7,13,blit_h13,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,blitter family: one C routine
-game86,1000:a9b4,13,blit_h14,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,blitter family: one C routine
-game86,1000:a9c1,13,blit_h15,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,blitter family: one C routine
-game86,1000:a9ce,13,blit_h16,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,blitter family: one C routine
-game86,1000:a9db,13,blit_h17,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,blitter family: one C routine
-game86,1000:a9e8,13,blit_h18,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,blitter family: one C routine
-game86,1000:a9f5,13,blit_h19,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,blitter family: one C routine
-game86,1000:aa02,13,blit_h20,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,blitter family: one C routine
-game86,1000:aa0f,13,blit_h21,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,blitter family: one C routine
-game86,1000:aa1c,13,blit_h22,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,blitter family: one C routine
-game86,1000:aa29,424,blit_shifted_column,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,blitter family: one C routine
-game86,1000:ac03,13,blit_shifted_dispatch,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,blitter family: one C routine
-game86,1000:ac10,257,blit_shifted_rows,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,blitter family: one C routine
-game86,1000:ad11,1525,blit_shifted_h06,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,blitter family: one C routine
-game86,1000:b306,1790,blit_shifted_h07,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,blitter family: one C routine
-game86,1000:ba04,2055,blit_shifted_h08,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,blitter family: one C routine
-game86,1000:c20b,2320,blit_shifted_h09,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,blitter family: one C routine
-game86,1000:cb1b,2585,blit_shifted_h10,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,blitter family: one C routine
-game86,1000:d534,2850,blit_shifted_h11,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,blitter family: one C routine
-game86,1000:e056,13,blit_shifted_h12,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,blitter family: one C routine
-game86,1000:e063,13,blit_shifted_h13,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,blitter family: one C routine
-game86,1000:e070,13,blit_shifted_h14,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,blitter family: one C routine
-game86,1000:e07d,13,blit_shifted_h15,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,blitter family: one C routine
-game86,1000:e08a,13,blit_shifted_h16,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,blitter family: one C routine
-game86,1000:e097,13,blit_shifted_h17,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,blitter family: one C routine
-game86,1000:e0a4,13,blit_shifted_h18,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,blitter family: one C routine
-game86,1000:e0b1,13,blit_shifted_h19,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,blitter family: one C routine
-game86,1000:e0be,13,blit_shifted_h20,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,blitter family: one C routine
-game86,1000:e0cb,13,blit_shifted_h21,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,blitter family: one C routine
-game86,1000:e0d8,13,blit_shifted_h22,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,blitter family: one C routine
+game86,1000:63d2,393,sprite_draw_wide,draw_sprite,src/game/draw_sprite.c,diff-tested,W6,E,"test_sprites.py (one column aligned/shifted, fast tables and edge paths, several columns, dirty records)"
+game86,1000:655b,2,sprite_draw_wide_ret,draw_sprite,src/game/draw_sprite.c,diff-tested,W6,E,"test_sprites.py (one column aligned/shifted, fast tables and edge paths, several columns, dirty records)"
+game86,1000:655d,9,sprite_draw_wide_clip,draw_sprite,src/game/draw_sprite.c,diff-tested,W6,E,"test_sprites.py (one column aligned/shifted, fast tables and edge paths, several columns, dirty records)"
+game86,1000:6566,457,sprite_draw_wide_shifted,draw_sprite,src/game/draw_sprite.c,diff-tested,W6,F,"test_sprites.py (one column aligned/shifted, fast tables and edge paths, several columns, dirty records)"
+game86,1000:8cbb,436,sprite_draw_core,draw_sprite,src/game/draw_sprite.c,diff-tested,W6,F,"test_sprites.py (one column aligned/shifted, fast tables and edge paths, several columns, dirty records)"
+game86,1000:8e6f,2,unk_1000_8e6f,draw_sprite,src/game/draw_sprite.c,diff-tested,W6,F,"test_sprites.py (one column aligned/shifted, fast tables and edge paths, several columns, dirty records)"
+game86,1000:8ea3,135,blit_rows,draw_sprite,src/game/draw_sprite.c,diff-tested,W6,F,"test_sprites.py (one column aligned/shifted, fast tables and edge paths, several columns, dirty records)"
+game86,1000:8f2a,783,blit_h06,draw_sprite,src/game/draw_sprite.c,diff-tested,W6,F,"test_sprites.py (one column aligned/shifted, fast tables and edge paths, several columns, dirty records)"
+game86,1000:9239,921,blit_h07,draw_sprite,src/game/draw_sprite.c,diff-tested,W6,F,"test_sprites.py (one column aligned/shifted, fast tables and edge paths, several columns, dirty records)"
+game86,1000:95d2,1059,blit_h08,draw_sprite,src/game/draw_sprite.c,diff-tested,W6,F,"test_sprites.py (one column aligned/shifted, fast tables and edge paths, several columns, dirty records)"
+game86,1000:99f5,1197,blit_h09,draw_sprite,src/game/draw_sprite.c,diff-tested,W6,F,"test_sprites.py (one column aligned/shifted, fast tables and edge paths, several columns, dirty records)"
+game86,1000:9ea2,1335,blit_h10,draw_sprite,src/game/draw_sprite.c,diff-tested,W6,F,"test_sprites.py (one column aligned/shifted, fast tables and edge paths, several columns, dirty records)"
+game86,1000:a3d9,1473,blit_h11,draw_sprite,src/game/draw_sprite.c,diff-tested,W6,F,"test_sprites.py (one column aligned/shifted, fast tables and edge paths, several columns, dirty records)"
+game86,1000:a99a,13,blit_h12,draw_sprite,src/game/draw_sprite.c,diff-tested,W6,F,"test_sprites.py (one column aligned/shifted, fast tables and edge paths, several columns, dirty records)"
+game86,1000:a9a7,13,blit_h13,draw_sprite,src/game/draw_sprite.c,diff-tested,W6,F,"test_sprites.py (one column aligned/shifted, fast tables and edge paths, several columns, dirty records)"
+game86,1000:a9b4,13,blit_h14,draw_sprite,src/game/draw_sprite.c,diff-tested,W6,F,"test_sprites.py (one column aligned/shifted, fast tables and edge paths, several columns, dirty records)"
+game86,1000:a9c1,13,blit_h15,draw_sprite,src/game/draw_sprite.c,diff-tested,W6,F,"test_sprites.py (one column aligned/shifted, fast tables and edge paths, several columns, dirty records)"
+game86,1000:a9ce,13,blit_h16,draw_sprite,src/game/draw_sprite.c,diff-tested,W6,F,"test_sprites.py (one column aligned/shifted, fast tables and edge paths, several columns, dirty records)"
+game86,1000:a9db,13,blit_h17,draw_sprite,src/game/draw_sprite.c,diff-tested,W6,F,"test_sprites.py (one column aligned/shifted, fast tables and edge paths, several columns, dirty records)"
+game86,1000:a9e8,13,blit_h18,draw_sprite,src/game/draw_sprite.c,diff-tested,W6,F,"test_sprites.py (one column aligned/shifted, fast tables and edge paths, several columns, dirty records)"
+game86,1000:a9f5,13,blit_h19,draw_sprite,src/game/draw_sprite.c,diff-tested,W6,F,"test_sprites.py (one column aligned/shifted, fast tables and edge paths, several columns, dirty records)"
+game86,1000:aa02,13,blit_h20,draw_sprite,src/game/draw_sprite.c,diff-tested,W6,F,"test_sprites.py (one column aligned/shifted, fast tables and edge paths, several columns, dirty records)"
+game86,1000:aa0f,13,blit_h21,draw_sprite,src/game/draw_sprite.c,diff-tested,W6,F,"test_sprites.py (one column aligned/shifted, fast tables and edge paths, several columns, dirty records)"
+game86,1000:aa1c,13,blit_h22,draw_sprite,src/game/draw_sprite.c,diff-tested,W6,F,"test_sprites.py (one column aligned/shifted, fast tables and edge paths, several columns, dirty records)"
+game86,1000:aa29,424,blit_shifted_column,draw_sprite,src/game/draw_sprite.c,diff-tested,W6,F,"test_sprites.py (one column aligned/shifted, fast tables and edge paths, several columns, dirty records)"
+game86,1000:ac03,13,blit_shifted_dispatch,draw_sprite,src/game/draw_sprite.c,diff-tested,W6,F,"test_sprites.py (one column aligned/shifted, fast tables and edge paths, several columns, dirty records)"
+game86,1000:ac10,257,blit_shifted_rows,draw_sprite,src/game/draw_sprite.c,diff-tested,W6,F,"test_sprites.py (one column aligned/shifted, fast tables and edge paths, several columns, dirty records)"
+game86,1000:ad11,1525,blit_shifted_h06,draw_sprite,src/game/draw_sprite.c,diff-tested,W6,F,"test_sprites.py (one column aligned/shifted, fast tables and edge paths, several columns, dirty records)"
+game86,1000:b306,1790,blit_shifted_h07,draw_sprite,src/game/draw_sprite.c,diff-tested,W6,F,"test_sprites.py (one column aligned/shifted, fast tables and edge paths, several columns, dirty records)"
+game86,1000:ba04,2055,blit_shifted_h08,draw_sprite,src/game/draw_sprite.c,diff-tested,W6,F,"test_sprites.py (one column aligned/shifted, fast tables and edge paths, several columns, dirty records)"
+game86,1000:c20b,2320,blit_shifted_h09,draw_sprite,src/game/draw_sprite.c,diff-tested,W6,F,"test_sprites.py (one column aligned/shifted, fast tables and edge paths, several columns, dirty records)"
+game86,1000:cb1b,2585,blit_shifted_h10,draw_sprite,src/game/draw_sprite.c,diff-tested,W6,F,"test_sprites.py (one column aligned/shifted, fast tables and edge paths, several columns, dirty records)"
+game86,1000:d534,2850,blit_shifted_h11,draw_sprite,src/game/draw_sprite.c,diff-tested,W6,F,"test_sprites.py (one column aligned/shifted, fast tables and edge paths, several columns, dirty records)"
+game86,1000:e056,13,blit_shifted_h12,draw_sprite,src/game/draw_sprite.c,diff-tested,W6,F,"test_sprites.py (one column aligned/shifted, fast tables and edge paths, several columns, dirty records)"
+game86,1000:e063,13,blit_shifted_h13,draw_sprite,src/game/draw_sprite.c,diff-tested,W6,F,"test_sprites.py (one column aligned/shifted, fast tables and edge paths, several columns, dirty records)"
+game86,1000:e070,13,blit_shifted_h14,draw_sprite,src/game/draw_sprite.c,diff-tested,W6,F,"test_sprites.py (one column aligned/shifted, fast tables and edge paths, several columns, dirty records)"
+game86,1000:e07d,13,blit_shifted_h15,draw_sprite,src/game/draw_sprite.c,diff-tested,W6,F,"test_sprites.py (one column aligned/shifted, fast tables and edge paths, several columns, dirty records)"
+game86,1000:e08a,13,blit_shifted_h16,draw_sprite,src/game/draw_sprite.c,diff-tested,W6,F,"test_sprites.py (one column aligned/shifted, fast tables and edge paths, several columns, dirty records)"
+game86,1000:e097,13,blit_shifted_h17,draw_sprite,src/game/draw_sprite.c,diff-tested,W6,F,"test_sprites.py (one column aligned/shifted, fast tables and edge paths, several columns, dirty records)"
+game86,1000:e0a4,13,blit_shifted_h18,draw_sprite,src/game/draw_sprite.c,diff-tested,W6,F,"test_sprites.py (one column aligned/shifted, fast tables and edge paths, several columns, dirty records)"
+game86,1000:e0b1,13,blit_shifted_h19,draw_sprite,src/game/draw_sprite.c,diff-tested,W6,F,"test_sprites.py (one column aligned/shifted, fast tables and edge paths, several columns, dirty records)"
+game86,1000:e0be,13,blit_shifted_h20,draw_sprite,src/game/draw_sprite.c,diff-tested,W6,F,"test_sprites.py (one column aligned/shifted, fast tables and edge paths, several columns, dirty records)"
+game86,1000:e0cb,13,blit_shifted_h21,draw_sprite,src/game/draw_sprite.c,diff-tested,W6,F,"test_sprites.py (one column aligned/shifted, fast tables and edge paths, several columns, dirty records)"
+game86,1000:e0d8,13,blit_shifted_h22,draw_sprite,src/game/draw_sprite.c,diff-tested,W6,F,"test_sprites.py (one column aligned/shifted, fast tables and edge paths, several columns, dirty records)"
 game86,1000:e0e5,76,vram_addr_from_xy,draw_cell_pos,src/game/draw_target.c,diff-tested,W6,F,via glyph tests incl. x<0 and canvas wrap shift ([0x442]>=2)
-game86,1000:e135,267,sprite_draw_scaled,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,
-game86,1000:e240,168,sprite_draw_scaled_col,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,
-game86,1000:e2e8,420,sprite_draw_scaled_rows,gfx_draw_sprite,src/engine/gfx.c,todo,W6,F,
-game86,1000:e48c,82,vram_addr_from_xy_signed,vram_addr_from_xy_signed,src/engine/gfx.c,todo,W6,F,renderer API (W2) semantics
+game86,1000:e135,267,sprite_draw_scaled,draw_sprite_sheared,src/game/draw_sprite.c,diff-tested,W6,F,"test_sprites.py::test_draw_sprite_sheared (row step / shear, not a zoom)"
+game86,1000:e240,168,sprite_draw_scaled_col,draw_sprite_sheared,src/game/draw_sprite.c,diff-tested,W6,F,"test_sprites.py::test_draw_sprite_sheared (row step / shear, not a zoom)"
+game86,1000:e2e8,420,sprite_draw_scaled_rows,draw_sprite_sheared,src/game/draw_sprite.c,diff-tested,W6,F,"test_sprites.py::test_draw_sprite_sheared (row step / shear, not a zoom)"
+game86,1000:e48c,82,vram_addr_from_xy_signed,draw_cell_pos_unshifted,src/game/draw_target.c,diff-tested,W6,F,via test_draw_sprite_sheared
 game86,1000:e4de,23,rng_next,rng_next_byte,src/game/rng.c,diff-tested,W4,S,ctest oracle.rng (test_c_next_byte)
 game86,1000:e4f5,36,video_set_mode,video_set_mode,src/engine/gfx.c,todo,W2,S,
 game86,1000:e519,78,irq_install,irq_install,src/platform/,todo,W2,S,not ported: platform timer/input
