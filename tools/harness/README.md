@@ -61,8 +61,22 @@ Findings: COMMAND.COM here leaves `%errorlevel%` empty, so the exit code is not
 recorded. Keys typed before game86 installs its INT 09 handler (`1000:e567`) are
 lost, so the smoke run repeats `q`.
 
-Still to do for real reference runs: pin the BIOS tick schedule during the RNG
-shuffle (tests/README.md), deterministic input timing, and DGROUP/VRAM dumps every
-N frames. The Homebrew build includes the debugger, but it is interactive. The plan
-is a small DOS-side probe of our own (load game86 with INT 21h/4B01, wrap its
-INT 08 hook, copy DGROUP/VRAM to a buffer, write it out at exit).
+### PROBE.COM (`dosbox/probe.asm`, our own code; `brew install nasm`)
+
+`refrun.py probe --ticks 0x0012ABCD [--machine ega]` assembles the probe into the run
+copy and starts game86 through it, using the launcher's command-tail contract (sound
+= none, keyboard). The probe:
+- masks IRQ0 and pins the BIOS tick word, so the tick schedule stays constant through
+  the seed read (`1000:5f6b`) and the 8000 mixer calls of the shuffle;
+- snapshots DGROUP (64 KB) at game86's first INT 10h AX=000Dh (`1000:5960`, right
+  after the shuffle), then releases the timer;
+- records the game's exit code. After the game exits it writes `PROBE.HDR` (layout in
+  probe.asm) and `PROBE.DG`.
+
+The snapshot is a copy of the original's memory. It stays in the gitignored work
+directory; never commit it (hashes are fine). `tests/dosbox/test_probe_rng.py`
+(ctest `dosbox.probe_rng`) checks the first end-to-end chain: the table and mixer
+state from DOSBox-X equal the unicorn oracle's for the same tick, on VGA and EGA.
+
+Next: periodic DGROUP/VRAM snapshots (wrap game86's INT 08 hook, buffer in XMS) and
+deterministic input timing for whole-game reference runs.

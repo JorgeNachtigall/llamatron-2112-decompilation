@@ -7,6 +7,9 @@
   rectangles, entity tables). Cases are reproducible from the test name and case number.
   `LLAMATRON_FUZZ_SCALE=N` multiplies the case counts; `LLAMATRON_FUZZ_SEED=S` picks
   another reproducible set.
+- `dosbox/test_*.py`: end-to-end runs of the original in DOSBox-X through
+  `tools/harness/dosbox` (label `dosbox`, slow; skipped without dosbox-x, nasm or the
+  original files).
 - `adapters/`: the only place that knows original offsets. These modules convert
   between our state structs and the DGROUP byte layout (`rng.py`, `entities.py`; `dgroup_map.c` for the C `GameState`
   later); `cport.py` loads the port's `llamatron_game_testlib` via ctypes (fixture `cgame`).
@@ -38,7 +41,8 @@ Consequences:
 - The port must therefore take as input a *tick schedule*: the BIOS tick value seen by
   call n (n = 0..7999). The default is a constant schedule (the start tick), which is
   what the oracle tests use (`test_init_shuffle`).
-- DOSBox-X reference runs (PLAN §3.3) must pin this too, either by freezing the tick
-  (setting 0040:006C and stopping the timer during start-up) or by recording the tick
-  at every `e616` call with a breakpoint. Otherwise their RNG table differs from the
-  port's even with the "same seed".
+- DOSBox-X reference runs (PLAN §3.3) must pin this too. Otherwise their RNG table
+  differs from the port's even with the "same seed". `PROBE.COM` does it by masking
+  IRQ0 and fixing 0040:006C until the mode-0Dh INT 10h that follows the shuffle.
+  `dosbox.probe_rng` confirms that the DOSBox-X table equals the oracle's for the same
+  constant schedule.

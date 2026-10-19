@@ -68,13 +68,34 @@ if(NOT EXISTS "${LLAMATRON_HARNESS_PYTHON}")
   return()
 endif()
 
+# pytest's --basetemp must have an existing parent; keep it inside the build tree.
+file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/pytest-tmp")
+
+# End-to-end DOSBox-X probe tests (label dosbox, ~25 s per case); they skip
+# themselves without dosbox-x, nasm or the original files.
+file(GLOB _dosbox_tests CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/dosbox/test_*.py")
+foreach(_test IN LISTS _dosbox_tests)
+  get_filename_component(_name "${_test}" NAME_WE)
+  string(REGEX REPLACE "^test_" "" _name "${_name}")
+  add_test(NAME dosbox.${_name}
+           COMMAND "${LLAMATRON_HARNESS_PYTHON}" -m pytest -q -p no:cacheprovider
+                   --rootdir "${CMAKE_CURRENT_SOURCE_DIR}"
+                   --basetemp "${CMAKE_CURRENT_BINARY_DIR}/pytest-tmp/dosbox.${_name}" "${_test}"
+           WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")
+  set_tests_properties(dosbox.${_name} PROPERTIES
+    ENVIRONMENT "${_harness_env};LLAMATRON_ORIGINAL_DIR=${_original_dir};LLAMATRON_DOSBOX_WORKDIR=${CMAKE_CURRENT_BINARY_DIR}/dosbox"
+    LABELS "dosbox" TIMEOUT 300
+    SKIP_REGULAR_EXPRESSION "\n[0-9]+ skipped in ")
+endforeach()
+
 file(GLOB _oracle_tests CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/oracle/test_*.py")
 foreach(_test IN LISTS _oracle_tests)
   get_filename_component(_name "${_test}" NAME_WE)
   string(REGEX REPLACE "^test_" "" _name "${_name}")
   add_test(NAME oracle.${_name}
            COMMAND "${LLAMATRON_HARNESS_PYTHON}" -m pytest -q -p no:cacheprovider
-                   --rootdir "${CMAKE_CURRENT_SOURCE_DIR}" "${_test}"
+                   --rootdir "${CMAKE_CURRENT_SOURCE_DIR}"
+                   --basetemp "${CMAKE_CURRENT_BINARY_DIR}/pytest-tmp/oracle.${_name}" "${_test}"
            WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")
   set_tests_properties(oracle.${_name} PROPERTIES
     ENVIRONMENT "${_harness_env}"

@@ -12,6 +12,13 @@ sys.path.insert(0, str(ROOT / "tests"))
 from llamatron_harness import Machine, default_game86_path  # noqa: E402
 
 
+def pytest_configure(config):
+    # Keep pytest's tmp_path inside the repo (gitignored build-pytest/), never in
+    # the system temp dir: test inputs can be derived from the original files.
+    if not config.option.basetemp:
+        config.option.basetemp = str(ROOT / "build-pytest")
+
+
 @pytest.fixture(scope="session")
 def game86_path() -> Path:
     try:
