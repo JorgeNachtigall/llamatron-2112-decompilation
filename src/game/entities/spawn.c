@@ -10,6 +10,7 @@
 #include <stddef.h>
 
 #include "rng.h"
+#include "script.h"
 
 static int16_t word(int value)
 {
@@ -103,10 +104,9 @@ Entity *enemy_shot_alloc(GameState *game, const Entity *from, const EnemyShot *t
     return shot;
 }
 
-/* game86 1000:10b0
- * TODO(W0 decision, 1000:10b0): the original's enemy_shot_init also zeroes DS:2576..2579
- * here (its caller's SI is 0x256E, think_13's code address). Not reproduced until it is
- * known whether those level-script bytes are read afterwards. */
+/* game86 1000:10b0. Its enemy_shot_init call (1000:10ea) runs with think_13's code offset
+ * in SI, so the "parent" words it clears are two spawn pairs of a level script; the script
+ * side reproduces that (script_clobber_spawns_10b0). */
 Entity *enemy_shot_drop(GameState *game, const Entity *from)
 {
     Entity *shot = first_free_slot(game);
@@ -117,6 +117,7 @@ Entity *enemy_shot_drop(GameState *game, const Entity *from)
     const EnemyShot bomb = { .aim_y = 0, .aim_x = 0, .sprite = 0x91, .speed = 0xa00,
                              .hit_handler = 0 };
     enemy_shot_init(game, shot, from, &bomb);
+    script_clobber_spawns_10b0(game);
     shot->kind = -1;
     shot->death_sample = 0x0c;
     shot->death_rate = 0;
