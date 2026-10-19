@@ -248,6 +248,9 @@ typedef struct GameState {
     SpawnCursor spawn;                  /* 39EB; the byte address mapping lives in tests/adapters */
     int16_t spawn_remaining;            /* 08FA entities of the current pair still to spawn, -1 none */
     int16_t spawn_type;                 /* 0900 enemy type (tbl_enemy_init index) being spawned */
+    bool spawning_done;                 /* 0802 the whole list is out: player fire (0981) and the
+                                           wave-cleared check (1665) wait for it */
+    int16_t unhatched_left;             /* 08F8 [H] unhatched when the list ended, -1 at 4cb3 */
 
     int16_t shield_timer;               /* 0907 invulnerability ticks (500 from pickup 0fa2) */
     bool smart_bomb;                    /* 0615 hit every solid entity (pickup 0fb5, cleared 0d27) */
