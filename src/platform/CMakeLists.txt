@@ -111,6 +111,17 @@ if(EXISTS ${PROJECT_SOURCE_DIR}/src/game/CMakeLists.txt)
         add_test(NAME llamatron_replay COMMAND llamatron --replay ${_script} --frames 400 --mute --seed 0)
         set_tests_properties(llamatron_replay PROPERTIES DEPENDS input_script_selftest
             PASS_REGULAR_EXPRESSION "replayed 4 of 4 key bytes")
+        # Visual check against the DOSBox-X reference runs (golden page hashes only); reports
+        # the first differing capture, fails only with LLAMATRON_VISUAL_STRICT=1.
+        find_package(Python3 COMPONENTS Interpreter)
+        if(Python3_Interpreter_FOUND)
+            add_test(NAME llamatron_visual_walk_vga COMMAND ${Python3_EXECUTABLE}
+                ${CMAKE_CURRENT_SOURCE_DIR}/tools/visual_check.py --llamatron $<TARGET_FILE:llamatron>
+                --golden ${PROJECT_SOURCE_DIR}/tests/golden/reference_runs.json --run walk_vga
+                --workdir ${CMAKE_CURRENT_BINARY_DIR}/visual)
+            set_tests_properties(llamatron_visual_walk_vga PROPERTIES
+                ENVIRONMENT "LLAMATRON_PREF_DIR=${_llama_prefs}" SKIP_REGULAR_EXPRESSION "visual: skipped")
+        endif()
         set_tests_properties(llamatron_title_phase llamatron_to_game llamatron_replay PROPERTIES
             ENVIRONMENT "LLAMATRON_PREF_DIR=${_llama_prefs}")
     endif()

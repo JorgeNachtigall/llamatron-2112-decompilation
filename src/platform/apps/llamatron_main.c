@@ -3,9 +3,9 @@
  * through its entry API (src/game/game.h). No game logic here: the shell only sequences the two
  * and connects the platform services (window, audio, input, settings, host requests).
  *
- *   llamatron [--vga|--ega] [--keyboard|--joystick] [--mute] [--data DIR]
+ *   llamatron [--vga|--ega] [--keyboard|--joystick] [--flash N|P|Y] [--mute] [--data DIR]
  *             [--frames N] [--start-after K] [--seed BIOS_TICKS]
- *             [--record FILE | --replay FILE]
+ *             [--record FILE | --replay FILE] [--dump-pages DIR --dump-ticks T1,T2,...]
  *
  * Settings come from the saved llama.inf (settings.h); the options here override them for this
  * run only. The game gets them as game86 did, on its command tail (GameLaunch); the RNG seed is
@@ -22,6 +22,11 @@
  * Test hooks: --frames N quits after N frames and prints the phase, tick count and a hash of
  * what is shown; --start-after K presses a key on frame K to leave the title. On the web the
  * page URL stands in for the command line: ?ega&vga&joystick&keyboard&mute&frames=N&start=K&seed=T.
+ * --dump-pages DIR with --dump-ticks writes, right before each listed game tick runs, the three
+ * pages as the reference runs capture VRAM (inside the vsync wait that tick interrupts) to
+ * DIR/pages-<tick>.bin: page 0, page 1, background (320x200 indexed pixels each), then one
+ * byte, the shown page. For the visual check against those runs (tests/dosbox); the files hold
+ * game graphics, so DIR must be a build directory.
  */
 #include "assets.h"
 #include "game.h"
@@ -74,6 +79,9 @@ typedef struct App {
     InputScript record;
     bool replaying;                 /* --replay */
     InputScript replay;
+    const char *dump_dir;           /* --dump-pages */
+    uint32_t dump_ticks[256];       /* --dump-ticks */
+    size_t dump_tick_count;
 } App;
 
 enum {
@@ -135,9 +143,30 @@ static void on_key(uint8_t code, bool pressed, void *user)
     }
 }
 
+/* What is on screen while game tick `tick` is about to run: the frames before it are done. */
+static void dump_pages(const App *app, uint32_t tick)
+{
+    char path[1024];
+    snprintf(path, sizeof path, "%s/pages-%u.bin", app->dump_dir, (unsigned)tick);
+    FILE *f = fopen(path, "wb");
+    bool ok = f != NULL;
+    for (int page = GFX_PAGE_0; ok && page <= GFX_PAGE_BACKGROUND; page++)
+        ok = fwrite(gfx_page((GfxPageId)page)->pixels, 1, (size_t)GFX_WIDTH * GFX_HEIGHT, f) ==
+             (size_t)GFX_WIDTH * GFX_HEIGHT;
+    uint8_t shown = (uint8_t)gfx_display_page_id();
+    ok = ok && fwrite(&shown, 1, 1, f) == 1;
+    if (f && fclose(f) != 0)
+        ok = false;
+    if (!ok)
+        fprintf(stderr, "llamatron: cannot write %s\n", path);
+}
+
 static void game_tick_cb(void *user)
 {
     App *app = user;
+    for (size_t i = 0; app->dump_dir && i < app->dump_tick_count; i++)
+        if (app->dump_ticks[i] == app->game_ticks + 1)
+            dump_pages(app, app->game_ticks + 1);
     app->game_ticks++;
     /* The reference runs apply the bytes due at an IRQ before its handler; the driver tick
      * that already ran does not read the keyboard, so this is the same. */
@@ -350,7 +379,11 @@ int main(int argc, char **argv)
             app->settings.joystick = true;
         else if (strcmp(argv[i], "--keyboard") == 0)
             app->settings.joystick = false;
-        else if (strcmp(argv[i], "--mute") == 0)
+        else if (strcmp(argv[i], "--flash") == 0 && i + 1 < argc) {
+            const char *f = argv[++i];
+            app->settings.flash = f[0] == 'Y' ? SETTINGS_FLASH_ALL
+                                : f[0] == 'P' ? SETTINGS_FLASH_PULSE_ONLY : SETTINGS_FLASH_NONE;
+        } else if (strcmp(argv[i], "--mute") == 0)
             mute = true;
         else if (strcmp(argv[i], "--data") == 0 && i + 1 < argc)
             assets_set_directory(argv[++i]);
@@ -367,6 +400,16 @@ int main(int argc, char **argv)
             if (!input_script_load(&app->replay, argv[++i]))
                 return 1;
             app->replaying = true;
+        } else if (strcmp(argv[i], "--dump-pages") == 0 && i + 1 < argc)
+            app->dump_dir = argv[++i];
+        else if (strcmp(argv[i], "--dump-ticks") == 0 && i + 1 < argc) {
+            for (char *p = argv[++i]; *p && app->dump_tick_count < sizeof app->dump_ticks / sizeof app->dump_ticks[0];) {
+                app->dump_ticks[app->dump_tick_count++] = (uint32_t)strtoul(p, &p, 10);
+                if (*p == ',')
+                    p++;
+                else
+                    break;
+            }
         }
     }
     if (app->replaying && app->record_path) {
