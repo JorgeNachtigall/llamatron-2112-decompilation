@@ -62,3 +62,19 @@ bool hud_glyphs_parse(const uint8_t *data, size_t size, HudGlyphs *out)
     memcpy(out->player_label, labels, sizeof out->player_label);
     return true;
 }
+
+bool scores_format_yak(const HighScoreTable *table, uint8_t out[SCORES_YAK_SIZE])
+{
+    if (table->count != HIGH_SCORE_ENTRIES)
+        return format_fail("scores.yak needs %d entries, have %u", HIGH_SCORE_ENTRIES, (unsigned)table->count);
+    for (int i = 0; i < HIGH_SCORE_ENTRIES; i++) {
+        uint32_t score = table->entries[i].score;
+        if (score > 99999999u)
+            return format_fail("score %u does not fit 8 digits", (unsigned)score);
+        uint8_t *entry = out + i * (8 + HIGH_SCORE_NAME_SIZE);
+        for (int d = 7; d >= 0; d--, score /= 10)
+            entry[d] = (uint8_t)('0' + score % 10);
+        memcpy(entry + 8, table->entries[i].name, HIGH_SCORE_NAME_SIZE);
+    }
+    return true;
+}

@@ -283,6 +283,12 @@ typedef struct HighScoreTable {
 
 bool scores_parse(const uint8_t *data, size_t size, HighScoreTable *out);
 
+/* scores.yak as the game writes it (game86 1000:5da2): 10 x {8 ASCII digits, 8 name bytes}.
+ * Scores are written zero-padded ("%08u"), so every table the game accepts round-trips exactly. */
+enum { SCORES_YAK_SIZE = HIGH_SCORE_ENTRIES * (8 + HIGH_SCORE_NAME_SIZE) };
+/* false if count != 10 or a score exceeds 99999999. File I/O is the platform's job. */
+bool scores_format_yak(const HighScoreTable *table, uint8_t out[SCORES_YAK_SIZE]);
+
 /* ---- hud_glyphs.dat (LHUD): DS:09EE digits, DS:0A8E / 0A9E player-life labels ----------- */
 
 enum {

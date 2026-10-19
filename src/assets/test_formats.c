@@ -246,6 +246,14 @@ static void test_samples_scores_config(void)
     CHECK(scores_parse(s.bytes, s.size, &scores));
     CHECK(scores.count == 2 && scores.entries[0].score == 50000 && strcmp(scores.entries[1].name, "LLAMA   ") == 0);
     check_rejects_damage(&s, parse_scores, "LSCO");
+    uint8_t yak[SCORES_YAK_SIZE];
+    CHECK(!scores_format_yak(&scores, yak)); /* only 2 entries */
+    HighScoreTable full = {HIGH_SCORE_ENTRIES, {{0}}};
+    full.entries[0] = scores.entries[0];
+    full.entries[9].score = 7;
+    CHECK(scores_format_yak(&full, yak) && memcmp(yak, "00050000JEFF    ", 16) == 0 && memcmp(yak + 144, "00000007", 8) == 0);
+    full.entries[3].score = 100000000u;
+    CHECK(!scores_format_yak(&full, yak));
     Buf empty = {0};
     header(&empty, "LSCO", FORMAT_LSCO_VERSION);
     put16(&empty, 0);

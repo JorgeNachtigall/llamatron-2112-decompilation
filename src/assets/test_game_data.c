@@ -154,6 +154,20 @@ static void check_samples_scores_config(void)
     for (int i = 1; defaults && i < defaults->count; i++)
         CHECK(defaults->entries[i].score <= defaults->entries[i - 1].score);
     CHECK(user && (user->count == 0 || user->count == HIGH_SCORE_ENTRIES));
+    /* parse(format_yak(t)) == t for the real tables */
+    for (int t = 0; t < 2; t++) {
+        const HighScoreTable *table = t ? user : defaults;
+        if (!table || table->count == 0)
+            continue;
+        uint8_t yak[SCORES_YAK_SIZE];
+        CHECK(scores_format_yak(table, yak));
+        for (int i = 0; i < HIGH_SCORE_ENTRIES; i++) {
+            uint32_t score = 0;
+            for (int d = 0; d < 8; d++)
+                score = score * 10 + (uint32_t)(yak[i * 16 + d] - '0');
+            CHECK(score == table->entries[i].score && memcmp(yak + i * 16 + 8, table->entries[i].name, 8) == 0);
+        }
+    }
     CHECK(asset_config() != NULL);
     const HudGlyphs *hud = asset_hud_glyphs();
     CHECK(hud != NULL);
