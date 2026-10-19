@@ -46,7 +46,8 @@ enum { SETTINGS_INF_SIZE = 10 };       /* 9 characters + NUL, as install.exe wri
 /* The shipped llama.inf: "V K N 0 N". */
 Settings settings_shipped_defaults(void);
 
-/* Parse llama.inf text; false if it is too short (out keeps its previous values then). */
+/* Parse llama.inf text as llama.exe does (case-insensitive letters, zeros after a short file);
+ * false if the launcher would reject it (out keeps its previous values then). */
 bool settings_parse_inf(const uint8_t *data, size_t size, Settings *out);
 /* Write llama.inf text into out[SETTINGS_INF_SIZE]. */
 void settings_format_inf(const Settings *s, uint8_t out[SETTINGS_INF_SIZE]);
