@@ -34,6 +34,8 @@ bool extract_samples(ExtractContext *ctx);
 bool extract_dgroup_tables(ExtractContext *ctx);
 /* data/strings.dat — texts.c */
 bool extract_texts(ExtractContext *ctx);
+/* data/levels.dat — levels.c */
+bool extract_levels(ExtractContext *ctx);
 /* assets_blob.c with every data/ file as a C array — blob.c. Runs last. */
 bool write_assets_blob(ExtractContext *ctx);
 

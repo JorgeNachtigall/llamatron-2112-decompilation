@@ -167,3 +167,37 @@ Ops (one byte, then operands):
 
 `ctest -R strings_roundtrip` rebuilds the original byte strings from these ops and compares them
 with game86.
+
+## `levels.dat` (tbl_level_scripts DS:2BDA; interpreter game86 1000:020b)
+The table has **100** entries (up to the 0 word at DS:2CA2), not 40. A 0 entry makes the game wrap
+to level 0 and increment the loop count.
+```
+char  magic[4] = "LLVL"
+u16   version = 1
+u16   level_count = 100
+struct {
+    u16 ds_offset        where the original script starts
+    u16 first_op, op_count
+    u8  wave_type        the script's first non-opcode byte (g_wave_type)
+    u8  spawn_count
+    u16 first_spawn
+} levels[level_count]                  10 bytes each
+u16   op_count
+struct { u8 handler; u8 operand_count; u8 operands[4]; } ops[]   6 bytes each, unused operands 0
+u16   spawn_count
+struct { u8 enemy_type; u8 count; } spawns[]   enemy_type indexes tbl_enemy_init (DS:2CA4, 41)
+```
+`handler` = -opcode - 1 (opcode byte 0xFF -> 0 ... 0xF8 -> 7), the CS:0245 table:
+| handler | original | operands | effect |
+|---------|----------|----------|--------|
+| 0 | 1000:0421 | s8 x, s8 y | enemy speed x/y = value << loop count (21ac/21ae) |
+| 1 | 1000:0438 | 4 x s8 | level parameters 21b6, 21b8, 21ba, 21bc |
+| 2 | 1000:03f4 | 4 bytes | 21c0 = b0 * 0x101, 21be = b1 & 15, 21c2 = b2 * 0x101; b3 is skipped; requests sample 0x16 |
+| 3 | 1000:03e1 | 2 bytes | 0826 = b0, 0818 = b1 |
+| 4 | 1000:03cf | 2 bytes | 0816 = b0, 086e = b1 * 0x101 |
+| 5 | 1000:03bc | 2 bytes | 0830 = b0, 0812 = b1 |
+| 6 | 1000:039c | 3 bytes | 0828 = b0 << 8, 082a = 0, 082c = b1 * 0x101, 082e = b2 |
+| 7 | 1000:0392 | 1 byte | 0820 = b0 |
+
+The original ends every spawn list with `FF FF` (not stored). `ctest -R levels_roundtrip` rebuilds
+the original scripts and compares them with game86.

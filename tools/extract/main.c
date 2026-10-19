@@ -177,6 +177,7 @@ static int run_all(const Options *opt)
         {"samples", extract_samples},
         {"palettes, scores and config", extract_dgroup_tables},
         {"texts", extract_texts},
+        {"level scripts", extract_levels},
         {"embedded asset blob", write_assets_blob},
     };
     for (size_t i = 0; status == 0 && i < sizeof steps / sizeof *steps; i++) {

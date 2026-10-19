@@ -10,6 +10,7 @@ add_executable(llamatron-extract
     common.c
     dgroup.c
     ilbm.c
+    levels.c
     lzss.c
     main.c
     manifest.c

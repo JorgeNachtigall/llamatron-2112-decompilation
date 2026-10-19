@@ -26,6 +26,7 @@ llamatron-extract --sha256 FILE...
 | `data/samples.bin`, `data/samples.idx` | the 32 samples of llatron.spl + driver rate table, see FORMATS.md |
 | `data/palettes.dat`, `data/default_scores.dat`, `data/user_scores.dat`, `data/config.dat` | DGROUP palettes/pulse/flash tables, high scores, the user's llama.inf, see FORMATS.md |
 | `data/strings.dat` | all texts as typed op lists, level titles, DOS messages, see FORMATS.md |
+| `data/levels.dat` | the 100 level scripts as typed records (ops, wave type, spawns), see FORMATS.md |
 | `assets_blob.c` | every `data/` file as a C array + `llama_blob_entries[]` / `llama_blob_count` (type `LlamaBlobEntry` from `src/platform/asset_blob.h`), sorted by name |
 | `extract.stamp` | SHA-256 of every output, fixed order |
 
