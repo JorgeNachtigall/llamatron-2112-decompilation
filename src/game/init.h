@@ -18,9 +18,10 @@ extern "C" {
 /* The DGROUP image's initial values of the fields the game reads before writing them. */
 void init_image_values(GameState *game);
 
-/* game86 1000:60aa: the high-score table (the user's scores.yak if the game would accept it,
- * else the built-in table). The pictures and sprites it also loads are extracted data. */
-void init_load_data(GameState *game);
+/* game86 1000:60aa: the high-score table: the host's scores.yak (saved_scores, SCORES_YAK_SIZE
+ * bytes, or NULL) if the game would accept it, else the user's extracted one, else the built-in
+ * table. The pictures and sprites it also loads are extracted data. */
+void init_load_data(GameState *game, const uint8_t *saved_scores);
 
 #ifdef __cplusplus
 }

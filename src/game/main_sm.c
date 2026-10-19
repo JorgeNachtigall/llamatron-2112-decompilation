@@ -88,6 +88,14 @@ typedef struct MainFlow {
 
 static MainFlow flow;
 
+/* The host's scores.yak hook from GameLaunch (game86 1000:5e89 writes the file itself). */
+typedef struct ScoreSaver {
+    void (*save)(const uint8_t *yak, size_t size, void *user);
+    void *user;
+} ScoreSaver;
+
+static ScoreSaver score_saver;
+
 enum {
     ATTRACT_TIMEOUT_TICKS = 0x5DC,      /* 013b: 30 s on the title */
     NEW_GAME_LIVES = 5,
@@ -754,6 +762,20 @@ static bool name_entry_start(GameState *game)
     return true;
 }
 
+/* game86 1000:5e89 hiscore_save: write the table (DS:40A0) to scores.yak; here the host stores
+ * the bytes. Nothing is saved without a host hook (replays, tests). */
+static void save_hiscores(const GameState *game)
+{
+    if (score_saver.save == NULL)
+        return;
+    HighScoreTable table = { .count = HISCORE_COUNT };
+    for (int i = 0; i < HISCORE_COUNT; i++)
+        table.entries[i] = game->hiscores[i];
+    uint8_t yak[SCORES_YAK_SIZE];
+    if (scores_format_yak(&table, yak))
+        score_saver.save(yak, SCORES_YAK_SIZE, score_saver.user);
+}
+
 static bool name_entry(GameState *game)
 {
     run_frame(game);                                /* 5aae */
@@ -764,7 +786,7 @@ static bool name_entry(GameState *game)
     const HiscoreArt *art = hiscore_art();          /* 5e4b..5e85 */
     hiscore_set_name(&game->hiscores[flow.rank], flow.name.name, art->data->rude_word,
                      &game->rude_name);
-    /* 5e89 hiscore_save (scores.yak) needs a host save hook; not done yet. */
+    save_hiscores(game);                            /* 5e89 */
     hiscore_checked(game);
     return false;
 }
@@ -920,15 +942,18 @@ static bool step(GameState *game)
     return false;
 }
 
-void main_sm_start(GameState *game)
+void main_sm_start(GameState *game, const GameLaunch *launch)
 {
     (void)game;
     flow = (MainFlow){ .state = MS_BOOT };
+    score_saver = launch != NULL ? (ScoreSaver){ launch->save_scores, launch->host_user }
+                                 : (ScoreSaver){ NULL, NULL };
 }
 
 void main_sm_enter(GameState *game, MainSmTestState state)
 {
-    main_sm_start(game);
+    (void)game;
+    flow = (MainFlow){ .state = MS_BOOT };          /* the host's score saver stays */
     if (state == MAIN_SM_TEST_GAME_OVER)
         go(MS_GAME_OVER);
 }

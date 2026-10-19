@@ -66,11 +66,16 @@ void init_image_values(GameState *game)
 
 /* game86 1000:60aa..6100: scores.yak (exactly 0xA0 bytes) replaces the built-in table at
  * DS:40A0. */
-void init_load_data(GameState *game)
+void init_load_data(GameState *game, const uint8_t *saved_scores)
 {
     text_use_game_assets();                         /* the font and \s sprites */
     hud_use_game_assets();                          /* the HUD digits and labels */
-    const HighScoreTable *table = asset_user_scores();
+    HighScoreTable saved;
+    const HighScoreTable *table = NULL;
+    if (saved_scores != NULL && scores_parse_yak(saved_scores, SCORES_YAK_SIZE, &saved))
+        table = &saved;
+    if (table == NULL || table->count != HISCORE_COUNT)
+        table = asset_user_scores();
     if (table == NULL || table->count != HISCORE_COUNT)
         table = asset_default_scores();
     if (table == NULL || table->count != HISCORE_COUNT)

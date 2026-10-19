@@ -37,9 +37,9 @@ bool game_init(GameState *game, const GameLaunch *launch)
         ticks = (RngTickSource){ constant_tick, (void *)&launch->bios_ticks };
     rng_seed(&game->rng.mixer, launch->bios_ticks);
     rng_shuffle(&game->rng, ticks);
-    init_load_data(game);
+    init_load_data(game, launch->saved_scores);
     title_tune_start(game);                         /* 00b6 */
-    main_sm_start(game);
+    main_sm_start(game, launch);
     return true;
 }
 

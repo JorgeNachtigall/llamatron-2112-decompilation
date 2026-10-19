@@ -12,14 +12,16 @@
 #define LLAMATRON_GAME_MAIN_SM_H
 
 #include "draw.h"
+#include "game.h"
 #include "state.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-/* The flow from video_init on (game86 1000:00c2). Call once, after game_init's setup. */
-void main_sm_start(GameState *game);
+/* The flow from video_init on (game86 1000:00c2). Call once, after game_init's setup.
+ * launch->save_scores (if launch is not NULL) gets the table after each name entry. */
+void main_sm_start(GameState *game, const GameLaunch *launch);
 
 /* Run the flow up to its next wait for the vertical retrace. */
 void main_sm_frame(GameState *game);
