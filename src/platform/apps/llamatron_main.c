@@ -7,6 +7,7 @@
  *             [--frames N] [--start-after K] [--tap F:SC:N,...] [--seed BIOS_TICKS]
  *             [--record FILE | --replay FILE | --keys T:SC,...] [--page-hashes T1,T2,...]
  *             [--dump-pages DIR --dump-ticks T1,T2,...] [--tick-phase F] [--start-delay N]
+ *             [--keep-scores] [--low-scores] [--speed N]
  *
  * Settings come from the saved llama.inf (settings.h); the options here override them for this
  * run only. The game gets them as game86 did, on its command tail (GameLaunch); the RNG seed is
@@ -28,10 +29,15 @@
  * Test hooks: --frames N quits after N frames and prints the phase, tick count and a hash of
  * what is shown; --start-after K presses a key on frame K to leave the title; --tap F:SC:N,...
  * presses make code SC on host frame F as a live key and releases it N frames later (N = 0:
- * in the same event batch). On the web the
- * page URL stands in for the command line:
+ * in the same event batch). Test runs and replays neither read nor write the high scores;
+ * --keep-scores makes them load and save scores.yak as played games do and print "scores
+ * loaded/saved: yes|no hash=..." (FNV-1a of the 160 bytes); --low-scores first stores a table
+ * of ten zero scores, which any score beats. --speed N runs N emulated retraces per host frame
+ * in test runs (--frames, replays) instead of one, to reach late game states quickly; taps and
+ * --frames still count host frames. On the web the page URL stands in for the command
+ * line:
  * ?ega&vga&joystick&keyboard&mute&frames=N&start=K&seed=T&flash=N|P|Y&keys=T:SC,...&hashes=T1,...
- * &phase=F&delay=N&taps=F:SC:N,...
+ * &phase=F&delay=N&taps=F:SC:N,...&keepscores&lowscores&speed=N
  * --keys is an input script given inline (tick:scan byte pairs, as in PROBE.KEY), so the web
  * build can replay too. --page-hashes prints, right before each listed tick, the FNV-1a hash of
  * the three pages and the shown page ("pages tick=..."), to compare native and web runs.
@@ -107,6 +113,9 @@ typedef struct App {
     uint8_t saved_scores[PLAT_SCORES_SIZE];  /* scores.yak as stored (GameLaunch.saved_scores) */
     uint16_t tick_phase;            /* --tick-phase, 0..65535 of a tick (replays only) */
     uint32_t start_delay;           /* --start-delay, retraces (replays only) */
+    bool keep_scores;               /* --keep-scores: test runs load and save scores.yak too */
+    bool low_scores;                /* --low-scores: store ten zero scores first */
+    uint32_t speed;                 /* --speed: retraces per host frame in test runs */
 } App;
 
 enum {
@@ -317,7 +326,7 @@ enum { MAX_RETRACES_PER_HOST_FRAME = 4 };
 static uint32_t retraces_due(App *app)
 {
     if (app->fixed_step)
-        return 1;
+        return app->speed > 0 ? app->speed : 1;
     uint64_t now = plat_time_us();
     uint32_t due = timing_retraces_due(&app->retrace, now - app->last_us);
     app->last_us = now;
@@ -384,9 +393,28 @@ static void run_retrace_ticks(App *app);
  * like the original, which ignores the DOS error. */
 static void save_scores(const uint8_t *yak, size_t size, void *user)
 {
-    (void)user;
-    if (size != PLAT_SCORES_SIZE || !plat_scores_save(yak))
+    const App *app = user;
+    bool saved = size == PLAT_SCORES_SIZE && plat_scores_save(yak);
+    if (!saved)
         fprintf(stderr, "llamatron: could not save the high scores (scores.yak)\n");
+    if (app->keep_scores)
+        printf("scores saved: %s hash=%08x\n", saved ? "yes" : "no", fnv1a(yak, size, 2166136261u));
+}
+
+/* --keep-scores / --low-scores: the stored table before the run, for the persistence tests. */
+static void prepare_test_scores(const App *app)
+{
+    uint8_t yak[PLAT_SCORES_SIZE];
+    if (app->low_scores) {
+        for (int row = 0; row < 10; row++) {
+            memset(yak + row * 16, '0', 8);         /* score 00000000 */
+            memset(yak + row * 16 + 8, ' ', 8);     /* blank name */
+        }
+        printf("scores stored: %s\n", plat_scores_save(yak) ? "yes" : "no");
+    }
+    bool loaded = plat_scores_load(yak);
+    printf("scores loaded: %s hash=%08x\n", loaded ? "yes" : "no",
+           loaded ? fnv1a(yak, sizeof yak, 2166136261u) : 0u);
 }
 
 /* fs.exe ends and llama.exe starts game86 with a freshly loaded sound driver and keyboard
@@ -408,9 +436,9 @@ static bool start_game(App *app)
     gfx_set_adapter(app->adapter, asset_palettes()->nibble_to_dac);
     memset(&app->game, 0, sizeof app->game);
     GameLaunch launch = make_launch(app);
-    if (!app->fixed_step) {
+    if (!app->fixed_step || app->keep_scores) {
         /* Played games keep their high scores; test runs and replays neither read nor write
-         * them, so they stay deterministic. */
+         * them (unless --keep-scores), so they stay deterministic. */
         if (plat_scores_load(app->saved_scores))
             launch.saved_scores = app->saved_scores;
         launch.save_scores = save_scores;
@@ -638,6 +666,12 @@ int main(int argc, char **argv)
             app->tick_phase = parse_phase(argv[++i]);
         else if (strcmp(argv[i], "--start-delay") == 0 && i + 1 < argc)
             app->start_delay = (uint32_t)strtoul(argv[++i], NULL, 10);
+        else if (strcmp(argv[i], "--speed") == 0 && i + 1 < argc)
+            app->speed = (uint32_t)strtoul(argv[++i], NULL, 10);
+        else if (strcmp(argv[i], "--keep-scores") == 0)
+            app->keep_scores = true;
+        else if (strcmp(argv[i], "--low-scores") == 0)
+            app->keep_scores = app->low_scores = true;
         else if (strcmp(argv[i], "--keys") == 0 && i + 1 < argc) {
             if (!parse_keys(argv[++i], &app->replay))
                 return 1;
@@ -687,6 +721,13 @@ int main(int argc, char **argv)
     const char *delay = strstr(query, "delay=");
     if (delay)
         app->start_delay = (uint32_t)strtoul(delay + 6, NULL, 10);
+    const char *speed = strstr(query, "speed=");
+    if (speed)
+        app->speed = (uint32_t)strtoul(speed + 6, NULL, 10);
+    if (strstr(query, "keepscores"))
+        app->keep_scores = true;
+    if (strstr(query, "lowscores"))
+        app->keep_scores = app->low_scores = true;
     const char *keys = strstr(query, "keys=");
     if (keys) {
         if (!parse_keys(keys + 5, &app->replay))
@@ -729,6 +770,8 @@ int main(int argc, char **argv)
         if (!plat_audio_open(AUDIO_RATE))
             fprintf(stderr, "llamatron: no audio device, running silently\n");
     }
+    if (app->keep_scores)
+        prepare_test_scores(app);
     app->phase = PHASE_TITLE;
     if (app->replaying) {
         if (!start_game(app))

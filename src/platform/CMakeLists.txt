@@ -141,6 +141,27 @@ if(EXISTS ${PROJECT_SOURCE_DIR}/src/game/CMakeLists.txt)
         endif()
         set_tests_properties(llamatron_title_phase llamatron_to_game llamatron_replay PROPERTIES
             ENVIRONMENT "LLAMATRON_PREF_DIR=${_llama_prefs}")
+        # High scores kept across runs (game86 5e89 / 60aa): store a table any score beats, play
+        # a game to its end holding fire (20 retraces per frame; it is saved after the name
+        # entry times out), then start again and read the new table back.
+        set(_scores_prefs ${CMAKE_CURRENT_BINARY_DIR}/llamatron-scores-prefs)
+        file(MAKE_DIRECTORY ${_scores_prefs})
+        add_test(NAME llamatron_scores_reset COMMAND ${CMAKE_COMMAND} -E rm -f ${_scores_prefs}/scores.yak)
+        add_test(NAME llamatron_scores_low COMMAND ${CMAKE_COMMAND} -E env LLAMATRON_PREF_DIR=${_scores_prefs}
+            $<TARGET_FILE:llamatron> --frames 2 --mute --low-scores)
+        add_test(NAME llamatron_scores_play COMMAND ${CMAKE_COMMAND} -E env LLAMATRON_PREF_DIR=${_scores_prefs}
+            $<TARGET_FILE:llamatron> --vga --keyboard --mute --flash N --seed 0 --start-after 3
+            --keep-scores --speed 20 --frames 1600 --tap 300:57:100000)
+        add_test(NAME llamatron_scores_reload COMMAND ${CMAKE_COMMAND} -E env LLAMATRON_PREF_DIR=${_scores_prefs}
+            $<TARGET_FILE:llamatron> --frames 2 --mute --keep-scores)
+        set_tests_properties(llamatron_scores_low PROPERTIES DEPENDS llamatron_scores_reset
+            PASS_REGULAR_EXPRESSION "scores loaded: yes hash=6b258e45")
+        set_tests_properties(llamatron_scores_play PROPERTIES DEPENDS llamatron_scores_low TIMEOUT 300
+            PASS_REGULAR_EXPRESSION "scores loaded: yes hash=6b258e45.*scores saved: yes hash=6abcb5eb")
+        set_tests_properties(llamatron_scores_reload PROPERTIES DEPENDS llamatron_scores_play
+            PASS_REGULAR_EXPRESSION "scores loaded: yes hash=6abcb5eb")
+        set_tests_properties(llamatron_scores_reset llamatron_scores_low llamatron_scores_play
+            llamatron_scores_reload PROPERTIES RESOURCE_LOCK llamatron_scores_prefs)
     endif()
 endif()
 
@@ -230,6 +251,27 @@ if(EMSCRIPTEN)
             set_tests_properties(web_llamatron_title web_llamatron_to_game web_llamatron_parity
                 web_llamatron_tap PROPERTIES
                 SKIP_RETURN_CODE 77 LABELS web TIMEOUT 300)
+            # High scores through IDBFS, three page loads on one browser profile (as
+            # llamatron_scores_*): store a low table; play to a saved hi-score (the tap reaches
+            # the game a frame later than natively, hence another table); reload and read it.
+            set(_scores_profile ${CMAKE_CURRENT_BINARY_DIR}/scores-profile)
+            set(_scores ${_game} --profile ${_scores_profile} --port 8472 --timeout-s 240)
+            add_test(NAME web_scores_reset COMMAND ${CMAKE_COMMAND} -E rm -rf ${_scores_profile})
+            add_test(NAME web_scores_low COMMAND ${Python3_EXECUTABLE} ${_scores}
+                --query frames=2&mute&lowscores --expect "scores stored: yes" --expect "persist: saved")
+            add_test(NAME web_scores_play COMMAND ${Python3_EXECUTABLE} ${_scores}
+                --query vga&keyboard&mute&flash=N&seed=0&start=3&keepscores&speed=20&frames=1600&taps=300:57:100000
+                --expect "scores loaded: yes hash=6b258e45" --expect "scores saved: yes hash=05d3be9c"
+                --expect "persist: saved")
+            add_test(NAME web_scores_reload COMMAND ${Python3_EXECUTABLE} ${_scores}
+                --query frames=2&mute&keepscores --expect "scores loaded: yes hash=05d3be9c")
+            set_tests_properties(web_scores_low PROPERTIES DEPENDS web_scores_reset)
+            set_tests_properties(web_scores_play PROPERTIES DEPENDS web_scores_low)
+            set_tests_properties(web_scores_reload PROPERTIES DEPENDS web_scores_play)
+            set_tests_properties(web_scores_reset web_scores_low web_scores_play web_scores_reload
+                PROPERTIES LABELS web RESOURCE_LOCK web_scores_profile)
+            set_tests_properties(web_scores_low web_scores_play web_scores_reload PROPERTIES
+                SKIP_RETURN_CODE 77 TIMEOUT 300)
         endif()
     endif()
 endif()
