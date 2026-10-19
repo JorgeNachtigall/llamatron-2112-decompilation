@@ -199,6 +199,30 @@ def test_compare_one_tick_shift_at_a_hook_switch_is_timing():
     assert "first divergence at tick 40" in text
 
 
+def test_compare_shifted_state_decides_what_is_real():
+    """While the port is a tick behind, the rest is compared with its tick t + 1: a byte that
+    matches the port's own tick t but not t + 1 is real (input reaching both at one IRQ)."""
+    mask = bytearray(compare.DGROUP_SIZE)
+    for off in (compare.TICK_HOOK, compare.TICK_HOOK + 1, 0x0927, 0x0810):
+        mask[off] = 1
+    nop, play = 0x3FDE, compare.PLAY_HOOK
+
+    def img(hook, value, tick, aim=0):
+        image = bytearray(_image(hook, value, tick))
+        image[0x0810] = aim
+        return bytes(image)
+
+    ref = {10: img(nop, 0, 10), 20: img(play, 5, 20), 30: img(play, 6, 30, aim=1)}
+    port = {10: img(nop, 0, 10),
+            19: img(nop, 0, 19), 20: img(nop, 0, 20), 21: img(play, 5, 21),
+            29: img(play, 5, 29, aim=1), 30: img(play, 5, 30, aim=1), 31: img(play, 6, 31, aim=2)}
+    diffs = {d.tick: d for d in compare.compare(compare.PortRun(10, bytes(mask), port), ref)}
+    assert diffs[20].shift == 1 and diffs[20].offsets == []
+    assert diffs[30].shift == 1 and diffs[30].timing == [0x0927]
+    assert diffs[30].offsets == [0x0810]            # equal at the port's tick 30, not 31
+    assert compare.first_divergence(list(diffs.values())) == 30
+
+
 def test_compare_shift_without_a_hook_switch_is_a_divergence():
     mask = bytearray(compare.DGROUP_SIZE)
     mask[0x0927] = 1

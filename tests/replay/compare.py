@@ -212,10 +212,13 @@ def compare(port: PortRun, reference: dict[int, bytes], ignore=()) -> list[TickD
     established at the previous snapshot. A transition is a tick or draw hook switch (in either
     run, or between them) or a jump of the tick counter, which otherwise counts one per tick
     (the original sets it at state changes, e.g. name entry's end 1000:5ab3 and the hi-score
-    table 1000:5d41, after CPU-heavy work the port does in zero time: DEVIATIONS #20). Such
-    bytes go to `timing`; the rest stay in `offsets` and count as real differences. The tick
-    counter never counts as either. The port's neighbouring ticks come from llamatron_replay
-    --around 1.
+    table 1000:5d41, after CPU-heavy work the port does in zero time: DEVIATIONS #20). While
+    such a shift holds, the whole state is compared with the port's tick t + shift: the bytes
+    it explains go to `timing`, and every byte that differs from the shifted state is real
+    (`offsets`), even one that matches the port's own tick t (e.g. input, which both runs get
+    at the same IRQ). A shift is taken only if it leaves fewer differing bytes (an established one
+    also on a tie); it ends when the unshifted state is closer again. The tick counter is not compared while shifted. The
+    port's neighbouring ticks come from llamatron_replay --around 1.
 
     tune.countdown only counts while title_tune_tick is the tick hook (084e: -1 per tick,
     reloaded from tune.period at 0) and is frozen after that hook is replaced, so a tune hook
@@ -237,39 +240,43 @@ def compare(port: PortRun, reference: dict[int, bytes], ignore=()) -> list[TickD
         elif hook == PLAY_HOOK:
             attract = False
             play_start = play_start or a
-        offs, skipped = _differences(a, b, port.mask, ignore, attract)
-        if play_start is not None:
-            left = [o for o in offs if o in ATTRACT_LLAMAS and b[o] == 0 and a[o] == play_start[o]]
-            if left:
-                skipped.append((None, f"{len(left)} title llama bytes left in used slots"))
-                offs = [o for o in offs if o not in set(left)]
-        shift, timing = 0, []
-        state = [o for o in offs if o not in TICK_COUNT]
-        best = []
         counts = (_tick_count(a), _tick_count(b))
         jump = prev_counts is not None and any(not _counted(p, c, tick - prev_tick)
                                                for p, c in zip(prev_counts, counts))
-        for s in (-1, +1):
+        prev = prev_ref_hooks if prev_ref_hooks is not None else _hooks(a)
+        # the port's state at tick + s for s = 0, -1, +1, as compared with the reference
+        candidates = {}
+        for s in (0, -1, +1):
             other = port.snapshots.get(tick + s)
-            if other is None or not state:
+            if other is None:
                 continue
-            prev = prev_ref_hooks if prev_ref_hooks is not None else _hooks(a)
             switch = (jump or _hooks(a) != prev or _hooks(a) != _hooks(b)
                       or _hooks(b) != _hooks(other)
                       or not _counted(_tick_count(b), _tick_count(other), s))
-            explained = [o for o in state if other[o] == a[o]]
-            if (switch or s == carried) and len(explained) > len(best):
-                shift, best = s, explained
+            if s and not (switch or s == carried):
+                continue
+            offs_s, skipped_s = _differences(a, other, port.mask, ignore, attract)
+            offs_s, skipped_s = _leftover(a, other, play_start, offs_s, skipped_s)
+            candidates[s] = (offs_s, skipped_s)
+        offs, skipped = candidates[0]
+        state = [o for o in offs if o not in TICK_COUNT]
+        shift, timing = 0, []
+        for s in sorted((s for s in candidates if s), key=lambda s: s != carried):
+            shifted = [o for o in candidates[s][0] if o not in TICK_COUNT]
+            closer = len(shifted) < len(state) or (s == carried and len(shifted) == len(state) > 0)
+            if closer and (not shift or len(shifted) < len(offs)):
+                shift, offs = s, shifted
         if shift:
-            timing = best
-            explained = set(best)
-            offs = [o for o in offs if o not in explained and o not in TICK_COUNT]
+            # one tick apart: the rest is compared with the port's tick + shift, and every
+            # byte that differs there is real
+            timing = [o for o in state if o not in offs]
+            skipped = candidates[shift][1]
         if jump and TICK_COUNT.start in offs and abs(counts[0] - counts[1]) == 1:
             # the counter was set one tick apart (e.g. 1000:5d41 after a draw the port does
             # in zero time); it counts on in step from there
             timing = timing + [o for o in offs if o in TICK_COUNT]
             offs = [o for o in offs if o not in TICK_COUNT]
-        if hook != TITLE_TUNE_HOOK and TUNE_COUNTDOWN in offs and _tune_step(a, b):
+        if hook != TITLE_TUNE_HOOK and TUNE_COUNTDOWN in offs and _tune_step(a, port.snapshots[tick + shift]):
             frozen = range(TUNE_COUNTDOWN, TUNE_COUNTDOWN + 2)
             timing = timing + [o for o in offs if o in frozen]
             offs = [o for o in offs if o not in frozen]
@@ -283,6 +290,18 @@ def compare(port: PortRun, reference: dict[int, bytes], ignore=()) -> list[TickD
 def _hooks(image: bytes) -> tuple[int, int]:
     return (struct.unpack_from("<H", image, TICK_HOOK)[0],
             struct.unpack_from("<H", image, DRAW_HOOK)[0])
+
+
+def _leftover(a: bytes, b: bytes, play_start: bytes | None, offs: list[int], skipped: list):
+    """In play: skip title llama bytes the reference keeps unchanged since its first play
+    snapshot where the port holds 0."""
+    if play_start is None:
+        return offs, skipped
+    left = {o for o in offs if o in ATTRACT_LLAMAS and b[o] == 0 and a[o] == play_start[o]}
+    if not left:
+        return offs, skipped
+    return ([o for o in offs if o not in left],
+            skipped + [(None, f"{len(left)} title llama bytes left in used slots")])
 
 
 def _tick_count(image: bytes) -> int:
