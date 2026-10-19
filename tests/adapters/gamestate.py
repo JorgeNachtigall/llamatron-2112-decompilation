@@ -24,7 +24,8 @@ DGROUP_SIZE = 0x10000
 MASK_UNMAPPED, MASK_FIELD, MASK_DERIVED = 0, 1, 2
 
 # Words that game86 uses as scratch inside routines (not state): ignored in comparisons.
-SCRATCH = frozenset({0x0413, 0x0414, 0x0415, 0x0416})
+# 0413/0415 (Thorn), 0419..0421 enemy-shot template (W5: scratch, not in GameState).
+SCRATCH = frozenset({*range(0x0413, 0x0417), *range(0x0419, 0x0423)})
 
 
 class DgroupMap:

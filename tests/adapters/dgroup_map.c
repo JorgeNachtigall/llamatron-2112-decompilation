@@ -57,7 +57,6 @@ enum {
     DS_SMART_BOMB = 0x0615,     /* word flag */
     DS_DEATH_SOUND_TIMER = 0x0872,
     DS_SWARM_COUNT = 0x091D,
-    DS_ESHOT_PARAM = 0x0419,    /* 5 words */
     DS_TUNING_INIT01_MODE = 0x0812,
     DS_TUNING_INIT0D_HP = 0x0816,
     DS_TUNING_SEGMENT_FAMILY = 0x0818,
@@ -465,8 +464,6 @@ void gamestate_from_dgroup(GameState *g, const uint8_t *dgroup)
     g->smart_bomb = getflag16(r, DS_SMART_BOMB);
     g->death_sound_timer = gets16(r, DS_DEATH_SOUND_TIMER);
     g->swarm_count = gets16(r, DS_SWARM_COUNT);
-    for (int i = 0; i < 5; i++)
-        g->eshot_param[i] = gets16(r, DS_ESHOT_PARAM + 2 * (unsigned)i);
 
     g->spawn_sprite = gets16(r, DS_SPAWN_SPRITE);
     g->spawn_count_0804 = gets16(r, DS_SPAWN_COUNT_0804);
@@ -583,8 +580,6 @@ static void write_state(const GameState *g, Writer w)
     putflag16(w, DS_SMART_BOMB, g->smart_bomb);
     put16(w, DS_DEATH_SOUND_TIMER, (uint16_t)g->death_sound_timer);
     put16(w, DS_SWARM_COUNT, (uint16_t)g->swarm_count);
-    for (int i = 0; i < 5; i++)
-        put16(w, DS_ESHOT_PARAM + 2 * (unsigned)i, (uint16_t)g->eshot_param[i]);
 
     put16(w, DS_SPAWN_SPRITE, (uint16_t)g->spawn_sprite);
     put16(w, DS_SPAWN_COUNT_0804, (uint16_t)g->spawn_count_0804);
