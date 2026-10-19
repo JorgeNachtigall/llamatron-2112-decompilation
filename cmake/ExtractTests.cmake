@@ -39,3 +39,19 @@ if(Python3_Interpreter_FOUND)
 else()
     message(STATUS "python3 not found: skipping unpack_matches_python tests")
 endif()
+
+# The extractor's LZSS against the original's cmp_load / lzss_decode / data_load (game86
+# 1000:e65e, e6bb, e73d, e778, 60aa) run in the unicorn harness (test oracle only).
+set(_harness_python "${PROJECT_SOURCE_DIR}/tools/harness/.venv/bin/python")
+if(DEFINED LLAMATRON_HARNESS_PYTHON)
+    set(_harness_python "${LLAMATRON_HARNESS_PYTHON}")
+endif()
+if(EXISTS "${_harness_python}")
+    add_test(NAME extract_lzss_oracle
+        COMMAND "${_harness_python}" -I "${PROJECT_SOURCE_DIR}/cmake/tests/lzss_oracle.py"
+            "${LLAMATRON_EXTRACT}" "${LLAMATRON_GENERATED_DIR}/exe/game86.unpacked"
+            "${LLAMATRON_ORIGINAL_DIR}" "${LLAMATRON_MANIFEST}" "${CMAKE_BINARY_DIR}/tests/lzss")
+    set_tests_properties(extract_lzss_oracle PROPERTIES SKIP_RETURN_CODE 77 LABELS "oracle" TIMEOUT 300)
+else()
+    message(STATUS "no harness venv: skipping extract_lzss_oracle")
+endif()
