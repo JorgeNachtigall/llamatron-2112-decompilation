@@ -13,7 +13,7 @@ program back into the headless project, so stop any other headless run first (Gh
 
 | Script | Args | Effect |
 |---|---|---|
-| `ApplySymbols.java` | `re/symbols.csv [dry] [types]` | names functions/labels, sets plate/EOL/pre comments, applies `dtype` with `types`; idempotent |
+| `ApplySymbols.java` | `re/symbols.csv [dry] [types]` | names functions/labels, sets plate/EOL/pre comments, applies `dtype` with `types`; idempotent (`dry` prints every pending change). A `func` row inside another function's body (shared tail) is applied as a label. Rows removed from the CSV are not removed from the project |
 | `Disasm.java` | `<targets.txt>` | disassembles entry points / word tables (`table seg:off count [cs]`) and creates functions |
 | `DumpTable.java` | `<seg:off> <count> [cs]` | prints a word table, optionally resolving `cs:<word>` targets |
 | `Export.java` | `re/listings` | regenerates `<program>.lst` with symbolic operands and comments |
@@ -30,6 +30,11 @@ Local only (`re/` is gitignored), single source of truth for names:
 `dtype` is one of `byte word dword ptr16 farptr char[N] byte[N] word[N] dword[N]`.
 Naming (docs/PLAN.md §4): data `g_<meaning>`, code `<subsystem>_<verb>`, tables `tbl_<meaning>`,
 unknowns `unk_<seg>_<off>`. Comments stay descriptive (no copied strings or table contents).
+
+Disassembly target files of each pass are kept in `re/targets/` (local).
+
+Note: the root `.gitignore` pattern `ghidra/` also matches this directory, so new files here need
+`git add -f`.
 
 Typical pass after editing the CSV:
 ```sh
