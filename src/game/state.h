@@ -393,6 +393,7 @@ typedef struct GameState {
     int16_t level_default;              /* 059F level the attract mode starts with (00ed), saved
                                            before a demo picks a random one (028a) */
     bool pulse_enable;                  /* 0902 the timer may flash colour 1 (3e55); set at 00d5 */
+    int16_t pulse_index;                /* 0680 EGA pulse step, +1 every 4th tick (3ea1) */
     DrawHook draw_hook;                 /* 39E0 what each frame draws */
     bool frame_drawn;                   /* 0429 the tick hook idles until a wave frame is drawn */
 
