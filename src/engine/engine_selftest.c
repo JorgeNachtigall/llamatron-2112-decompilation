@@ -69,6 +69,27 @@ static void test_timing(void)
     CHECK(r.dropped_ticks > 0);
 
     CHECK(timing_tick_hz() > 50.158 && timing_tick_hz() < 50.160);
+
+    /* Retrace clock: 10000 s of a 60 Hz host (16666/16667 us steps) give floor(10000 * 70.086)
+     * VGA retraces, 1 or 2 per host frame; a 120 Hz host gets 0 or 1. */
+    RetraceClock rc;
+    timing_retrace_init(&rc, &DISPLAY_VGA_MODE_0D, 4);
+    uint64_t retraces = 0, us = 0;
+    for (int f = 0; f < 600000; f++) {
+        uint64_t step = (f % 3 == 2) ? 16666u : 16667u;
+        us += step;
+        uint32_t due = timing_retraces_due(&rc, step);
+        CHECK(due >= 1 && due <= 2);
+        retraces += due;
+    }
+    uint64_t want = us * DISPLAY_VGA_MODE_0D.dot_clock_hz / (DISPLAY_VGA_MODE_0D.dots_per_frame * 1000000u);
+    CHECK(retraces == want && rc.dropped_retraces == 0);
+    timing_retrace_init(&rc, &DISPLAY_VGA_MODE_0D, 4);
+    for (int f = 0; f < 1000; f++)
+        CHECK(timing_retraces_due(&rc, 8333u) <= 1);
+    /* A stall runs at most the cap and drops the rest. */
+    timing_retrace_init(&rc, &DISPLAY_EGA_MODE_0D, 4);
+    CHECK(timing_retraces_due(&rc, 3000000u) == 4 && rc.dropped_retraces > 0);
 }
 
 static void test_input(void)

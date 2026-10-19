@@ -99,6 +99,23 @@ typedef void (*TimerTickFn)(void *user);
  * than timing_take_tick() so sound and game stay in the original order. */
 uint32_t timing_run_timer_ticks(TickScheduler *s, TimerTickFn timer, void *user);
 
+/* Wall clock -> emulated vertical retraces. The original runs its frame loop (game86
+ * 1e7b:013f) once per retrace of the monitor, not of the host's display, so a host refresh
+ * of 60 or 120 Hz may hold zero, one or two game frames. Each due retrace is then one
+ * timing_advance_frame() + timing_run_timer_ticks() + game frame, exactly as in the
+ * fixed-refresh mode, so wall-clock play and replays interleave ticks and frames the same way. */
+typedef struct RetraceClock {
+    DisplayTiming display;
+    uint64_t pending;           /* elapsed microseconds * dot clock, not yet a whole retrace */
+    uint32_t max_per_advance;   /* catch-up cap, see timing_retraces_due() */
+    uint64_t dropped_retraces;  /* retraces skipped by the cap (stall, window dragged, ...) */
+} RetraceClock;
+
+void timing_retrace_init(RetraceClock *c, const DisplayTiming *display, uint32_t max_per_advance);
+/* Add elapsed wall time; returns the retraces now due (at most max_per_advance, the rest of
+ * the backlog is dropped so a stall does not fast-forward the game). */
+uint32_t timing_retraces_due(RetraceClock *c, uint64_t elapsed_us);
+
 /* Fraction (0..65535) of the next tick already elapsed, e.g. for audio scheduling. */
 uint16_t timing_tick_phase(const TickScheduler *s);
 

@@ -53,9 +53,12 @@ typedef struct App {
     TitleScreen title;
     GameState game;
 
-    TickScheduler scheduler;
+    const DisplayTiming *display;   /* the emulated monitor: its retraces pace the frames */
+    TickScheduler scheduler;        /* always in display mode: ticks per emulated retrace */
+    RetraceClock retrace;           /* wall clock -> retraces (not in fixed-step runs) */
     uint64_t last_us;
     bool fixed_step;
+    unsigned pending_requests;      /* host requests not yet handed to a game frame */
     SoundBank bank;
     bool sound;                     /* bank loaded and not muted */
     bool title_sample_requested;
@@ -144,22 +147,34 @@ static void game_tick_cb(void *user)
     game_tick(&app->game);
 }
 
-/* Advance the 50.159 Hz scheduler: the sound driver tick, then (in the game) the game's tick;
- * fs.exe's handler (1000:018e) only ticks the driver. Then feed the audio device. */
-static void run_ticks(App *app)
+/* Catch-up cap for wall-clock play: after a longer stall the game resumes, it does not race. */
+enum { MAX_RETRACES_PER_HOST_FRAME = 4 };
+
+/* How many emulated retraces this host frame holds: one in fixed-step runs (tests, replays),
+ * otherwise as many as wall time allows (a 60 Hz host shows 70.086 Hz VGA as 1 or 2 per frame). */
+static uint32_t retraces_due(App *app)
 {
-    if (app->fixed_step) {
-        timing_advance_frame(&app->scheduler, &DISPLAY_VGA_MODE_0D);
-    } else {
-        uint64_t now = plat_time_us();
-        timing_advance(&app->scheduler, now - app->last_us);
-        app->last_us = now;
-    }
+    if (app->fixed_step)
+        return 1;
+    uint64_t now = plat_time_us();
+    uint32_t due = timing_retraces_due(&app->retrace, now - app->last_us);
+    app->last_us = now;
+    return due;
+}
+
+/* The timer ticks that fall before the next retrace, at 50.159 Hz: the sound driver tick, then
+ * (in the game) the game's tick; fs.exe's handler (1000:018e) only ticks the driver. */
+static void run_retrace_ticks(App *app)
+{
+    timing_advance_frame(&app->scheduler, app->display);
     if (app->phase == PHASE_GAME)
         timing_run_timer_ticks(&app->scheduler, game_tick_cb, app);
     else
         timing_run_timer_ticks(&app->scheduler, NULL, NULL);
+}
 
+static void feed_audio(App *app)
+{
     uint8_t buffer[4096];
     size_t n;
     while (app->sound && (n = snd_take_output(buffer, sizeof buffer)) > 0) {
@@ -264,13 +279,17 @@ static void finish(App *app)
     plat_shutdown();
 }
 
+/* One host frame: poll the host, run every emulated retrace that is due (each = its timer
+ * ticks, then one title or game frame, the order of game86's frame loop 1e7b:013f with the
+ * timer interrupt), then present the page on display once. */
 static bool frame(void *user)
 {
     App *app = user;
     bool window_open = plat_poll_events(on_key, app);
-    unsigned requests = plat_take_requests();
+    app->pending_requests |= plat_take_requests();
     bool running = true;
     app->frame_count++;
+    uint32_t due = retraces_due(app);
 
     if (app->phase == PHASE_TITLE) {
         if (!window_open)
@@ -280,24 +299,33 @@ static bool frame(void *user)
             on_key(PC_KEY_SPACE, false, app);
         }
         request_title_sample(app);
-        run_ticks(app);
-        update_stick();
-        input_frame_read(false);
-        title_frame(&app->title, input_state()->joystick_buttons);
-        present_title(app);
-        if (running && title_finished(&app->title) && !start_game(app))
-            running = false;
+        for (uint32_t i = 0; i < due && running && app->phase == PHASE_TITLE; i++) {
+            run_retrace_ticks(app);
+            update_stick();
+            input_frame_read(false);
+            title_frame(&app->title, input_state()->joystick_buttons);
+            if (title_finished(&app->title) && !start_game(app))
+                running = false;
+        }
+        app->pending_requests = 0;              /* nothing to pause or quit on the title */
     } else {
         /* The game decides what a quit or pause request means (window_open is ignored here:
          * a close arrives as PLAT_REQUEST_QUIT). */
-        run_ticks(app);
-        update_stick();
-        GameHostInput host = { requests, plat_has_focus() };
-        game_frame(&app->game, &host);
-        present_game();
-        if (game_wants_quit(&app->game))
-            running = false;
+        for (uint32_t i = 0; i < due && running; i++) {
+            run_retrace_ticks(app);
+            update_stick();
+            GameHostInput host = { app->pending_requests, plat_has_focus() };
+            app->pending_requests = 0;
+            game_frame(&app->game, &host);
+            if (game_wants_quit(&app->game))
+                running = false;
+        }
     }
+    if (app->phase == PHASE_TITLE)
+        present_title(app);
+    else if (app->phase == PHASE_GAME)
+        present_game();
+    feed_audio(app);
 
     if (app->frames_left > 0 && --app->frames_left == 0) {
         print_test_report(app);
@@ -385,12 +413,13 @@ int main(int argc, char **argv)
     input_init(app->device, true);
     plat_set_frame_capture(app->frames_left > 0);
 
-    /* Test runs and replays use the fixed 70.086 Hz display clock so ticks are exact. */
+    /* Ticks are counted per emulated retrace of the adapter's monitor (VGA 70.086 Hz, EGA
+     * 59.92 Hz). Test runs and replays take one retrace per host frame so they are exact;
+     * normal play takes as many as wall time allows. */
+    app->display = app->adapter == GFX_ADAPTER_VGA ? &DISPLAY_VGA_MODE_0D : &DISPLAY_EGA_MODE_0D;
     app->fixed_step = app->frames_left > 0 || app->replaying;
-    if (app->fixed_step)
-        timing_init_display(&app->scheduler, &DISPLAY_VGA_MODE_0D);
-    else
-        timing_init_realtime(&app->scheduler);
+    timing_init_display(&app->scheduler, app->display);
+    timing_retrace_init(&app->retrace, app->display, MAX_RETRACES_PER_HOST_FRAME);
     app->last_us = plat_time_us();
 
     if (!mute && snd_load_bank(&app->bank)) {

@@ -104,6 +104,28 @@ uint32_t timing_run_timer_ticks(TickScheduler *s, TimerTickFn timer, void *user)
     return n;
 }
 
+void timing_retrace_init(RetraceClock *c, const DisplayTiming *display, uint32_t max_per_advance)
+{
+    *c = (RetraceClock){ .display = *display, .max_per_advance = max_per_advance };
+}
+
+uint32_t timing_retraces_due(RetraceClock *c, uint64_t elapsed_us)
+{
+    /* Retrace period = dots_per_frame / dot_clock_hz s, so in units of 1/(dot_clock_hz * 1e6) s
+     * a microsecond is dot_clock_hz units and a retrace dots_per_frame * 1e6. */
+    const uint64_t retrace = c->display.dots_per_frame * 1000000u;
+    if (elapsed_us > 1000000u)
+        elapsed_us = 1000000u;  /* keeps the product in range; the cap drops it anyway */
+    c->pending += elapsed_us * c->display.dot_clock_hz;
+    uint64_t due = c->pending / retrace;
+    c->pending -= due * retrace;
+    if (c->max_per_advance != 0 && due > c->max_per_advance) {
+        c->dropped_retraces += due - c->max_per_advance;
+        due = c->max_per_advance;
+    }
+    return (uint32_t)due;
+}
+
 uint16_t timing_tick_phase(const TickScheduler *s)
 {
     uint64_t within = s->pending % s->tick_cost;
