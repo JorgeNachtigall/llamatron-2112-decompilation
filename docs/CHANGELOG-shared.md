@@ -18,3 +18,4 @@ Shared headers (PLAN.md §7) are owned by the integration lead (W0). Every chang
 | 2026-10-18 | src/assets/formats.h, game_data.h | HudGlyphs {digits[10][8], player_label[2][8]} + hud_glyphs_parse(), asset_hud_glyphs(); new data/hud_glyphs.dat (LHUD v1, DS:09EE / 0A8E / 0A9E even bytes). | W1 Forge, for W6 Prism |
 | 2026-10-18 | src/engine/gfx.h | New gfx_discard_dirty(page): empties a page's dirty list without restoring (game86 1000:5844, text scroller). Additive. | W2 Lantern, for W6 Prism |
 | 2026-10-18 | src/assets/formats.h | scores_format_yak(HighScoreTable, out[SCORES_YAK_SIZE]): scores.yak bytes as 1000:5da2 writes them (no file I/O). | W1 Forge, for W6 Prism / W4 Keel |
+| 2026-10-18 | src/assets/formats.h, game_data.h | HiscoreData {alphabet[34] (33 + NUL), row_colours[10], rude_word[4]} + hiscore_data_parse(), asset_hiscore_data(); new data/hiscore.dat (LHSC v1, DS:0994, DS:09C9, CMP immediates 1000:5e55/5e5e/5e64/5e6a). | W1 Forge, for W6 Prism |

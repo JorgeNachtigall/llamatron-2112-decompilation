@@ -101,7 +101,7 @@ bool write_asset_index(ExtractContext *ctx)
     } formats[] = {
         {"LFNT", FMT_LFNT_VERSION}, {"LSPR", FMT_LSPR_VERSION}, {"LSRF", FMT_LSRF_VERSION},
         {"LSMP", FMT_LSMP_VERSION}, {"LPAL", FMT_LPAL_VERSION}, {"LSCO", FMT_LSCO_VERSION},
-        {"LCFG", FMT_LCFG_VERSION}, {"LTXT", FMT_LTXT_VERSION}, {"LLVL", FMT_LLVL_VERSION}, {"LHUD", FMT_LHUD_VERSION},
+        {"LCFG", FMT_LCFG_VERSION}, {"LTXT", FMT_LTXT_VERSION}, {"LLVL", FMT_LLVL_VERSION}, {"LHUD", FMT_LHUD_VERSION}, {"LHSC", FMT_LHSC_VERSION},
     };
     OutputSet *outputs = ctx->outputs;
     const char *names[MAX_OUTPUTS];

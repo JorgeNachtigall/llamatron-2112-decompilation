@@ -35,6 +35,7 @@ enum {
     FORMAT_LTXT_VERSION = 2,
     FORMAT_LLVL_VERSION = 1,
     FORMAT_LHUD_VERSION = 1,
+    FORMAT_LHSC_VERSION = 1,
 };
 
 const char *format_error(void);
@@ -304,6 +305,23 @@ typedef struct HudGlyphs {
 } HudGlyphs;
 
 bool hud_glyphs_parse(const uint8_t *data, size_t size, HudGlyphs *out);
+
+/* ---- hiscore.dat (LHSC): high-score screen tables -------------------------------------- */
+
+enum {
+    HISCORE_ALPHABET_SIZE = 33,  /* 11 x 3 */
+    HISCORE_ROW_COUNT = 10,
+    HISCORE_RUDE_WORD_SIZE = 4,
+};
+
+typedef struct HiscoreData {
+    char alphabet[HISCORE_ALPHABET_SIZE + 1];  /* DS:0994 name-entry grid incl. delete and end
+                                                * symbols; NUL-terminated */
+    uint8_t row_colours[HISCORE_ROW_COUNT];    /* DS:09C9, colour of each table row (1000:5d60) */
+    char rude_word[HISCORE_RUDE_WORD_SIZE];    /* immediates of 1000:5e52..5e67; not terminated */
+} HiscoreData;
+
+bool hiscore_data_parse(const uint8_t *data, size_t size, HiscoreData *out);
 
 /* ---- config.dat (LCFG): llama.inf as llama.exe parses it ------------------------------- */
 

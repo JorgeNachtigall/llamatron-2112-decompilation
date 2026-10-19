@@ -56,6 +56,7 @@ static const uint8_t test_pcm[8] = {0x80, 1, 2, 3, 4, 5, 6, 7};
 static bool parse_samples(const uint8_t *d, size_t n) { SampleSet s; bool ok = samples_parse(d, n, test_pcm, sizeof test_pcm, &s); if (ok) samples_free(&s); return ok; }
 static bool parse_scores(const uint8_t *d, size_t n) { HighScoreTable t; return scores_parse(d, n, &t); }
 static bool parse_config(const uint8_t *d, size_t n) { GameConfig c; return config_parse(d, n, &c); }
+static bool parse_hiscore(const uint8_t *d, size_t n) { HiscoreData h; return hiscore_data_parse(d, n, &h); }
 static bool parse_hud(const uint8_t *d, size_t n) { HudGlyphs h; return hud_glyphs_parse(d, n, &h); }
 
 static void test_sprites(void)
@@ -279,6 +280,19 @@ static void test_samples_scores_config(void)
     check_rejects_damage(&h, parse_hud, "LHUD");
     put8(&h, 0);
     CHECK(!parse_hud(h.bytes, h.size));
+
+    Buf x = {0};
+    header(&x, "LHSC", FORMAT_LHSC_VERSION);
+    for (int i = 0; i < HISCORE_ALPHABET_SIZE; i++)
+        put8(&x, (unsigned)('A' + i % 26));
+    for (int i = 0; i < HISCORE_ROW_COUNT; i++)
+        put8(&x, (unsigned)i + 1);
+    put_bytes(&x, "WXYZ", 4);
+    HiscoreData hiscore;
+    CHECK(hiscore_data_parse(x.bytes, x.size, &hiscore));
+    CHECK(strlen(hiscore.alphabet) == HISCORE_ALPHABET_SIZE && hiscore.alphabet[26] == 'A');
+    CHECK(hiscore.row_colours[9] == 10 && memcmp(hiscore.rude_word, "WXYZ", 4) == 0);
+    check_rejects_damage(&x, parse_hiscore, "LHSC");
 }
 
 int main(void)

@@ -77,6 +77,7 @@ const HighScoreTable *asset_default_scores(void);
 const HighScoreTable *asset_user_scores(void);   /* count 0: no usable scores.yak */
 const GameConfig *asset_config(void);
 const HudGlyphs *asset_hud_glyphs(void);
+const HiscoreData *asset_hiscore_data(void);
 
 #ifdef __cplusplus
 }

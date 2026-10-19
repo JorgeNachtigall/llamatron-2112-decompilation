@@ -1,4 +1,5 @@
-/* scores.c - default_scores.dat / user_scores.dat (LSCO), config.dat (LCFG), hud_glyphs.dat (LHUD). */
+/* scores.c - default_scores.dat / user_scores.dat (LSCO), config.dat (LCFG), hud_glyphs.dat (LHUD),
+ * hiscore.dat (LHSC). */
 #include "formats.h"
 #include "reader.h"
 
@@ -76,5 +77,22 @@ bool scores_format_yak(const HighScoreTable *table, uint8_t out[SCORES_YAK_SIZE]
             entry[d] = (uint8_t)('0' + score % 10);
         memcpy(entry + 8, table->entries[i].name, HIGH_SCORE_NAME_SIZE);
     }
+    return true;
+}
+
+bool hiscore_data_parse(const uint8_t *data, size_t size, HiscoreData *out)
+{
+    memset(out, 0, sizeof *out);
+    Reader r = reader_open(data, size);
+    if (!reader_header(&r, "LHSC", FORMAT_LHSC_VERSION))
+        return false;
+    const uint8_t *alphabet = reader_bytes(&r, HISCORE_ALPHABET_SIZE);
+    const uint8_t *colours = reader_bytes(&r, HISCORE_ROW_COUNT);
+    const uint8_t *word = reader_bytes(&r, HISCORE_RUDE_WORD_SIZE);
+    if (!r.ok || r.pos != size)
+        return format_fail("LHSC: %s", r.ok ? "trailing bytes" : "truncated");
+    memcpy(out->alphabet, alphabet, HISCORE_ALPHABET_SIZE);
+    memcpy(out->row_colours, colours, HISCORE_ROW_COUNT);
+    memcpy(out->rude_word, word, HISCORE_RUDE_WORD_SIZE);
     return true;
 }

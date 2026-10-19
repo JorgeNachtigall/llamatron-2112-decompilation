@@ -188,6 +188,17 @@ u8    player_labels[2][8]     P1 (DS:0A8E), P2 (DS:0A9E)
 A row is 8 pixels, bit 7 = leftmost, 1 = drawn. The original stores one word per row; the drawer
 uses only the low (even) byte, so the high bytes are not exported.
 
+## `hiscore.dat` (high-score screens, game86 1000:5a6e..5e6d)
+```
+char  magic[4] = "LHSC"
+u16   version = 1
+u8    alphabet[33]       DS:0994, the name-entry letter grid (11 x 3, row-major), including its
+                         delete and end symbols; indexed by the cursor (1000:5b89)
+u8    row_colours[10]    DS:09C9, glyph colour of each table row (low nibble, 1000:5d60)
+u8    rude_word[4]       the immediates of the CMPs at 1000:5e52, 5e5c, 5e61, 5e67 that check the
+                         entered name for this word (sets [0874] = 1)
+```
+
 ## `levels.dat` (tbl_level_scripts DS:2BDA; interpreter game86 1000:020b)
 The table has **100** entries (up to the 0 word at DS:2CA2), not 40. A 0 entry makes the game wrap
 to level 0 and increment the loop count.

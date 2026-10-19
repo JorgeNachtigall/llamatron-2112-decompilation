@@ -7,6 +7,7 @@
  *   data/user_scores.dat     the user's scores.yak, if the game would accept it (else empty)
  *   data/config.dat          the user's llama.inf as llama.exe parses it (else "absent")
  *   data/hud_glyphs.dat      HUD digit glyphs (DS:09EE) and player-life labels (DS:0A8E/0A9E)
+ *   data/hiscore.dat         name-entry alphabet, table row colours, the rejected word
  *
  * The only relocation inside DGROUP is DS:0406 (the stub driver's segment), so the relocated
  * image holds the original values everywhere these tables are read. */
@@ -42,6 +43,25 @@ enum {
     HUD_PLAYER_LABEL_COUNT = 2,
     HUD_GLYPH_STRIDE = 16,       /* 8 words per glyph */
     HUD_GLYPH_ROWS = 8,
+
+    HISCORE_ALPHABET = 0x0994,       /* letter grid, indexed by the cursor (1000:5b89) */
+    HISCORE_ALPHABET_SIZE = 33,      /* 11 x 3 */
+    HISCORE_ROW_COLOURS = 0x09C9,    /* one colour per table row (DI at 1000:5cb5, read 5d60) */
+    HISCORE_ROW_COUNT = 10,
+};
+
+/* The entered name is compared with a 4-letter word by CMP byte ptr [SI+d], imm8 instructions
+ * (game86 1000:5e52, 5e5c, 5e61, 5e67); we take the immediates from the code and check the
+ * instruction bytes in front of them. */
+static const struct {
+    uint16_t offset;
+    uint8_t prefix[3];
+    uint8_t prefix_size;
+} rude_word_compares[] = {
+    {0x5e52, {0x80, 0x7C, 0xFF}, 3}, /* CMP [SI-1], imm8 */
+    {0x5e5c, {0x80, 0x3C}, 2},       /* CMP [SI], imm8 */
+    {0x5e61, {0x80, 0x7C, 0x01}, 3}, /* CMP [SI+1], imm8 */
+    {0x5e67, {0x80, 0x7C, 0x02}, 3}, /* CMP [SI+2], imm8 */
 };
 
 /* Every palette pointer passed to palette_set (1000:1be6): 2144 everywhere in play, 2175 at
@@ -210,7 +230,27 @@ static bool write_hud_glyphs(ExtractContext *ctx)
     return ok;
 }
 
+static bool write_hiscore_data(ExtractContext *ctx)
+{
+    ByteBuf out = {0};
+    bool ok = bytebuf_append(&out, (const uint8_t *)"LHSC", 4) && bytebuf_put_u16(&out, FMT_LHSC_VERSION) &&
+              append_dgroup(ctx, &out, HISCORE_ALPHABET, HISCORE_ALPHABET_SIZE) &&
+              append_dgroup(ctx, &out, HISCORE_ROW_COLOURS, HISCORE_ROW_COUNT);
+    for (size_t i = 0; ok && i < sizeof rude_word_compares / sizeof *rude_word_compares; i++) {
+        uint8_t size = rude_word_compares[i].prefix_size;
+        const uint8_t *code = game86_at(ctx, LOAD_SEGMENT, rude_word_compares[i].offset, (size_t)size + 1);
+        if (!code || memcmp(code, rude_word_compares[i].prefix, size) != 0)
+            ok = code ? fail("game86 1000:%04x is not the expected CMP", rude_word_compares[i].offset) : false;
+        else
+            ok = bytebuf_push(&out, code[size]);
+    }
+    ok = ok && output_write(ctx->outputs, "data/hiscore.dat", out.data, out.size);
+    bytebuf_free(&out);
+    return ok;
+}
+
 bool extract_dgroup_tables(ExtractContext *ctx)
 {
-    return write_palettes(ctx) && write_scores(ctx) && write_config(ctx) && write_hud_glyphs(ctx);
+    return write_palettes(ctx) && write_scores(ctx) && write_config(ctx) && write_hud_glyphs(ctx) &&
+           write_hiscore_data(ctx);
 }

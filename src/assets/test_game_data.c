@@ -169,6 +169,18 @@ static void check_samples_scores_config(void)
         }
     }
     CHECK(asset_config() != NULL);
+    const HiscoreData *hiscore = asset_hiscore_data();
+    CHECK(hiscore && strlen(hiscore->alphabet) == HISCORE_ALPHABET_SIZE);
+    for (int i = 0; hiscore && i < HISCORE_RUDE_WORD_SIZE; i++)
+        CHECK(hiscore->rude_word[i] >= 'a' && hiscore->rude_word[i] <= 'z'); /* the grid is lower case */
+    for (int i = 0; hiscore && i < HISCORE_ROW_COUNT; i++)
+        CHECK(hiscore->row_colours[i] != 0);
+    /* the high-score screens' texts (1000:5a6e.., 5c9f) */
+    static const uint16_t hiscore_texts[] = {0x094B, 0x09B5, 0x0AAE};
+    for (size_t i = 0; i < sizeof hiscore_texts / sizeof *hiscore_texts; i++)
+        CHECK(asset_text_raw(hiscore_texts[i]) != NULL);
+    const GameText *prompt = asset_text_at(0x09B5);
+    CHECK(prompt && prompt->raw_length >= 3 && prompt->raw[prompt->raw_length - 3] == '\0');
     const HudGlyphs *hud = asset_hud_glyphs();
     CHECK(hud != NULL);
     for (int d = 0; hud && d < HUD_DIGIT_COUNT; d++) { /* every glyph draws something */
