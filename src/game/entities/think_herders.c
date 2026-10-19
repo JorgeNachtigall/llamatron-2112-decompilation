@@ -126,7 +126,7 @@ static void herder_handle_llama(GameState *game, Entity *e, Entity *llama)
         llama_to_timer(game, e, llama);
         break;
     default:    /* the original jumps through the code after its 4-entry table (CS:3AFF);
-                 * enemy_init_04 leaves sub_mode stale, see docs/DEVIATIONS.md #22 */
+                 * enemy_init_04 leaves sub_mode stale, see docs/DEVIATIONS.md #26 */
         break;
     }
 }
