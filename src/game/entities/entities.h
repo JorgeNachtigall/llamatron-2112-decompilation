@@ -150,6 +150,10 @@ void enemy_setup_type24(GameState *game, Entity *e, int16_t phase, int16_t hp);
 /* The common kill: score, explosion, pickup drop. ent_hit_00, game86 1000:0dfe */
 void entity_kill(GameState *game, Entity *e, const EntityHit *hit);
 
+/* ent_hit_03 ran the record out of hit points: its kill action (tbl_hit_kill_actions,
+ * CS:1047, index e->kill_action). game86 1000:106a */
+void hit_kill_action(GameState *game, Entity *e, const EntityHit *hit);
+
 /* think_1c touched a pickup (already freed by the caller): apply the effect of kind
  * e->timer. `touched` = the TOUCH_* bits from entity_hits_player. game86 1000:0f69 */
 void pickup_collect(GameState *game, Entity *e, unsigned touched);

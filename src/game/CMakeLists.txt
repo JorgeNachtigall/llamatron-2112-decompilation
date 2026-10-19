@@ -19,6 +19,11 @@ add_library(llamatron_game STATIC
     draw_scroller.c
     hiscore.c
     entities/anim.c
+    entities/enemy_init.c
+    entities/hit.c
+    entities/kill_actions.c
+    entities/pickups.c
+    entities/spawn.c
     entities/movement.c
     entities/think_basic.c
     entities/think_table.c
