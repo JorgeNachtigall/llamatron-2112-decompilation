@@ -14,6 +14,7 @@ add_library(llamatron_game STATIC
     rng.c
     bullets.c
     draw_page.c
+    draw_play.c
     draw_rect.c
     draw_target.c
     text.c
