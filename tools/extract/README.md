@@ -25,6 +25,7 @@ llamatron-extract --sha256 FILE...
 | `data/sprites.bin`, `data/sprite_refs.bin`, `data/g3.bin` | sprite frames (game86 bank 218C, g3.cmp) and the bank's reference table, see FORMATS.md |
 | `data/samples.bin`, `data/samples.idx` | the 32 samples of llatron.spl + driver rate table, see FORMATS.md |
 | `data/palettes.dat`, `data/default_scores.dat`, `data/user_scores.dat`, `data/config.dat` | DGROUP palettes/pulse/flash tables, high scores, the user's llama.inf, see FORMATS.md |
+| `data/strings.dat` | all texts as typed op lists, level titles, DOS messages, see FORMATS.md |
 | `assets_blob.c` | every `data/` file as a C array + `llama_blob_entries[]` / `llama_blob_count` (type `LlamaBlobEntry` from `src/platform/asset_blob.h`), sorted by name |
 | `extract.stamp` | SHA-256 of every output, fixed order |
 

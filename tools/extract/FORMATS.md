@@ -137,3 +137,33 @@ u8    sound        0x00 AdLib, 0x0C Sound Blaster, 0x18 Roland, 0xFF none
 u8    cpu          inf[6] - '0' (0 = game86)
 u8    flash_mode   'P' -> 1, 'Y' -> 2, else 0 (game86 [0x589])
 ```
+
+## `strings.dat` (texts from DGROUP; text_print game86 1000:536f)
+```
+char  magic[4] = "LTXT"
+u16   version = 1
+u16   text_count
+struct { u16 ds_offset; u16 first_op; u16 op_bytes; } texts[text_count]
+                         ds_offset = where the original string starts (what the code passes in SI)
+u16   level_title_count
+struct { s16 level; u16 text_index; } level_titles[]     DS:2340 table, in order (level 99 first)
+u16   message_count
+struct { u16 ds_offset; u16 length; u8 text[length]; } messages[]   DOS '$' strings, '$' dropped
+u16   op_area_size
+u8    ops[op_area_size]
+```
+Ops (one byte, then operands):
+| op | operands | original | meaning |
+|----|----------|----------|---------|
+| 0x00 | — | `\e` | end of text |
+| 0x01 | u16 n, n bytes | glyph bytes | glyphs; NUL bytes are kept (the drawer skips them, but they end the word-wrap look-ahead) |
+| 0x02 | u16 n, n bytes | `\q`...NUL | one line centred on x = 160, no escapes inside |
+| 0x03 | — | `\r` | newline: x = line start, y += 0x15 |
+| 0x04 | u16 sprite | `\s` + BE u16 | draw sprite: refs[0x0E + sprite] of sprite_refs.bin (original table at 218C:001C) |
+| 0x05..0x08 | — | `\u \d \l \i` | cursor up / down / left / right by 0x15 |
+| 0x09 | u8 x, s8 dy | `\g` | x = line start = x, y += dy |
+| 0x0A | u8 c | `\c` | glyph colour (low nibble) |
+| 0x0B | u8 code | `\` + other | unknown escape; the original ignores it |
+
+`ctest -R strings_roundtrip` rebuilds the original byte strings from these ops and compares them
+with game86.

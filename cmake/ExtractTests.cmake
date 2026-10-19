@@ -29,6 +29,10 @@ if(Python3_Interpreter_FOUND)
                 "-DWORK_DIR=${CMAKE_BINARY_DIR}/tests/unpack"
                 -P "${PROJECT_SOURCE_DIR}/cmake/tests/CompareUnpackers.cmake")
     endforeach()
+    # Typed texts must reproduce the original byte strings exactly (needs a built tree).
+    add_test(NAME strings_roundtrip
+        COMMAND "${Python3_EXECUTABLE}" -I "${PROJECT_SOURCE_DIR}/cmake/tests/strings_roundtrip.py"
+            "${LLAMATRON_GENERATED_DIR}/data/strings.dat" "${LLAMATRON_GENERATED_DIR}/exe/game86.unpacked")
 else()
     message(STATUS "python3 not found: skipping unpack_matches_python tests")
 endif()

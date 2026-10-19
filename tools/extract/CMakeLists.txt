@@ -18,6 +18,7 @@ add_executable(llamatron-extract
     samples.c
     sha256.c
     sprites.c
+    texts.c
     title.c
     unexepack.c
     unlzexe.c
