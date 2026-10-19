@@ -11,7 +11,12 @@
 # LLAMATRON_PACKAGE_TARGET picks the executable target to package. The calls run deferred (end
 # of the top-level configure) so the target may be defined in any directory.
 
-set(LLAMATRON_PACKAGE_TARGET llamatron_title CACHE STRING
+if(EXISTS ${PROJECT_SOURCE_DIR}/src/game/CMakeLists.txt)
+    set(_llama_package_default llamatron)
+else()
+    set(_llama_package_default llamatron_title)
+endif()
+set(LLAMATRON_PACKAGE_TARGET ${_llama_package_default} CACHE STRING
     "Executable target packaged by llamatron_macos_app / web-dist (personal use only)")
 option(LLAMATRON_MACOS_BUNDLE "Build Llamatron.app (macOS, personal use only, never distribute)" OFF)
 
@@ -57,9 +62,9 @@ function(llama_add_macos_bundle)
         DEPENDS ${target} ${work}/Info.plist ${work}/Llamatron.icns ${work}/PERSONAL-USE-ONLY.txt
         COMMENT "Llamatron.app from ${target} (personal use only, ad-hoc signed)")
     add_custom_target(llamatron_macos_app ALL DEPENDS ${work}/bundle.stamp)
-    if(target STREQUAL "llamatron_title")
+    if(target STREQUAL "llamatron" OR target STREQUAL "llamatron_title")
         # The bundled binary runs from anywhere: no data directory, assets embedded.
-        add_test(NAME macos_app_title COMMAND ${app}/Contents/MacOS/Llamatron --frames 2 --mute
+        add_test(NAME macos_app_title COMMAND ${app}/Contents/MacOS/Llamatron --frames 2 --vga --mute
             WORKING_DIRECTORY /)
         set_tests_properties(macos_app_title PROPERTIES
             ENVIRONMENT "LLAMATRON_PREF_DIR=${work}/test-prefs"

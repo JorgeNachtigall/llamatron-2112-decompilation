@@ -80,6 +80,34 @@ if(EMSCRIPTEN)
         "SHELL:--preload-file ${LLAMATRON_GENERATED_DIR}/data@/data")
 endif()
 
+# The game executable: title screen, then the game through its entry API (src/game/game.h).
+# No game logic in the shell.
+if(EXISTS ${PROJECT_SOURCE_DIR}/src/game/CMakeLists.txt)
+    add_executable(llamatron apps/llamatron_main.c)
+    target_link_libraries(llamatron PRIVATE llama_platform llama_engine llamatron_game ${LLAMA_ASSETS})
+    target_compile_options(llamatron PRIVATE $<$<C_COMPILER_ID:Clang,AppleClang,GNU>:-Wall -Wextra>)
+    if(TARGET llamatron_generated)
+        add_dependencies(llamatron llamatron_generated)
+    endif()
+    if(EMSCRIPTEN)
+        set_target_properties(llamatron PROPERTIES SUFFIX ".html" LINK_DEPENDS ${LLAMA_WEB_SHELL})
+        target_link_options(llamatron PRIVATE -sALLOW_MEMORY_GROWTH=1
+            "SHELL:--shell-file ${LLAMA_WEB_SHELL}"
+            "SHELL:--preload-file ${LLAMATRON_GENERATED_DIR}/data@/data")
+    else()
+        # Empty settings dir: the defaults come from the user's llama.inf (config.dat).
+        set(_llama_prefs ${CMAKE_CURRENT_BINARY_DIR}/llamatron-test-prefs)
+        add_test(NAME llamatron_title_phase COMMAND llamatron --frames 2 --vga --mute)
+        set_tests_properties(llamatron_title_phase PROPERTIES
+            PASS_REGULAR_EXPRESSION "title 320x400 hash=c7ab74c4")
+        add_test(NAME llamatron_to_game COMMAND llamatron --frames 10 --start-after 3 --mute --seed 0)
+        set_tests_properties(llamatron_to_game PROPERTIES
+            PASS_REGULAR_EXPRESSION "llamatron phase=game frames=10")
+        set_tests_properties(llamatron_title_phase llamatron_to_game PROPERTIES
+            ENVIRONMENT "LLAMATRON_PREF_DIR=${_llama_prefs}")
+    endif()
+endif()
+
 # Personal-use packaging: Llamatron.app (LLAMATRON_MACOS_BUNDLE) and web-dist.
 include(${CMAKE_CURRENT_SOURCE_DIR}/packaging.cmake)
 
@@ -143,5 +171,16 @@ if(EMSCRIPTEN)
         set_tests_properties(web_persist_save web_persist_load PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 120)
         set_tests_properties(web_persist_save PROPERTIES DEPENDS web_persist_reset)
         set_tests_properties(web_persist_load PROPERTIES DEPENDS web_persist_save)
+        # The game executable: title phase, then title -> game hand-off.
+        if(TARGET llamatron)
+            set(_game ${CMAKE_CURRENT_SOURCE_DIR}/tools/web_smoke.py --dir ${CMAKE_CURRENT_BINARY_DIR}
+                --page llamatron.html --report)
+            add_test(NAME web_llamatron_title COMMAND ${Python3_EXECUTABLE} ${_game}
+                --query frames=2&vga&mute --expect "title 320x400 hash=c7ab74c4")
+            add_test(NAME web_llamatron_to_game COMMAND ${Python3_EXECUTABLE} ${_game}
+                --query frames=10&start=3&mute&seed=0 --expect "llamatron phase=game frames=10")
+            set_tests_properties(web_llamatron_title web_llamatron_to_game PROPERTIES
+                SKIP_RETURN_CODE 77 LABELS web TIMEOUT 120)
+        endif()
     endif()
 endif()
