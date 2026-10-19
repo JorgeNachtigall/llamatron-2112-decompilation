@@ -4,7 +4,7 @@
  * PROBE.SNP). Test-only (tests/, PLAN §3.3); the game itself never sees the DGROUP layout.
  *
  *   llamatron_replay --ticks N [--every K [--first F] [--around R]] [--ega|--vga] [--seed T]
- *                    [--tick-phase F] [--start-delay N]
+ *                    [--tick-phase F] [--start-delay N] [--frames FILE]
  *                    [--keys PROBE.KEY] [--pokes PROBE.POK] [--out FILE] [--data DIR]
  *
  * Sequencing is the shell's replay mode (src/platform/apps/llamatron_main.c): game_init, then
@@ -24,6 +24,11 @@
  * applied before the keys of its tick, like the probe does: the GameState goes out through
  * gamestate_to_dgroup, the word is stored, and gamestate_from_dgroup reads it back. Only
  * offsets the adapter maps can be poked.
+ *
+ * --frames FILE also dumps the state after every game_frame that runs while the tick count is
+ * one of the dumped ticks (state is drawn and moved per frame too, e.g. shots): "LRPF",
+ * u16 version 1, u16 0, u32 count, u8 mask[65536], then count x { u32 tick, u32 frame,
+ * u8 dgroup[65536] }, `frame` counting game_frame calls from 0.
  *
  * Output (little endian): "LRPL", u16 version 1, u16 0, u32 every, u32 count,
  * u8 mask[65536] (dgroup_map_mask: which bytes are state), then count x
@@ -62,6 +67,8 @@ typedef struct Replay {
     uint32_t around;            /* also dump this many ticks either side of a snapshot */
     uint32_t dumped;
     FILE *out;
+    FILE *frames_out;
+    uint32_t frames_dumped;
     uint8_t image[DGROUP_SIZE];
 } Replay;
 
@@ -82,6 +89,26 @@ static void write_header(Replay *r)
     dgroup_map_mask(r->image);
     fwrite(r->image, 1, sizeof r->image, r->out);
     fseek(r->out, 0, SEEK_END);
+}
+
+static void write_frames_header(Replay *r)
+{
+    fseek(r->frames_out, 0, SEEK_SET);
+    fwrite("LRPF\1\0\0\0", 1, 8, r->frames_out);
+    put_u32(r->frames_out, r->frames_dumped);
+    dgroup_map_mask(r->image);
+    fwrite(r->image, 1, sizeof r->image, r->frames_out);
+    fseek(r->frames_out, 0, SEEK_END);
+}
+
+static void dump_frame(Replay *r, unsigned long frame)
+{
+    memset(r->image, 0, sizeof r->image);
+    gamestate_to_dgroup(&r->game, r->image);
+    put_u32(r->frames_out, r->ticks);
+    put_u32(r->frames_out, (uint32_t)frame);
+    fwrite(r->image, 1, sizeof r->image, r->frames_out);
+    r->frames_dumped++;
 }
 
 static bool load_pokes(Replay *r, const char *path)
@@ -178,7 +205,7 @@ static int usage(void)
 {
     fprintf(stderr, "usage: llamatron_replay --ticks N [--every K [--first F] [--around R]] "
                     "[--ega|--vga] "
-                    "[--seed T] [--tick-phase F] [--start-delay N] "
+                    "[--seed T] [--tick-phase F] [--start-delay N] [--frames FILE] "
                     "[--keys PROBE.KEY] [--pokes PROBE.POK] [--out FILE] [--data DIR]\n");
     return 2;
 }
@@ -188,6 +215,7 @@ int main(int argc, char **argv)
     Replay *r = &g_replay;
     GameLaunch launch = { .vga = true, .joystick = false, .sound = false, .flash_mode = 0 };
     const char *out_path = NULL;
+    const char *frames_path = NULL;
     uint16_t tick_phase = 0;
     uint32_t start_delay = 0;
     for (int i = 1; i < argc; i++) {
@@ -218,7 +246,9 @@ int main(int argc, char **argv)
         } else if (strcmp(a, "--pokes") == 0 && v) {
             if (!load_pokes(r, argv[++i]))
                 return 1;
-        } else if (strcmp(a, "--out") == 0 && v)
+        } else if (strcmp(a, "--frames") == 0 && v)
+            frames_path = argv[++i];
+        else if (strcmp(a, "--out") == 0 && v)
             out_path = argv[++i];
         else if (strcmp(a, "--data") == 0 && v)
             assets_set_directory(argv[++i]);
@@ -233,6 +263,12 @@ int main(int argc, char **argv)
     }
     if (r->out)
         write_header(r);
+    if (frames_path && !(r->frames_out = fopen(frames_path, "wb"))) {
+        perror(frames_path);
+        return 1;
+    }
+    if (r->frames_out)
+        write_frames_header(r);
 
     input_init(INPUT_DEVICE_KEYBOARD, true);
     gfx_init();
@@ -260,12 +296,18 @@ int main(int argc, char **argv)
         timing_advance_frame(&sched, display);
         timing_run_timer_ticks(&sched, tick_cb, r);
         game_frame(&r->game, &host);
+        if (r->frames_out && due_snapshot(r, r->ticks))
+            dump_frame(r, frames);
         frames++;
     }
 
     if (r->out) {
         write_header(r);
         fclose(r->out);
+    }
+    if (r->frames_out) {
+        write_frames_header(r);
+        fclose(r->frames_out);
     }
     printf("llamatron_replay ticks=%u frames=%lu snapshots=%u quit=%d\n", r->ticks, frames,
            r->dumped, game_wants_quit(&r->game) ? 1 : 0);

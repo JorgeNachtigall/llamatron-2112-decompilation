@@ -74,6 +74,11 @@ Consequences:
   depend on host speed. VGA snapshots also have `vram` (raw planes), `vram_irq`, `pages`
   (sha256 of each page 0000/2000/4000 rasterised to 64000 indexed pixels, as
   `EgaPlanes.rasterise`) and `shown` (the CRTC start address at capture).
+- Run-to-run stability: DGROUP and the shown and background (4000) pages reproduce
+  exactly. The hidden page can be caught mid-draw, and how far the draw got varies with
+  host load, so its hash and the raw `vram` hash are stored but only reported
+  (`settled()`). A probe change, even to start-up code, moves game86's frame timing: run the
+  golden from a fresh workdir after one.
 - The replay driver uses the EGA monitor's 59.92 Hz frame clock for `--ega` runs and VGA
   mode 0Dh's 70.086 Hz otherwise.
 - Clock calibration: each run's `tick_phase` (fraction of a timer tick elapsed at game_init)
@@ -82,11 +87,16 @@ Consequences:
   They are stored in the golden `config`, which visual_check.py and web_parity.py read. The
   values are fitted per run (the comment above `RUNS` says how). A config edit needs
   `LLAMATRON_GOLDEN_UPDATE=1`.
-- Timing shifts: when a byte equals the port's state one tick later or earlier at a tick or
-  draw hook switch, the report lists it as timing, not as a divergence (DEVIATIONS #20).
-  Only real bytes decide the first divergence.
+- Timing shifts: the report lists a byte as timing, not as a divergence (DEVIATIONS #20),
+  when it equals the port's state one tick later or earlier at a transition. A transition is
+  a tick or draw hook switch, or a jump of the tick counter (DS:39E6). Also timing: a frozen
+  tune.countdown one step from the port's (the tune hook ran a tick longer). Only real
+  bytes decide the first divergence. In play, title llama bytes left in the original's used
+  slots (unchanged since the first play snapshot, 0 in the port) are skipped.
 - Dev loops: `tests/replay/window.py SCENARIO FIRST [--count N]` runs a scenario with a
   snapshot after every tick from FIRST (at most 60) and the port over the same ticks, then
-  prints the report and every differing byte at the first divergent tick.
+  prints the report and every differing byte at the first divergent tick. `--frames` adds
+  each of those bytes' values after every port frame from tick t-1 to t+1
+  (`llamatron_replay --frames FILE`, LRPF), to tell frame phase from a real difference.
   `tools/harness/dosbox/refrun.py pages --snp .../c/PROBE.SNP --vram-irq M --out DIR`
   writes one VRAM snapshot as three pages of indexed pixels (never commit them).

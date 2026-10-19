@@ -220,3 +220,63 @@ def test_compare_shift_at_a_tick_counter_jump_is_timing():
     diffs = compare.compare(compare.PortRun(10, bytes(mask), port), ref)
     assert diffs[1].shift == 1 and diffs[1].offsets == []
     assert compare.first_divergence(diffs) is None
+
+
+def test_compare_frozen_tune_countdown_one_step_apart_is_timing():
+    """tune.countdown counts only under title_tune_tick (084e: period..1); once that hook is
+    gone it stays frozen, so a tune hook that ran one tick longer leaves a lasting step."""
+    mask = bytearray(compare.DGROUP_SIZE)
+    mask[0x0629] = mask[0x062A] = 1
+    play = compare.PLAY_HOOK
+
+    def img(hook, countdown, tick):
+        image = bytearray(_image(hook, 0, tick))
+        struct.pack_into("<hh", image, 0x0627, 0x24, countdown)    # period, countdown
+        return bytes(image)
+
+    port = {10: img(play, 0x23, 10), 20: img(play, 0x23, 20), 30: img(play, 1, 30),
+            40: img(play, 0x20, 40), 50: img(compare.TITLE_TUNE_HOOK, 0x23, 50)}
+    ref = {10: img(play, 0x22, 10), 20: img(play, 0x22, 20), 30: img(play, 0x24, 30),
+           40: img(play, 0x22, 40), 50: img(compare.TITLE_TUNE_HOOK, 0x22, 50)}
+    diffs = {d.tick: d for d in compare.compare(compare.PortRun(10, bytes(mask), port), ref)}
+    assert diffs[10].offsets == [] and diffs[10].timing == [0x0629]
+    assert diffs[20].offsets == []
+    assert diffs[30].offsets == []                     # 1 -> period: one step across the reload
+    assert diffs[40].offsets == [0x0629]               # two steps apart: real
+    assert diffs[50].offsets == [0x0629]               # the tune is running: a real difference
+    assert "[timing: tune.countdown frozen one tick apart]" in compare.report([diffs[10]])
+
+
+def test_compare_skips_title_llama_bytes_left_in_used_slots():
+    """In play the original's occupied slots keep title llama bytes in fields their type never
+    writes: skipped while the reference keeps them unchanged from the first play snapshot and
+    the port holds 0."""
+    mask = bytearray(compare.DGROUP_SIZE)
+    left, moving = 0x48C1 + 0x14, 0x48C1 + 0x18      # entity 0, both inside ATTRACT_LLAMAS
+    mask[left] = mask[moving] = 1
+    port = {t: bytes(_image(compare.PLAY_HOOK, 0, t)) for t in (10, 20, 30)}
+
+    def ref(tick, a, b, hook=compare.PLAY_HOOK):
+        image = bytearray(_image(hook, 0, tick))
+        struct.pack_into("<h", image, 0x48C1, 1)       # slot 0 in use
+        image[left], image[moving] = a, b
+        return bytes(image)
+
+    refs = {10: ref(10, 0xDC, 0x0C), 20: ref(20, 0xDC, 0x0D), 30: ref(30, 0xDC, 0x0C)}
+    diffs = {d.tick: d for d in compare.compare(compare.PortRun(10, bytes(mask), port), refs)}
+    assert diffs[10].offsets == []                     # first play snapshot: both left over
+    assert diffs[20].offsets == [moving]               # changed since: real
+    assert diffs[30].offsets == []
+    assert any("title llama bytes left in used slots" in n for _, n in diffs[10].ignored)
+
+
+def test_frames_dump_the_frames_of_dumped_ticks(driver, tmp_path):
+    frames = tmp_path / "f.lrpf"
+    port = run(driver, tmp_path, "fr", "--ticks", "30", "--every", "10", "--frames", str(frames))
+    per_frame = compare.read_frames(frames)
+    assert per_frame.mask == port.mask
+    assert sorted({t for t, _, _ in per_frame.frames}) == [10, 20, 30]
+    numbers = [f for _, f, _ in per_frame.frames]
+    assert numbers == sorted(set(numbers))
+    # the frames after a tick's handler and before the next tick: VGA has 1-2 per tick
+    assert all(1 <= len(per_frame.at_tick(t)) <= 2 for t in (10, 20))

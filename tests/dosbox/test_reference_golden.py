@@ -230,8 +230,29 @@ def test_golden_hashes(reference):
     assert got["irq_count"] == want["irq_count"]
     assert got["exit_code"] == want["exit_code"]
     assert sorted(got["snapshots"], key=int) == sorted(want["snapshots"], key=int)
+    unsettled = []
     for irq, h in want["snapshots"].items():
-        assert got["snapshots"][irq] == h, f"snapshot at IRQ {irq} changed"
+        assert settled(got["snapshots"][irq]) == settled(h), f"snapshot at IRQ {irq} changed"
+        if got["snapshots"][irq] != h:
+            unsettled.append(irq)
+    if unsettled:   # informational: see settled()
+        print(f"\n{name}: hidden page / raw VRAM differ from the golden at IRQs "
+              + ", ".join(unsettled))
+
+
+def settled(snap: dict) -> dict:
+    """The parts of a snapshot summary that reproduce run to run: DGROUP, and for VGA the
+    capture IRQ, the shown page, its pixels and the background page 4000 (what
+    visual_check.py compares). The hidden page can be caught mid-draw, and how far the draw
+    got varies with host load: three parallel runs of game_over_hiscore agreed with each
+    other but differed from sequential ones in 19 pixels of the hidden page at IRQ 1250,
+    with DGROUP equal. Its hash and the raw VRAM hash are kept, but only reported."""
+    out = {"dgroup": snap["dgroup"]}
+    if "pages" in snap:
+        shown = snap["shown"]
+        out.update(vram_irq=snap["vram_irq"], shown=shown, background=snap["pages"]["4000"],
+                   shown_page=snap["pages"].get(shown))
+    return out
 
 
 def test_port_replay_report(reference, tmp_path):

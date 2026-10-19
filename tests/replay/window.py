@@ -1,14 +1,16 @@
 """One-tick window of a golden reference scenario against the port (dev loop, test-only).
 
-    tools/harness/.venv/bin/python tests/replay/window.py walk_vga 600 [--count 60]
-        [--driver build/tests/llamatron_replay] [--workdir DIR]
+    tools/harness/.venv/bin/python tests/replay/window.py walk_vga 600 [--count 60] [--frames]
+        [--driver build-NAME/tests/llamatron_replay] [--workdir DIR]
 
 runs the scenario from tests/dosbox/test_reference_golden.py (same seed, keys and pokes)
 under DOSBox-X with a DGROUP snapshot after every IRQ from FIRST (at most 60: the XMS slots),
 replays the port over the same ticks (llamatron_replay --every 1 --first FIRST, with the run's
 tick_phase/start_delay calibration) and prints
 the per-tick report, then every differing field at the first divergent tick with the
-reference and port bytes. Snapshots stay in the workdir (gitignored build-dosbox/ by
+reference and port bytes. --frames adds, for each of those bytes, the port's value after every
+game_frame from tick t-1 to t+1 (llamatron_replay --frames), with a * where it equals the
+reference: a value the port only reaches between ticks is frame phase. Snapshots stay in the workdir (gitignored build-dosbox/ by
 default); never commit them.
 """
 
@@ -40,6 +42,8 @@ def main(argv=None) -> int:
     ap.add_argument("--driver", default=os.environ.get("LLAMATRON_REPLAY"),
                     help="llamatron_replay (default $LLAMATRON_REPLAY)")
     ap.add_argument("--workdir", type=Path, default=None)
+    ap.add_argument("--frames", action="store_true",
+                    help="also show the port's per-frame values around the divergence")
     args = ap.parse_args(argv)
     if not args.driver or not Path(args.driver).exists():
         ap.error("llamatron_replay not found: pass --driver or set LLAMATRON_REPLAY")
@@ -63,12 +67,13 @@ def main(argv=None) -> int:
     drive = workdir / "c"
     script = port_script(drive, workdir / "port.key")
     out = workdir / "port.lrpl"
+    frames = ["--frames", str(workdir / "port.lrpf")] if args.frames else []
     machine = "--vga" if cfg["machine"] == "vga" else "--ega"
     # one extra tick either side, for the timing classification
     proc = subprocess.run([args.driver, "--ticks", str(last + 1), "--every", "1",
                            "--first", str(max(1, args.first - 1)), machine,
                            "--seed", str(cfg["ticks"]), *replay_args(run), *script,
-                           "--out", str(out)],
+                           *frames, "--out", str(out)],
                           capture_output=True, text=True)
     if proc.returncode != 0:
         print(proc.stderr, file=sys.stderr)
@@ -83,6 +88,16 @@ def main(argv=None) -> int:
         print(f"\ntick {first.tick}, reference -> port:")
         for off in first.offsets:
             print(f"  DS:{off:04X} {compare.describe(off):32s} {a[off]:02X} -> {b[off]:02X}")
+        if args.frames:
+            per_frame = compare.read_frames(workdir / "port.lrpf")
+            print(f"\nport after each frame, ticks {first.tick - 1}..{first.tick + 1} "
+                  "(* = the reference's value):")
+            for off in first.offsets:
+                cells = []
+                for t in (first.tick - 1, first.tick, first.tick + 1):
+                    cells.append(" ".join(f"{img[off]:02X}{'*' if img[off] == a[off] else ''}"
+                                          for _, img in per_frame.at_tick(t)) or "-")
+                print(f"  DS:{off:04X} {compare.describe(off):32s} " + " | ".join(cells))
     print(f"(snapshots in {workdir})")
     return 1 if first else 0
 

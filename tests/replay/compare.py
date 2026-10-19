@@ -28,10 +28,12 @@ from adapters.gamestate import ATTRACT_LLAMAS  # noqa: E402
 
 # The reference run's phase, from its tick hook (g_tick_hook, not part of GameState).
 TICK_HOOK = 0x39E4
-TITLE_HOOKS = {0x3F6F, 0x084E}  # title_tick_hook, title_tune_tick
+TITLE_TUNE_HOOK = 0x084E       # title_tune_tick: the only code that counts tune.countdown
+TITLE_HOOKS = {0x3F6F, TITLE_TUNE_HOOK}  # title_tick_hook, title_tune_tick
 PLAY_HOOK = 0x1562              # play_tick_hook
 DRAW_HOOK = 0x39E0
 TICK_COUNT = range(0x39E6, 0x39E8)  # counts every IRQ whatever runs: not part of a shift
+TUNE_PERIOD, TUNE_COUNTDOWN = 0x0627, 0x0629
 
 # Entity slots: a free slot (type word < 0) keeps stale bytes from its last user in the
 # original (e.g. the title llamas) and whatever the port leaves there; only its type word
@@ -143,6 +145,33 @@ def read_port(path: Path) -> PortRun:
 
 
 @dataclass
+class PortFrames:
+    mask: bytes
+    frames: list[tuple[int, int, bytes]]    # (tick, frame, dgroup) after each dumped frame
+
+    def at_tick(self, tick: int) -> list[tuple[int, bytes]]:
+        """(frame, dgroup) of the frames run while the tick count was `tick`."""
+        return [(f, img) for t, f, img in self.frames if t == tick]
+
+
+def read_frames(path: Path) -> PortFrames:
+    """llamatron_replay --frames output (LRPF)."""
+    data = Path(path).read_bytes()
+    magic, version, _, count = struct.unpack_from("<4sHHI", data, 0)
+    if magic != b"LRPF" or version != 1:
+        raise ValueError(f"{path}: not an LRPF v1 file")
+    pos = 12
+    mask = data[pos:pos + DGROUP_SIZE]
+    pos += DGROUP_SIZE
+    frames = []
+    for _ in range(count):
+        tick, frame = struct.unpack_from("<II", data, pos)
+        frames.append((tick, frame, data[pos + 8:pos + 8 + DGROUP_SIZE]))
+        pos += 8 + DGROUP_SIZE
+    return PortFrames(mask, frames)
+
+
+@dataclass
 class TickDiff:
     tick: int
     offsets: list[int]
@@ -173,7 +202,10 @@ def compare(port: PortRun, reference: dict[int, bytes], ignore=()) -> list[TickD
     keeps them in the entity table, the port in attract.c. hook_nop transitions in between
     stay in the attract phase, because the bytes survive until entities_clear. P2's trail
     head is skipped while the reference still holds its loaded value (DEVIATIONS #10).
-    Entity slots free on both sides are compared by their type word only.
+    Entity slots free on both sides are compared by their type word only. In play, title
+    llama bytes the reference has kept unchanged since the first play snapshot while the port
+    holds 0 are skipped: the original's occupied slots keep them in fields their entity type
+    never writes.
 
     Timing: a differing byte that equals the port's byte one tick later (or earlier) is a
     one-tick shift, provided a transition happens there or the same shift was already
@@ -183,21 +215,34 @@ def compare(port: PortRun, reference: dict[int, bytes], ignore=()) -> list[TickD
     table 1000:5d41, after CPU-heavy work the port does in zero time: DEVIATIONS #20). Such
     bytes go to `timing`; the rest stay in `offsets` and count as real differences. The tick
     counter never counts as either. The port's neighbouring ticks come from llamatron_replay
-    --around 1."""
+    --around 1.
+
+    tune.countdown only counts while title_tune_tick is the tick hook (084e: -1 per tick,
+    reloaded from tune.period at 0) and is frozen after that hook is replaced, so a tune hook
+    that ran one tick longer or shorter leaves a lasting one-step difference. With the tune
+    hook not running in the reference, a countdown one step (mod the period) from the port's
+    is timing too."""
     ignore = set(ignore)
     out = []
     attract = False
     prev_ref_hooks = None
     prev_tick, prev_counts = None, None
     carried = 0
+    play_start = None                       # reference at the first play snapshot
     for tick in sorted(set(port.snapshots) & set(reference)):
         a, b = reference[tick], port.snapshots[tick]
         hook = struct.unpack_from("<H", a, TICK_HOOK)[0]
         if hook in TITLE_HOOKS:
-            attract = True
+            attract, play_start = True, None
         elif hook == PLAY_HOOK:
             attract = False
+            play_start = play_start or a
         offs, skipped = _differences(a, b, port.mask, ignore, attract)
+        if play_start is not None:
+            left = [o for o in offs if o in ATTRACT_LLAMAS and b[o] == 0 and a[o] == play_start[o]]
+            if left:
+                skipped.append((None, f"{len(left)} title llama bytes left in used slots"))
+                offs = [o for o in offs if o not in set(left)]
         shift, timing = 0, []
         state = [o for o in offs if o not in TICK_COUNT]
         best = []
@@ -219,6 +264,10 @@ def compare(port: PortRun, reference: dict[int, bytes], ignore=()) -> list[TickD
             timing = best
             explained = set(best)
             offs = [o for o in offs if o not in explained and o not in TICK_COUNT]
+        if hook != TITLE_TUNE_HOOK and TUNE_COUNTDOWN in offs and _tune_step(a, b):
+            frozen = range(TUNE_COUNTDOWN, TUNE_COUNTDOWN + 2)
+            timing = timing + [o for o in offs if o in frozen]
+            offs = [o for o in offs if o not in frozen]
         carried = shift
         prev_ref_hooks = _hooks(a)
         prev_tick, prev_counts = tick, counts
@@ -233,6 +282,16 @@ def _hooks(image: bytes) -> tuple[int, int]:
 
 def _tick_count(image: bytes) -> int:
     return struct.unpack_from("<H", image, TICK_COUNT.start)[0]
+
+
+def _tune_step(a: bytes, b: bytes) -> bool:
+    """The reference's tune.countdown is one tick (either way) from the port's: it cycles
+    period, ..., 1 (attract.c tune_tick, 1000:084e)."""
+    period = struct.unpack_from("<h", a, TUNE_PERIOD)[0]
+    ref, mine = (struct.unpack_from("<h", x, TUNE_COUNTDOWN)[0] for x in (a, b))
+    if period <= 1 or not (1 <= ref <= period and 1 <= mine <= period):
+        return False
+    return (mine - ref) % period in (1, period - 1)
 
 
 def _counted(before: int, after: int, ticks: int) -> bool:
@@ -274,10 +333,12 @@ def report(diffs: list[TickDiff]) -> str:
         if d.shift:
             state += (f"  [timing: port one tick {'behind' if d.shift > 0 else 'ahead'}, "
                       f"{len(d.timing)} bytes match its tick {d.tick + d.shift}]")
+        elif d.timing:
+            state += "  [timing: tune.countdown frozen one tick apart]"
         skipped = "".join(f"  [ignored {name} {r.start:04X}..{r.stop - 1:04X}]" if r else
                           f"  [ignored {name}]" for r, name in d.ignored)
         lines.append(f"tick {d.tick:6d}  {state}{skipped}")
-    timing = [d.tick for d in diffs if d.shift]
+    timing = [d.tick for d in diffs if d.shift or d.timing]
     if timing:
         lines.append(f"timing shifts (one tick, at hook switches / tick counter jumps): ticks "
                      + ", ".join(map(str, timing)))
