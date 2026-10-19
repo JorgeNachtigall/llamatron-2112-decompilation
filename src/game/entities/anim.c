@@ -12,12 +12,10 @@
 #include "game_data.h"
 
 enum {
-    /* anim 02 / 03: the frame at 218C:7AA2 (no sprite number refers to it), centred 10 px
+    /* anim 02 / 03: SPRITE_ID_BEAM_HEAD (no sprite number refers to it), centred 10 px
      * above the entity */
-    BEAM_HEAD_BANK_OFFSET = 0x7aa2,
     BEAM_HEAD_RISE = 10,
-    /* anim 10: sprite 0xc5 (the frame at 218C:92A4) 10 px above, while player.powerup >= 0 */
-    POWERUP_MARK_SPRITE = 0xc5,
+    /* anim 10: SPRITE_ID_POWERUP_MARK 10 px above, while player.powerup >= 0 */
     POWERUP_MARK_RISE = 10,
     /* anim 0e: DS:0911 lists sprites 0xaf..0xb2 */
     SATELLITE_FIRST_SPRITE = 0xaf,
@@ -116,17 +114,14 @@ static void anim_plain_advance(GameState *game, Entity *e, const DrawTarget *tar
 static void anim_powerup_mark(GameState *game, Entity *e, const DrawTarget *target)
 {
     if (game->player.powerup >= 0)
-        draw_at(target, asset_sprite_number_gfx(POWERUP_MARK_SPRITE), e->x,
+        draw_at(target, asset_sprite_id_gfx(SPRITE_ID_POWERUP_MARK), e->x,
                 e->y - POWERUP_MARK_RISE);
     anim_plain(game, e, target);
 }
 
 static void draw_beam_head(const DrawTarget *target, const Entity *e)
 {
-    int frame = asset_sprite_index_at(SPRITE_BANK_GAME, BEAM_HEAD_BANK_OFFSET);
-    if (frame >= 0)
-        draw_at(target, asset_sprite_gfx(SPRITE_BANK_GAME, (unsigned)frame), e->x,
-                e->y - BEAM_HEAD_RISE);
+    draw_at(target, asset_sprite_id_gfx(SPRITE_ID_BEAM_HEAD), e->x, e->y - BEAM_HEAD_RISE);
 }
 
 /* The beam is on while the high byte of aux24 (+25) is non-zero. */
