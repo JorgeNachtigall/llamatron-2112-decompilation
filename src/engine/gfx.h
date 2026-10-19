@@ -28,6 +28,7 @@ enum {
     GFX_HEIGHT = 200,
     GFX_GAME_COLORS = 16,
     GFX_PALETTE_SIZE = 256,
+    GFX_TRANSPARENT = 0xff,  /* sprite pixel value meaning "not drawn" (game colours are 0..15) */
 };
 
 typedef enum GfxPageId {
@@ -112,14 +113,19 @@ GfxColor gfx_ega_color(uint8_t ega_rgbRGB);
 /* ---- Drawing ------------------------------------------------------------------------ */
 
 /* Everything below clips to the 320x200 page. */
-void gfx_fill_rect(GfxPageId page, GfxRect rect, uint8_t color);           /* game86 1000:6112 */
+void gfx_fill_rect(GfxPageId page, GfxRect rect, uint8_t color);
 
-/* Copy `rect` from the background page into `page` (erasing sprites). */
+/* Copy `rect` from the background page into `page` (erasing sprites), with the original's
+ * addressing (game86 1e7b:0247 and the restore family at 1e7b:031c): each of the h rows copies
+ * a linear span of w pixels starting at (x, y) in page memory, so a span that crosses the
+ * right edge continues at the left edge of the next row; spans are clamped at the end of the
+ * page (the original wrote into the invisible gap after it). There is no x clipping; callers
+ * (the game's drawers) never pass x < 0 or y < 0 (such parts are skipped defensively). */
 void gfx_restore_rect(GfxPageId page, GfxRect rect);
 
-/* An image in our own format, produced by the extractor from the sprite bank (segment 218C).
- * `pixels` is width*height colour indices; pixels whose `mask` byte is 0 are transparent
- * (mask may be NULL: opaque). Hotspot = offset of the drawing position inside the image
+/* A generic image: `pixels` is width*height colour indices. With a `mask`, pixels whose mask
+ * byte is 0 are transparent; without one (mask == NULL), pixels equal to GFX_TRANSPARENT are
+ * not drawn (the convention of the extractor's sprites.bin). Hotspot = offset of the drawing position inside the image
  * (the original draws most sprites centred: hotspot = (width/2, height/2)). */
 typedef struct GfxSprite {
     int16_t width, height;
@@ -135,12 +141,12 @@ typedef enum GfxDrawFlags {
     GFX_DRAW_TOP_LEFT = 1u << 2,   /* ignore the hotspot: (x,y) is the top-left corner */
 } GfxDrawFlags;
 
-/* Draw a sprite; returns the clipped screen rectangle touched (w == 0 if fully off-screen), so
- * the caller can record it for erasing. game86 1000:8cbb (centred), 1000:aa29/ac03 (unaligned) */
+/* Generic sprite helper (test apps, title, overlays); returns the clipped screen rectangle
+ * touched (w == 0 if fully off-screen), so the caller can record it for erasing. The game's
+ * exact blitters, with the original's quirks, are in src/game/draw_*.c (W6), not here. */
 GfxRect gfx_draw_sprite(GfxPageId page, const GfxSprite *sprite, int x, int y, unsigned flags);
 
-/* Scaled draw; scale_q8 = 256 is 1:1. game86 1000:63d2. STUB: nearest-neighbour until the
- * original's stepping is RE'd and diff-tested. */
+/* Generic scaled draw, nearest neighbour; scale_q8 = 256 is 1:1. */
 GfxRect gfx_draw_sprite_scaled(GfxPageId page, const GfxSprite *sprite, int x, int y,
                                int scale_q8, unsigned flags);
 
@@ -159,17 +165,19 @@ typedef struct GfxFont {
     const GfxGlyph *glyphs;
 } GfxFont;
 
-/* Print `text` with the top-left at (x, y) in `color`; returns the pen x after the last glyph.
- * STUB semantics: characters outside the font are skipped; the original text engine's rules
- * (game86 range E) will replace this once diff-tested. */
+/* Generic text helper: print `text` with the top-left at (x, y) in `color` (characters outside
+ * the font are skipped); returns the pen x after the last glyph. The game's text engine with
+ * the original's rules and escape codes is text_print() in src/game/text.c (W6). */
 int gfx_print(GfxPageId page, const GfxFont *font, int x, int y, const char *text, uint8_t color);
 int gfx_text_width(const GfxFont *font, const char *text);
 
 /* ---- Dirty rectangles --------------------------------------------------------------- */
 
 /* The original keeps one list of drawn rectangles per displayed page (CS:[0x6733]/[0x6735])
- * and erases them from the background page before drawing the next frame into that page. */
-enum { GFX_MAX_DIRTY = 256 };
+ * and erases them from the background page before drawing the next frame into that page.
+ * Its lists hold 799 entries (CS:673f..79f9, 6 bytes each); 800 here, so the "restore the
+ * whole page" fallback below is never reached by the game. */
+enum { GFX_MAX_DIRTY = 800 };
 
 void gfx_mark_dirty(GfxPageId page, GfxRect rect);
 /* Restore every rectangle recorded for `page` from the background, then clear its list. */

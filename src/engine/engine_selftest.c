@@ -163,6 +163,26 @@ static void test_gfx(void)
     gfx_restore_dirty(GFX_PAGE_0);
     CHECK(gfx_page(GFX_PAGE_0)->pixels[4][4] == 3);
 
+    /* Restore spans are linear in page memory: wrap to the next row, clamp at the page end. */
+    gfx_clear(GFX_PAGE_BACKGROUND, 3);
+    gfx_clear(GFX_PAGE_0, 0);
+    gfx_restore_rect(GFX_PAGE_0, (GfxRect){ GFX_WIDTH - 4, 10, 8, 2 });
+    CHECK(gfx_page(GFX_PAGE_0)->pixels[10][GFX_WIDTH - 1] == 3);
+    CHECK(gfx_page(GFX_PAGE_0)->pixels[11][3] == 3);       /* row 10's span ran on into row 11 */
+    CHECK(gfx_page(GFX_PAGE_0)->pixels[11][4] == 0);
+    CHECK(gfx_page(GFX_PAGE_0)->pixels[12][3] == 3);       /* row 11's span */
+    CHECK(gfx_page(GFX_PAGE_0)->pixels[12][4] == 0);
+    gfx_restore_rect(GFX_PAGE_0, (GfxRect){ GFX_WIDTH - 2, GFX_HEIGHT - 1, 16, 4 });  /* clamped */
+    CHECK(gfx_page(GFX_PAGE_0)->pixels[GFX_HEIGHT - 1][GFX_WIDTH - 1] == 3);
+    gfx_clear(GFX_PAGE_BACKGROUND, 3);
+
+    /* Without a mask, GFX_TRANSPARENT pixels are skipped. */
+    static const uint8_t keyed[2] = { 5, GFX_TRANSPARENT };
+    GfxSprite k = { 2, 1, 0, 0, keyed, NULL };
+    gfx_clear(GFX_PAGE_1, 9);
+    gfx_draw_sprite(GFX_PAGE_1, &k, 10, 10, GFX_DRAW_NORMAL);
+    CHECK(gfx_page(GFX_PAGE_1)->pixels[10][10] == 5 && gfx_page(GFX_PAGE_1)->pixels[10][11] == 9);
+
     static const uint8_t px[2 * 3] = { 1, 2, 3, 4, 5, 6 };
     static const uint8_t mask[2 * 3] = { 1, 0, 1, 1, 1, 1 };
     GfxSprite s = { 3, 2, 1, 1, px, mask };

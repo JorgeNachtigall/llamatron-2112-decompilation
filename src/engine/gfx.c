@@ -162,7 +162,6 @@ static GfxRect clip_rect(GfxRect r)
     return (GfxRect){ (int16_t)x0, (int16_t)y0, (int16_t)(x1 - x0), (int16_t)(y1 - y0) };
 }
 
-/* game86 1000:6112 */
 void gfx_fill_rect(GfxPageId page, GfxRect rect, uint8_t color)
 {
     GfxRect r = clip_rect(rect);
@@ -170,14 +169,25 @@ void gfx_fill_rect(GfxPageId page, GfxRect rect, uint8_t color)
         memset(&g_gfx.pages[page].pixels[y][r.x], color, (size_t)r.w);
 }
 
-/* game86 1e7b:031c restore routines (one row copy per line of the rectangle) */
+/* game86 1e7b:0247 and the restore routines at 1e7b:031c: per row, one linear span of w
+ * pixels in page memory (may run on into the next row), clamped at the end of the page. */
 void gfx_restore_rect(GfxPageId page, GfxRect rect)
 {
-    if (page == GFX_PAGE_BACKGROUND)
+    if (page == GFX_PAGE_BACKGROUND || rect.w <= 0 || rect.h <= 0)
         return;
-    GfxRect r = clip_rect(rect);
-    for (int y = r.y; y < r.y + r.h; y++)
-        memcpy(&g_gfx.pages[page].pixels[y][r.x], &g_gfx.pages[GFX_PAGE_BACKGROUND].pixels[y][r.x], (size_t)r.w);
+    const long page_size = (long)GFX_WIDTH * GFX_HEIGHT;
+    uint8_t *dst = &g_gfx.pages[page].pixels[0][0];
+    const uint8_t *src = &g_gfx.pages[GFX_PAGE_BACKGROUND].pixels[0][0];
+    for (int row = 0; row < rect.h; row++) {
+        long start = (long)(rect.y + row) * GFX_WIDTH + rect.x;
+        long end = start + rect.w;
+        if (start < 0)
+            start = 0;
+        if (end > page_size)
+            end = page_size;
+        if (end > start)
+            memcpy(dst + start, src + start, (size_t)(end - start));
+    }
 }
 
 GfxRect gfx_draw_sprite(GfxPageId page, const GfxSprite *sprite, int x, int y, unsigned flags)
@@ -185,8 +195,8 @@ GfxRect gfx_draw_sprite(GfxPageId page, const GfxSprite *sprite, int x, int y, u
     return gfx_draw_sprite_scaled(page, sprite, x, y, 256, flags);
 }
 
-/* game86 1000:8cbb / aa29 / ac03 (1:1) and 1000:63d2 (scaled). STUB for scaling: nearest
- * neighbour; replace with the original's stepping once diff-tested. */
+/* Generic helper (not the game's blitter, see gfx.h): nearest-neighbour scaling, mirroring,
+ * mask or GFX_TRANSPARENT keying. */
 GfxRect gfx_draw_sprite_scaled(GfxPageId page, const GfxSprite *sprite, int x, int y,
                                int scale_q8, unsigned flags)
 {
@@ -214,8 +224,9 @@ GfxRect gfx_draw_sprite_scaled(GfxPageId page, const GfxSprite *sprite, int x, i
             int sx = (dx - x) * 256 / scale_q8;
             if (flags & GFX_DRAW_MIRROR_X)
                 sx = sprite->width - 1 - sx;
-            if (!mask_row || mask_row[sx])
-                p->pixels[dy][dx] = src_row[sx];
+            uint8_t v = src_row[sx];
+            if (mask_row ? mask_row[sx] != 0 : v != GFX_TRANSPARENT)
+                p->pixels[dy][dx] = v;
         }
     }
     return dst;
@@ -239,7 +250,7 @@ int gfx_text_width(const GfxFont *font, const char *text)
     return width;
 }
 
-/* STUB text renderer; the original text engine (game86 range E) will define the exact rules. */
+/* Generic text helper (the game's text engine is text_print() in src/game/text.c). */
 int gfx_print(GfxPageId page, const GfxFont *font, int x, int y, const char *text, uint8_t color)
 {
     GfxPage *p = &g_gfx.pages[page];
