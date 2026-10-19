@@ -11,7 +11,8 @@ every tick and every frame the DGROUP bytes the adapter maps must match.
 
 The original's surroundings, all inside this file:
   - DOS (INT 21h): memory resize, get/set vector (into the real IVT), and read-only access to
-    the user's original files (g3.cmp, f.cmp, s.cmp, scores.yak); nothing is written.
+    the user's original files (g3.cmp, f.cmp, s.cmp, scores.yak; $LLAMATRON_ORIGINAL_DIR, else
+    original/); nothing is written.
   - BIOS: INT 10h mode 0Dh resets the EGA plane model (palette calls are only logged);
     INT 16h has no keys; the tick word 0040:006C holds the seed and stands still.
   - The command tail as the launcher passes it: VGA or EGA, keyboard, no sound (PSP:89h = FF
@@ -44,7 +45,7 @@ import unicorn  # noqa: E402
 import unicorn.x86_const as X  # noqa: E402
 
 from adapters.cport import bind, load_testlib  # noqa: E402
-from adapters.gamestate import DGROUP_SIZE, MASK_UNMAPPED, DgroupMap  # noqa: E402
+from adapters.gamestate import ATTRACT_LLAMAS, DGROUP_SIZE, MASK_UNMAPPED, DgroupMap  # noqa: E402
 from llamatron_harness import Machine  # noqa: E402
 from llamatron_harness.runner import linear  # noqa: E402
 
@@ -56,6 +57,17 @@ WAIT_VSYNC_END = 0xE605              # 3DAh reads outside e5f3..e604 are another
 INT_TIMER, INT_KEYBOARD = 0x08, 0x09
 STACK = range(0x84D0, 0x85E2)        # game86's stack (interrupt frames), not state
 KEY_PORT = 0x60
+DRAW_HOOK, TICK_HOOK = 0x39E0, 0x39E4    # [39E0] frame draw hook, [39E4] tick hook
+DRAW_HOOK_TITLE = 0x402C
+ENTITY_TABLE, ENTITY_SIZE = 0x48C1, 0x40
+# Known differences, as tests/replay/compare.py treats them:
+# DEVIATIONS #10: the loaded image has trail_head[1] = 2 until P2's first trail write; the
+# port starts at entry 0. Skipped while the original still holds 2.
+P2_TRAIL_HEAD, P2_TRAIL_HEAD_LOADED = 0x2CF9, 2
+# Title llama leftovers in play: fields +02..+3f of slots 0..8 that entities_clear (4307)
+# leaves behind and the original never reads before writing (tests/dosbox/llama_residue.py);
+# skipped while the original keeps the value it had when play started and the port holds 0.
+LEFTOVER_FIELDS = range(0x02, 0x40)
 
 STUB_SEG = 0x9F00                    # our IRET for the chained BIOS vectors
 DOS_PATH_MAX = 128
@@ -411,39 +423,73 @@ class Result:
 
 
 class Comparer:
+    """Mapped DGROUP bytes, less game86's stack and `ignore`. While the title's draw hook
+    runs, the 32 title llamas in entity slots 0..8 live in attract.c, not in the GameState
+    (adapters.gamestate.ATTRACT_LLAMAS), so those bytes are left out then."""
+
     def __init__(self, dg: DgroupMap, ignore=()):
         keep = bytearray(0xFF if dg.mask[i] != MASK_UNMAPPED else 0 for i in range(DGROUP_SIZE))
         for i in list(STACK) + list(ignore):
             keep[i] = 0
         self.keep = int.from_bytes(keep, "little")
+        for i in ATTRACT_LLAMAS:
+            keep[i] = 0
+        self.keep_title = int.from_bytes(keep, "little")
 
     def differ(self, a: bytes, b: bytes) -> list[int]:
-        x = (int.from_bytes(a, "little") ^ int.from_bytes(b, "little")) & self.keep
+        title = struct.unpack_from("<H", a, DRAW_HOOK)[0] == DRAW_HOOK_TITLE
+        keep = self.keep_title if title else self.keep
+        x = (int.from_bytes(a, "little") ^ int.from_bytes(b, "little")) & keep
         if not x:
             return []
         raw = x.to_bytes(DGROUP_SIZE, "little")
         return [i for i, v in enumerate(raw) if v]
 
 
+def known(off: int, a: bytes, b: bytes, play_start: bytes | None) -> bool:
+    """A documented difference (see P2_TRAIL_HEAD, LEFTOVER_FIELDS); a = original, b = port."""
+    if off == P2_TRAIL_HEAD and a[off] == P2_TRAIL_HEAD_LOADED and b[off] == 0:
+        return True
+    return (play_start is not None and off in ATTRACT_LLAMAS
+            and (off - ENTITY_TABLE) % ENTITY_SIZE in LEFTOVER_FIELDS
+            and b[off] == 0 and a[off] == play_start[off])
+
+
 def run_lockstep(lib, script: Script, ticks: int, seed: int, machine: str = "vga",
                  phase: int = 0, start_delay: int = 0, game86=None,
-                 original_dir: Path = REPO / "original", ignore=(), progress=None,
+                 original_dir: Path | None = None, ignore=(), progress=None,
                  on_frame=None) -> Result:
     """on_frame(orig, port, tick, frame), called after each frame whose DGROUP matched, may
     return a Result to stop with (e.g. a page comparison, tests/oracle/whole_game_pages.py)."""
-    orig = OriginalGame(game86, original_dir, seed, machine)
+    original_dir = original_dir or Path(os.environ.get("LLAMATRON_ORIGINAL_DIR", REPO / "original"))
+    try:
+        orig = OriginalGame(game86, original_dir, seed, machine)
+    except OriginalFault as exc:
+        return Result(False, 0, 0, "original", detail=f"start-up: {exc}")
     port = PortGame(lib, seed, machine)
     cmp = Comparer(port.dg, ignore)
     clock = Clock(machine, phase)
     tick = frame = 0
 
+    play_start: bytes | None = None
+    in_title = False
+
     def check(where: str) -> Result | None:
+        nonlocal play_start, in_title
         a = orig.dgroup()
         b = port.dgroup(a)
+        title = struct.unpack_from("<H", a, DRAW_HOOK)[0] == DRAW_HOOK_TITLE
+        if title:
+            in_title, play_start = True, None
+        elif in_title:
+            in_title, play_start = False, a
         bad = cmp.differ(a, b)
+        bad = [o for o in bad if not known(o, a, b, play_start)]
         if bad:
+            hooks = (struct.unpack_from("<H", a, DRAW_HOOK)[0], struct.unpack_from("<H", a, TICK_HOOK)[0])
             return Result(False, tick, frame, where, bad,
-                          values={o: (a[o], b[o]) for o in bad})
+                          values={o: (a[o], b[o]) for o in bad},
+                          detail=f"draw hook {hooks[0]:04x}, tick hook {hooks[1]:04x}")
         return None
 
     r = check("init")
@@ -524,7 +570,7 @@ def describe(res: Result, orig_img: bytes | None = None, port_img: bytes | None 
                      for o in res.offsets[:24])
     more = f" (+{len(res.offsets) - 24})" if len(res.offsets) > 24 else ""
     return (f"first divergence after {res.where} at tick {res.tick} frame {res.frame}: "
-            f"DS offset=original/port {offs}{more}")
+            f"DS offset=original/port {offs}{more} ({res.detail})")
 
 
 def load_reference_run(name: str) -> tuple[Script, int, dict]:
