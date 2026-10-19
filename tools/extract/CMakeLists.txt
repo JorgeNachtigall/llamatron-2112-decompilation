@@ -6,10 +6,13 @@ project(llamatron_extract LANGUAGES C)
 
 add_executable(llamatron-extract
     common.c
+    ilbm.c
     main.c
     manifest.c
     mz.c
+    outputs.c
     sha256.c
+    title.c
     unexepack.c
     unlzexe.c
 )

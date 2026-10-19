@@ -1,8 +1,10 @@
 /* llamatron-extract: build-time extraction of everything the port needs from the user's own
  * copy of the game (docs/PLAN.md §2.2). Also usable as a CLI for RE/debugging. */
 #include "common.h"
+#include "extract.h"
 #include "manifest.h"
 #include "mz.h"
+#include "outputs.h"
 #include "sha256.h"
 #include "unpack.h"
 
@@ -12,9 +14,6 @@
 
 /* Ghidra loads every program at segment 1000, so image offset + 0x10000 == Ghidra address. */
 #define LOAD_SEGMENT 0x1000
-#define STAMP_FORMAT "llamatron-extract stamp v1"
-#define MAX_OUTPUTS 64
-
 static const char *const packed_executables[] = {"game86", "fs", "llama", "install"};
 
 typedef struct {
@@ -23,18 +22,6 @@ typedef struct {
     const char *out_dir;
     bool allow_unverified;
 } Options;
-
-/* Every file written by --all, in write order, for generated/extract.stamp. */
-typedef struct {
-    char path[256];
-    char sha256[SHA256_HEX_SIZE];
-} OutputRecord;
-
-typedef struct {
-    const char *root;
-    OutputRecord records[MAX_OUTPUTS];
-    size_t count;
-} OutputSet;
 
 static void usage(void)
 {
@@ -53,41 +40,6 @@ static int report_failure(const char *context)
 {
     fprintf(stderr, "llamatron-extract: %s: %s\n", context, last_error());
     return 1;
-}
-
-static bool output_write(OutputSet *set, const char *relative, const uint8_t *data, size_t size)
-{
-    if (set->count == MAX_OUTPUTS)
-        return fail("too many outputs");
-    char path[4096];
-    if (!path_join(path, sizeof path, set->root, relative) || !write_file(path, data, size))
-        return false;
-    OutputRecord *record = &set->records[set->count++];
-    snprintf(record->path, sizeof record->path, "%s", relative);
-    sha256_hex(data, size, record->sha256);
-    return true;
-}
-
-static bool output_write_text(OutputSet *set, const char *relative, const char *text)
-{
-    return output_write(set, relative, (const uint8_t *)text, strlen(text));
-}
-
-static bool write_stamp(const OutputSet *set)
-{
-    ByteBuf text = {0};
-    char line[512];
-    snprintf(line, sizeof line, "%s\n", STAMP_FORMAT);
-    bool ok = bytebuf_append(&text, (const uint8_t *)line, strlen(line));
-    for (size_t i = 0; ok && i < set->count; i++) {
-        snprintf(line, sizeof line, "%s  %s\n", set->records[i].sha256, set->records[i].path);
-        ok = bytebuf_append(&text, (const uint8_t *)line, strlen(line));
-    }
-    char path[4096];
-    ok = ok && path_join(path, sizeof path, set->root, "extract.stamp") &&
-         write_file(path, text.data, text.size);
-    bytebuf_free(&text);
-    return ok;
 }
 
 static bool load_and_verify(const Options *opt, Manifest *manifest)
@@ -193,7 +145,12 @@ static int run_all(const Options *opt)
             break;
         }
     }
-    if (status == 0 && !write_stamp(outputs))
+    if (status == 0) {
+        printf("Decoding title pictures\n");
+        if (!extract_title_pictures(opt->original_dir, outputs))
+            status = report_failure("title pictures");
+    }
+    if (status == 0 && !output_write_stamp(outputs))
         status = report_failure("extract.stamp");
     free(outputs);
     return status;
