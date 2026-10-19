@@ -61,7 +61,7 @@ game86,1000:16c1,,players_tick,players_tick,src/game/player.c,diff-tested,W5,B,p
 game86,1000:176c,175,enemy_aim_update,enemy_aim_update,src/game/player.c,diff-tested,W5,B,
 game86,1000:1947,,trail_record,trail_record,src/game/player.c,diff-tested,W5,B,trail write 1947..19ce with trail_entry; 199d misaligned first compare = DEVIATIONS #10
 game86,1000:1a3b,427,play_draw_hook,game_draw_frame,src/game/frame.c,todo,W4,B,
-game86,1000:1be6,129,palette_set,gfx_set_palette,src/engine/gfx.c,todo,W2,B,
+game86,1000:1be6,129,palette_set,gfx_set_game_palette,src/engine/gfx.c,diff-tested,W2,B,test_engine_palette.py: INT 10h 1012h/1002h calls applied to a card model (VGA DAC blocks 0..7/16..23 via the attribute registers e4f5 loads) = gfx_palette() 0..15; DS:4451 DAC staging buffer not kept
 game86,1000:1c67,134,enemy_random_spawn_pos,enemy_random_spawn_pos,src/game/entities/spawn.c,diff-tested,W5a,B,
 game86,1000:1ced,83,wave_spawn_enemies,wave_spawn_enemies,src/game/main_sm.c,todo,W4,B,
 game86,1000:1dcd,95,enemy_init_00,enemy_init_00,src/game/entities/enemy_init.c,diff-tested,W5a,C,
@@ -165,7 +165,7 @@ game86,1000:3d43,46,entity_alloc,entity_alloc,src/game/entity_loop.c,diff-tested
 game86,1000:3d4e,,entity_alloc_next,split_into_type24,src/game/entities/kill_actions.c,diff-tested,W5a,C,inlined in split_into_type24: entered with BP=-1 so it always reports a full table; via kill actions 0a/0b (test_hit.py)
 game86,1000:3d71,59,hit_kill_action_0a,kill_action_0a,src/game/entities/kill_actions.c,diff-tested,W5a,C,via ent_hit_03 (tests/oracle/test_hit.py)
 game86,1000:3dac,56,hit_kill_action_0b,kill_action_0b,src/game/entities/kill_actions.c,diff-tested,W5a,C,via ent_hit_03 (tests/oracle/test_hit.py)
-game86,1000:3de4,252,irq08_timer,timing_tick,src/engine/timing.c,todo,W2,D,50.16 Hz scheduler
+game86,1000:3de4,252,irq08_timer,timing_run_timer_ticks,src/engine/timing.c,ported,W2,D,"dispatch: driver tick 3e02 (snd_tick) then the game tick 3e08..3ebd (game_tick, W4); fire refresh 3e12..3e4e = input_tick_fire, diff-tested in test_engine_input.py; BIOS chain 3ec2 = bios_accumulator in timing_take_tick; reentry flag [428] not needed (ticks run between frames)"
 game86,1000:3ee0,143,title_draw,title_draw,src/game/attract.c,diff-tested,W5,D,tests/oracle/test_attract.py::test_title_draw
 game86,1000:3f6f,111,title_tick_hook,title_tick_hook,src/game/attract.c,diff-tested,W5,D,tests/oracle/test_attract.py::test_title_tick_hook (incl. attract_llamas_tick)
 game86,1000:3fde,1,hook_nop,hook_nop,,todo,W4,D,empty hook
@@ -230,8 +230,8 @@ game86,1000:536f,391,text_print,text_print,src/game/text.c,diff-tested,W6,E,"tes
 game86,1000:54f6,65,text_draw_char,text_draw_char,src/game/text.c,diff-tested,W6,E,via test_text.py::test_text_print_*
 game86,1000:5537,100,text_draw_char_alt,text_draw_centred,src/game/text.c,diff-tested,W6,E,\q escape in test_text.py
 game86,1000:559f,640,glyph_blit,text_draw_glyph,src/game/text.c,diff-tested,W6,E,"test_text.py::test_glyph_clipping (edge drift, top clip, no bottom clip)"
-game86,1000:581f,14,crtc_set_start,gfx_flip,src/engine/gfx.c,todo,W2,E,
-game86,1000:582f,21,display_page_reset,display_page_reset,src/engine/gfx.c,todo,W2,E,
+game86,1000:581f,14,crtc_set_start,gfx_flip,src/engine/gfx.c,ported,W2,E,"display start = the page gfx_flip shows (frame_run 1e7b:0185 write diff-tested in test_engine_pages.py) or the scroller window (W6 draw_scroller.c, test_scroller.py)"
+game86,1000:582f,21,display_page_reset,canvas_from_vram_pages,src/game/draw_scroller.c,diff-tested,W2,E,implemented by W6 in the scroller (draw_copy_screen_to_draw_page + gfx_flip); test_scroller.py covers it
 game86,1000:5844,284,text_scroller,scroller_start/scroller_frame/scroller_finish,src/game/draw_scroller.c,diff-tested,W6,E,"test_scroller.py: lockstep with the original loop (plain and story runs, skip/pause input, window, canvas, pages); per-frame state machine instead of the blocking loop; own canvas buffer shown via page 0"
 game86,1000:5960,52,video_init,video_init,src/engine/gfx.c,todo,W2,E,
 game86,1000:5994,23,video_init_tail,video_init_tail,src/engine/gfx.c,todo,W2,E,
@@ -309,20 +309,20 @@ game86,1000:e240,168,sprite_draw_scaled_col,draw_sprite_sheared,src/game/draw_sp
 game86,1000:e2e8,420,sprite_draw_scaled_rows,draw_sprite_sheared,src/game/draw_sprite.c,diff-tested,W6,F,"test_sprites.py::test_draw_sprite_sheared (row step / shear, not a zoom)"
 game86,1000:e48c,82,vram_addr_from_xy_signed,draw_cell_pos_unshifted,src/game/draw_target.c,diff-tested,W6,F,via test_draw_sprite_sheared
 game86,1000:e4de,23,rng_next,rng_next_byte,src/game/rng.c,diff-tested,W4,S,ctest oracle.rng (test_c_next_byte)
-game86,1000:e4f5,36,video_set_mode,video_set_mode,src/engine/gfx.c,todo,W2,S,
-game86,1000:e519,78,irq_install,irq_install,src/platform/,todo,W2,S,not ported: platform timer/input
-game86,1000:e567,140,irq09_keyboard,kbd_on_scancode,src/engine/input.c,todo,W2,S,
+game86,1000:e4f5,36,video_set_mode,gfx_set_adapter,src/engine/gfx.c,ported,W2,S,mode 0Dh = the gfx page model; on VGA the attribute registers from DS:2122 are the DAC mapping gfx_set_palette_st assumes (asserted in test_engine_palette.py); on EGA it is palette_set 2164 (gfx_set_game_palette); called only from video_init 5960 (W4 flow)
+game86,1000:e519,78,irq_install,timing_init_realtime,src/engine/timing.c,ported,W2,S,PIT divisor 0x5CEC = PIT_GAME_DIVISOR (50.159 Hz); timing_init_display for replays; INT 09 hook = platform key events -> input_keyboard_byte
+game86,1000:e567,140,irq09_keyboard,input_keyboard_byte,src/engine/input.c,diff-tested,W2,S,"test_engine_input.py: random byte streams, [586]/[587]/[588]/[b72] after every byte; port keeps a tap held until sampled (deviation, input.c)"
 game86,1000:e5f3,18,wait_vsync,wait_vsync,src/platform/,todo,W2,S,platform: end of frame
-game86,1000:e605,17,kbd_flush,kbd_flush,src/platform/,todo,W2,S,platform
+game86,1000:e605,17,kbd_flush,,src/platform/,ported,W2,S,"no counterpart: host key events go straight to input_keyboard_byte, there is no BIOS buffer to drain"
 game86,1000:e616,72,rng_mix,rng_mix,src/game/rng.c,diff-tested,W4,S,BIOS tick passed per call (ctest oracle.rng incl. tick schedules; DOSBox-X == oracle == C in dosbox.probe_rng); shuffle 007b..00ab = rng_shuffle (RngTickSource); seed part of 5f6b = rng_seed
 game86,1000:e65e,46,cmp_load,cmp_load,tools/extract/,todo,W1,S,build-time extraction
 game86,1000:e6bb,130,lzss_decode,lzss_decode,tools/extract/,todo,W1,S,build-time extraction
 game86,1000:e73d,59,lzss_getbyte,lzss_decode,tools/extract/,todo,W1,S,build-time extraction
 game86,1000:e778,11,lzss_ungetbyte,lzss_decode,tools/extract/,todo,W1,S,build-time extraction
 game86,1000:e788,34,mem_shrink,mem_shrink,,todo,W0,S,not ported: DOS memory
-game86,1e7b:0000,315,input_poll,input_state,src/engine/input.c,todo,W2,F,
+game86,1e7b:0000,315,input_poll,input_frame_read,src/engine/input.c,diff-tested,W2,F,"test_engine_input.py: keyboard path, port 201h joystick path (fake one-shot counts near the thresholds, 1 or 2 sticks, [9d3]), [7fb]/[7fc]/[7fd]; calibration 6014 = input_calibrate also diff-tested"
 game86,1e7b:013f,439,frame_run,frame_run,src/engine/timing.c,todo,W2,F,frame callback
-game86,1e7b:029a,38,page_swap,gfx_flip,src/engine/gfx.c,todo,W2,F,
+game86,1e7b:029a,38,page_swap,gfx_flip,src/engine/gfx.c,diff-tested,W2,F,test_engine_pages.py: [39d3]/[39d5] and the CRTC start vs gfx_draw_page_id/gfx_display_page_id; CS:6733/6735 list swap implicit (one dirty list per page)
 game86,1e7b:03dc,87,restore_w1_h00,gfx_restore_rect,src/engine/gfx.c,diff-tested,W6,F,restore family: gfx_restore_rect linear spans; test_draw_basic.py::test_restore_dirty_list (whole 1e7b:0213 pass)
 game86,1e7b:0433,233,restore_w1_h06,gfx_restore_rect,src/engine/gfx.c,diff-tested,W6,F,restore family: gfx_restore_rect linear spans; test_draw_basic.py::test_restore_dirty_list (whole 1e7b:0213 pass)
 game86,1e7b:051c,269,restore_w1_h07,gfx_restore_rect,src/engine/gfx.c,diff-tested,W6,F,restore family: gfx_restore_rect linear spans; test_draw_basic.py::test_restore_dirty_list (whole 1e7b:0213 pass)
@@ -377,30 +377,30 @@ game86,1e7b:30c9,14,restore_w3_h19,gfx_restore_rect,src/engine/gfx.c,diff-tested
 game86,1e7b:30d7,14,restore_w3_h20,gfx_restore_rect,src/engine/gfx.c,diff-tested,W6,F,restore family: gfx_restore_rect linear spans; test_draw_basic.py::test_restore_dirty_list (whole 1e7b:0213 pass)
 game86,1e7b:30e5,14,restore_w3_h21,gfx_restore_rect,src/engine/gfx.c,diff-tested,W6,F,restore family: gfx_restore_rect linear spans; test_draw_basic.py::test_restore_dirty_list (whole 1e7b:0213 pass)
 game86,1e7b:30f3,14,restore_w3_h22,gfx_restore_rect,src/engine/gfx.c,diff-tested,W6,F,restore family: gfx_restore_rect linear spans; test_draw_basic.py::test_restore_dirty_list (whole 1e7b:0213 pass)
-fs,1000:0010,131,entry,entry,src/sound/title.c,todo,W2,fs,front screen (ILBM decode in W1 extractor)
-fs,1000:00de,44,timer_hook,timer_hook,src/sound/title.c,todo,W2,fs,front screen (ILBM decode in W1 extractor)
-fs,1000:010a,18,wait_vsync,wait_vsync,src/sound/title.c,todo,W2,fs,front screen (ILBM decode in W1 extractor)
-fs,1000:011c,15,kbd_flush,kbd_flush,src/sound/title.c,todo,W2,fs,front screen (ILBM decode in W1 extractor)
-fs,1000:012b,23,exit_cleanup,exit_cleanup,src/sound/title.c,todo,W2,fs,front screen (ILBM decode in W1 extractor)
-fs,1000:0142,76,FUN_1000_0142,,src/sound/title.c,todo,W2,fs,front screen (ILBM decode in W1 extractor)
-fs,1000:018e,49,irq08_timer,irq08_timer,src/sound/title.c,todo,W2,fs,front screen (ILBM decode in W1 extractor)
-fs,1000:01bf,106,show_title,show_title,src/sound/title.c,todo,W2,fs,front screen (ILBM decode in W1 extractor)
-fs,1000:0229,105,ega_show_planes,ega_show_planes,src/sound/title.c,todo,W2,fs,front screen (ILBM decode in W1 extractor)
-fs,1000:0293,424,lbm_load,lbm_load,src/sound/title.c,todo,W2,fs,front screen (ILBM decode in W1 extractor)
-fs,1000:043a,118,cmap_apply,cmap_apply,src/sound/title.c,todo,W2,fs,front screen (ILBM decode in W1 extractor)
-fs,1000:04b0,17,FUN_1000_04b0,,src/sound/title.c,todo,W2,fs,front screen (ILBM decode in W1 extractor)
-fs,1000:04c1,11,ega_palette_set,ega_palette_set,src/sound/title.c,todo,W2,fs,front screen (ILBM decode in W1 extractor)
-fs,1000:04cc,106,planar_to_chunky,planar_to_chunky,src/sound/title.c,todo,W2,fs,front screen (ILBM decode in W1 extractor)
-fs,1000:0536,7387,FUN_1000_0536,,src/sound/title.c,todo,W2,fs,front screen (ILBM decode in W1 extractor)
-fs,1000:2211,270,body_decode,body_decode,src/sound/title.c,todo,W2,fs,front screen (ILBM decode in W1 extractor)
-fs,1000:231f,53,byterun1_row,byterun1_row,src/sound/title.c,todo,W2,fs,front screen (ILBM decode in W1 extractor)
-fs,1000:2354,14,src_wrap,src_wrap,src/sound/title.c,todo,W2,fs,front screen (ILBM decode in W1 extractor)
-fs,1000:2362,41,skip_mask_row,skip_mask_row,src/sound/title.c,todo,W2,fs,front screen (ILBM decode in W1 extractor)
-fs,1000:238b,18,clear_load_buf,clear_load_buf,src/sound/title.c,todo,W2,fs,front screen (ILBM decode in W1 extractor)
-fs,1000:239d,5,chunky_to_modex_lower,chunky_to_modex_lower,src/sound/title.c,todo,W2,fs,front screen (ILBM decode in W1 extractor)
-fs,1000:23a2,91,chunky_to_modex,chunky_to_modex,src/sound/title.c,todo,W2,fs,front screen (ILBM decode in W1 extractor)
-fs,1000:23fd,91,vga_set_320x400,vga_set_320x400,src/sound/title.c,todo,W2,fs,front screen (ILBM decode in W1 extractor)
-fs,1000:2458,34,mem_shrink,mem_shrink,src/sound/title.c,todo,W2,fs,front screen (ILBM decode in W1 extractor)
+fs,1000:0010,131,entry,main,src/platform/apps/llamatron_main.c,ported,W2,fs,"title phase of the game shell (title_main.c for the title-only app); title_hash regression hash, not diff-tested against fs.exe"
+fs,1000:00de,44,timer_hook,timing_init_realtime,src/engine/timing.c,ported,W2,fs,same PIT rate as game86 e519
+fs,1000:010a,18,wait_vsync,title_frame,src/engine/title.c,ported,W2,fs,one title_frame per host frame = one retrace
+fs,1000:011c,15,kbd_flush,,src/platform/,ported,W2,fs,no counterpart: no BIOS key buffer
+fs,1000:012b,23,exit_cleanup,title_free,src/engine/title.c,ported,W2,fs,app leaves the title phase
+fs,1000:0142,76,FUN_1000_0142,title_frame,src/engine/title.c,ported,W2,fs,two retraces before leaving (TITLE_LEAVING)
+fs,1000:018e,49,irq08_timer,timing_run_timer_ticks,src/engine/timing.c,ported,W2,fs,driver tick only (NULL timer callback in the title phase)
+fs,1000:01bf,106,show_title,title_load,src/engine/title.c,ported,W2,fs,"shows the extracted picture; title_hash_vga/ega regression hashes, not diff-tested against fs.exe"
+fs,1000:0229,105,ega_show_planes,extract_ega_title,tools/extract/title.c,ported,W2,fs,"build-time extractor (W1 file): planes decoded to chunky, palette registers; title_load shows them"
+fs,1000:0293,424,lbm_load,ilbm_decode,tools/extract/ilbm.c,ported,W2,fs,build-time extractor (W1 file); file I/O replaced by the extractor input
+fs,1000:043a,118,cmap_apply,extract_vga_title,tools/extract/title.c,ported,W2,fs,VGA: CMAP >> 2 into the DAC; EGA: ega_register_for (2-bit levels via DS:0122/0126/012a)
+fs,1000:04b0,17,FUN_1000_04b0,ega_register_for,tools/extract/title.c,ported,W2,fs,CMAP byte >> 6 inside cmap_apply EGA path
+fs,1000:04c1,11,ega_palette_set,title_load,src/engine/title.c,ported,W2,fs,EGA registers from title_ega.pal shown through gfx_ega_color
+fs,1000:04cc,106,planar_to_chunky,decode_body,tools/extract/ilbm.c,ported,W2,fs,planar -> chunky
+fs,1000:0536,7387,FUN_1000_0536,decode_body,tools/extract/ilbm.c,ported,W2,fs,unrolled bit loop of planar_to_chunky 04cc
+fs,1000:2211,270,body_decode,decode_body,tools/extract/ilbm.c,ported,W2,fs,ByteRun1 BODY
+fs,1000:231f,53,byterun1_row,byterun1_row,tools/extract/ilbm.c,ported,W2,fs,runs cut at the row end like fs.exe
+fs,1000:2354,14,src_wrap,byterun1_row,tools/extract/ilbm.c,ported,W2,fs,source wrap of the load buffer: the extractor reads the whole file
+fs,1000:2362,41,skip_mask_row,decode_body,tools/extract/ilbm.c,ported,W2,fs,extra row skipped for any masking value
+fs,1000:238b,18,clear_load_buf,decode_body,tools/extract/ilbm.c,ported,W2,fs,output starts zeroed
+fs,1000:239d,5,chunky_to_modex_lower,title_load,src/engine/title.c,ported,W2,fs,mode X lower half: the port keeps 320x400 chunky (title_vga.idx8 rows 200..399)
+fs,1000:23a2,91,chunky_to_modex,title_load,src/engine/title.c,ported,W2,fs,mode X upper half: the port keeps 320x400 chunky
+fs,1000:23fd,91,vga_set_320x400,title_load,src/engine/title.c,ported,W2,fs,"320x400 picture, presented by the platform at that size"
+fs,1000:2458,34,mem_shrink,,src/platform/,ported,W2,fs,no counterpart: DOS memory shrink
 llama,1000:0010,54,entry,entry,,todo,W0,llama,launcher/installer: llama.inf semantics become port options
 llama,1000:0103,147,launch_children,launch_children,,todo,W0,llama,launcher/installer: llama.inf semantics become port options
 llama,1000:01a6,48,FUN_1000_01a6,,,todo,W0,llama,launcher/installer: llama.inf semantics become port options
