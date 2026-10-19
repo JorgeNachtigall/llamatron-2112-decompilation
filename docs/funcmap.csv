@@ -1,6 +1,6 @@
 program,orig_addr,size,name,c_symbol,file,status,owner,range,notes
 game86,1000:0010,676,main,game_main,src/game/main_sm.c,todo,W4,A,RNG table build 007b..00ab = rng_shuffle (diff-tested in oracle.rng + dosbox.probe_rng)
-game86,1000:0309,44,hud_refresh_if_dirty,hud_refresh_if_dirty,src/game/hud.c,todo,W6,A,
+game86,1000:0309,44,hud_refresh_if_dirty,hud_refresh,src/game/hud.c,diff-tested,W6,A,test_hud.py (via level/lives/score with GameState fields; caller tests/clears g_hud_dirty); bit mask 0xff / zero latches assumed (hud.h)
 game86,1000:0335,93,score_add,score_add,src/game/player.c,todo,W4,A,
 game86,1000:0392,10,script_op7,script_op7,src/game/script.c,todo,W4,A,
 game86,1000:039c,32,script_op6,script_op6,src/game/script.c,todo,W4,A,
@@ -207,12 +207,12 @@ game86,1000:4f93,88,entity_spawn_debris,entity_spawn_debris,src/game/entities/,t
 game86,1000:4feb,100,think_0c,think_0c,src/game/entities/,todo,W5,E,
 game86,1000:504f,76,think_0d,think_0d,src/game/entities/,todo,W5,E,
 game86,1000:509b,65,entity_aim_at_target,entity_aim_at_target,src/game/entities/,todo,W5,E,
-game86,1000:50dc,234,hud_draw_digit,hud_draw_digit,src/game/hud.c,todo,W6,E,
-game86,1000:51c6,22,hud_draw_player_label,hud_draw_player_label,src/game/hud.c,todo,W6,E,
-game86,1000:51dc,51,hud_draw_lives,hud_draw_lives,src/game/hud.c,todo,W6,E,
-game86,1000:520f,161,hud_clear_cell,hud_clear_cell,src/game/hud.c,todo,W6,E,
-game86,1000:52b0,55,hud_draw_level,hud_draw_level,src/game/hud.c,todo,W6,E,
-game86,1000:52e7,48,hud_draw_score,hud_draw_score,src/game/hud.c,todo,W6,E,
+game86,1000:50dc,234,hud_draw_digit,hud_draw_digit,src/game/hud.c,diff-tested,W6,E,test_hud.py; clear + colour-1 glyph on all three pages
+game86,1000:51c6,22,hud_draw_player_label,hud_draw_player_label,src/game/hud.c,diff-tested,W6,E,"test_hud.py; colour 4, label by current player"
+game86,1000:51dc,51,hud_draw_lives,hud_draw_lives,src/game/hud.c,diff-tested,W6,E,"test_hud.py; lives-1 labels, max 5"
+game86,1000:520f,161,hud_clear_cell,hud_clear_cell,src/game/hud.c,diff-tested,W6,E,test_hud.py
+game86,1000:52b0,55,hud_draw_level,hud_draw_level,src/game/hud.c,diff-tested,W6,E,test_hud.py incl. levels >= 99 (leading 1 one cell left)
+game86,1000:52e7,48,hud_draw_score,hud_draw_score,src/game/hud.c,diff-tested,W6,E,"test_hud.py; leading zeros not drawn, zero score = 00"
 game86,1000:5317,31,player_swap_state,player_swap_state,src/game/player.c,todo,W4,E,
 game86,1000:5336,26,player_copy_state,player_copy_state,src/game/player.c,todo,W4,E,
 game86,1000:5350,18,level_select_variant,level_select_variant,src/game/script.c,todo,W4,E,
@@ -226,7 +226,7 @@ game86,1000:582f,21,display_page_reset,display_page_reset,src/engine/gfx.c,todo,
 game86,1000:5844,284,text_scroller,text_scroller,src/game/text.c,todo,W6,E,
 game86,1000:5960,52,video_init,video_init,src/engine/gfx.c,todo,W2,E,
 game86,1000:5994,23,video_init_tail,video_init_tail,src/engine/gfx.c,todo,W2,E,
-game86,1000:59ab,79,hud_draw_control_labels,hud_draw_control_labels,src/game/hud.c,todo,W6,E,
+game86,1000:59ab,79,hud_draw_control_labels,hud_draw_control_labels,src/game/hud.c,diff-tested,W6,E,test_hud.py; g3 shapes 7..11 through a lookup
 game86,1000:59fa,202,hiscore_name_entry,hiscore_name_entry,src/game/hiscore.c,todo,W6,E,
 game86,1000:5ac4,66,name_entry_draw_hook,name_entry_draw_hook,src/game/hiscore.c,todo,W6,E,
 game86,1000:5b06,248,name_entry_tick_hook,name_entry_tick_hook,src/game/hiscore.c,todo,W6,E,

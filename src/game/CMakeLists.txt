@@ -9,8 +9,10 @@ add_library(llamatron_game STATIC
     draw_target.c
     text.c
     draw_sprite.c
+    hud.c
 )
-target_include_directories(llamatron_game PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(llamatron_game PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
+    ${PROJECT_SOURCE_DIR}/src/assets)   # W6 hud.c: HudGlyphs type from formats.h (header only)
 target_link_libraries(llamatron_game PUBLIC llama_engine)   # W6 draw_*.c use engine/gfx.h
 set_target_properties(llamatron_game PROPERTIES POSITION_INDEPENDENT_CODE ON)
 target_compile_options(llamatron_game PRIVATE
