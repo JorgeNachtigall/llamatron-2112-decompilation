@@ -4,6 +4,7 @@ add_library(llama_engine STATIC
     input.c
     timing.c
     title.c
+    snd.c
 )
 # The ctypes test library (tests/cmake/TestLib.cmake) links this into a shared object.
 set_target_properties(llama_engine PROPERTIES POSITION_INDEPENDENT_CODE ON)
@@ -15,6 +16,10 @@ target_compile_options(llama_engine PRIVATE
 add_executable(engine_selftest engine_selftest.c)
 target_link_libraries(engine_selftest PRIVATE llama_engine)
 add_test(NAME engine_selftest COMMAND engine_selftest)
+
+add_executable(snd_selftest snd_selftest.c)
+target_link_libraries(snd_selftest PRIVATE llama_engine llama_assets_files)
+add_test(NAME snd_selftest COMMAND snd_selftest)
 
 # Title screen regression: hashes of the extracted pictures as shown (pixels + palette).
 add_executable(title_hash title_hash.c)
