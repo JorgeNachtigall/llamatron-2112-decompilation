@@ -9,7 +9,10 @@
 #ifndef LLAMATRON_GAME_SOUND_H
 #define LLAMATRON_GAME_SOUND_H
 
+#include <stdbool.h>
 #include <stdint.h>
+
+#include "snd.h"     /* SoundStatus */
 
 #ifdef __cplusplus
 extern "C" {
@@ -25,6 +28,14 @@ enum { SOUND_LOG_SIZE = 64 };
 
 /* Driver AH=3. */
 void game_sound_play(uint8_t sample, uint8_t rate_index, uint8_t priority);
+
+/* Driver AH=6: the sample playing (0 = idle) and the sticky priority of the current or last
+ * sample. game86 busy-waits on it and gates re-triggers with it (1000:065d, 1540, 2477). */
+SoundStatus game_sound_status(void);
+
+/* Tests and replays: while `on`, game_sound_status() answers `status` instead of asking the
+ * engine (the oracle's stub driver answers a fixed AX the same way). */
+void game_sound_override_status(bool on, SoundStatus status);
 
 /* Requests since the last clear, oldest first; once more than SOUND_LOG_SIZE were made only
  * the count keeps growing. */

@@ -5,6 +5,8 @@
 
 static SoundRequest log_entries[SOUND_LOG_SIZE];
 static unsigned log_count;
+static bool status_overridden;
+static SoundStatus status_override;
 
 void game_sound_play(uint8_t sample, uint8_t rate_index, uint8_t priority)
 {
@@ -12,6 +14,17 @@ void game_sound_play(uint8_t sample, uint8_t rate_index, uint8_t priority)
         log_entries[log_count] = (SoundRequest){ sample, rate_index, priority };
     log_count++;
     snd_play(sample, rate_index, priority);
+}
+
+SoundStatus game_sound_status(void)
+{
+    return status_overridden ? status_override : snd_status();
+}
+
+void game_sound_override_status(bool on, SoundStatus status)
+{
+    status_overridden = on;
+    status_override = status;
 }
 
 unsigned game_sound_log_count(void)
