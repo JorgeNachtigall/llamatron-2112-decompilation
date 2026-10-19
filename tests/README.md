@@ -15,3 +15,24 @@ Run:
     ctest --test-dir build -L oracle
 
 Without a game image (`original/` not extracted), the oracle tests report *Skipped*.
+
+## Note: the RNG seed is not a single number
+
+Start-up builds the gameplay random table (`DS:6AC9`, 512 bytes: two copies of 0..255)
+in `1000:007b..00ab` with 4000 swaps. Each swap calls the mixer `1000:e616` twice, and
+**every one of those 8000 calls re-reads the live BIOS tick word** at `0000:046C`
+(`[DS:0x44D]` = 0, so `ES:[0x46C]`). The mixer only uses that word when it equals the
+mixer word `s2`, and then it perturbs the state (`s3 += ticks + 0x2F; next = ticks ^ s3`).
+
+Consequences:
+- The table depends on the initial tick value (via the seed `[0x453..0x459]` set by
+  `1000:5f6b`) and also on **when the 18.2 Hz BIOS tick advances during the shuffle**.
+  On a slow machine (8086 at 4.77 MHz) the shuffle takes several tick periods, so the
+  tick changes partway through. On a fast machine or emulator it may never change.
+- The port must therefore take as input a *tick schedule*: the BIOS tick value seen by
+  call n (n = 0..7999). The default is a constant schedule (the start tick), which is
+  what the oracle tests use (`test_init_shuffle`).
+- DOSBox-X reference runs (PLAN §3.3) must pin this too, either by freezing the tick
+  (setting 0040:006C and stopping the timer during start-up) or by recording the tick
+  at every `e616` call with a breakpoint. Otherwise their RNG table differs from the
+  port's even with the "same seed".
