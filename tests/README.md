@@ -74,10 +74,12 @@ Consequences:
   depend on host speed. VGA snapshots also have `vram` (raw planes), `vram_irq`, `pages`
   (sha256 of each page 0000/2000/4000 rasterised to 64000 indexed pixels, as
   `EgaPlanes.rasterise`) and `shown` (the CRTC start address at capture).
-- Run-to-run stability: DGROUP and the shown and background (4000) pages reproduce
-  exactly. The hidden page can be caught mid-draw, and how far the draw got varies with
-  host load, so its hash and the raw `vram` hash are stored but only reported
-  (`settled()`). A probe change, even to start-up code, moves game86's frame timing: run the
+- Run-to-run stability: DGROUP and the background page (4000) reproduce exactly. The hidden
+  page can be caught mid-draw, and how far the draw got varies with host load, so its hash
+  and the raw `vram` hash are stored but only reported (`settled()`). A capture that lands
+  exactly on a page flip sees the old or the new page from run to run: when the shown start
+  address differs from the golden's, the shown page is only reported; at the same address
+  its pixels must match (`shown_page()`). A probe change, even to start-up code, moves game86's frame timing: run the
   golden from a fresh workdir after one.
 - The replay driver uses the EGA monitor's 59.92 Hz frame clock for `--ega` runs and VGA
   mode 0Dh's 70.086 Hz otherwise.
@@ -91,9 +93,16 @@ Consequences:
   when it equals the port's state one tick later or earlier at a transition. A transition is
   a tick or draw hook switch, or a jump of the tick counter (DS:39E6). Also timing: a frozen
   tune.countdown one step from the port's (the tune hook ran a tick longer), and the tick
-  counter one apart right after a jump (the original set it a tick later). Only real
-  bytes decide the first divergence. In play, title llama bytes left in the original's used
-  slots (unchanged since the first play snapshot, 0 in the port) are skipped.
+  counter one apart right after a jump (the original set it a tick later). While a shift
+  holds, the whole state is compared with the port's tick t + shift, and every byte that
+  differs there is real, even one equal at the port's own tick (input reaches both runs at
+  one IRQ). Only real bytes decide the first divergence. In play, title llama bytes left in
+  the original's used slots (unchanged since the first play snapshot, 0 in the port) are
+  skipped, only in the fields `tests/dosbox/llama_residue.py` proved never read before
+  written (it pokes them with 0 and their inverse at the attract -> play switch and compares
+  with a control run; the report's header names them). `TRIAGE` in
+  test_reference_golden.py lists each real divergence with its owner and status, printed
+  under the run's report.
 - Dev loops: `tests/replay/window.py SCENARIO FIRST [--count N]` runs a scenario with a
   snapshot after every tick from FIRST (at most 60) and the port over the same ticks, then
   prints the report and every differing byte at the first divergent tick. `--frames` adds

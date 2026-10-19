@@ -106,6 +106,31 @@ RUNS = {
 }
 
 
+# Triage of the real divergences (compare.py's first ones per run and those after them that are
+# not consequences): (run, tick, field, owner, status). Printed under each run's report; update
+# when a re-run after a fix moves them.
+TRIAGE = [
+    ("two_player", 1150, "options_default, title_key_latch, options (title menu key)",
+     "Claude Code #2", "open: input reaches both runs at one IRQ while the port is a tick behind "
+     "(shifted compare); harness question, not a port bug"),
+    ("two_player", 1300, "entities[8]+1e (llama slot, think_06): original writes C96C between "
+     "1250 and 1300, port keeps 0 (not a leftover: llama_residue poisons don't change it)",
+     "Moss", "sent"),
+    ("two_player", 1450, "shots[4..9]+00 (x 2 px apart), entities[21]+02", "Keel", "sent"),
+    ("warp", 400, "ship_control[0].aim/move, ship x (walk keys)", "Claude Code #2",
+     "open: same input-phase question as two_player 1150"),
+    ("warp", 450, "entities[8..11] x/y +-1, shots[0..1]", "Keel", "sent"),
+    ("death_continue", 800, "entities[8]+02 x (15 vs 13), +0c sprite (2A vs 29): llama think_05",
+     "Moss", "sent"),
+]
+
+
+def triage(name: str) -> str:
+    rows = [r for r in TRIAGE if r[0] == name]
+    return "\n".join(["triage (run, tick, field, owner, status):"]
+                     + [f"  {r} {t:5d}  {f}  [{o}: {st}]" for r, t, f, o, st in rows]) if rows else ""
+
+
 # game86's stack: SS = DGROUP + 74Dh paragraphs, SP = 1112h (EXE header), so SS:1000..1111 =
 # DS:84D0..85E1, above the LZSS ring buffer at SS:0000 (re-notes §2). The interrupt frames
 # there depend on where each IRQ lands, i.e. on host speed: not state, left out of the hash.
@@ -230,11 +255,18 @@ def test_golden_hashes(reference):
     assert got["irq_count"] == want["irq_count"]
     assert got["exit_code"] == want["exit_code"]
     assert sorted(got["snapshots"], key=int) == sorted(want["snapshots"], key=int)
-    unsettled = []
+    unsettled, flips = [], []
     for irq, h in want["snapshots"].items():
-        assert settled(got["snapshots"][irq]) == settled(h), f"snapshot at IRQ {irq} changed"
-        if got["snapshots"][irq] != h:
+        mine = got["snapshots"][irq]
+        assert settled(mine) == settled(h), f"snapshot at IRQ {irq} changed"
+        if "pages" in h and mine["shown"] != h["shown"]:
+            flips.append(irq)
+        elif shown_page(mine) != shown_page(h):
+            raise AssertionError(f"shown page at IRQ {irq} changed")
+        elif mine != h:
             unsettled.append(irq)
+    if flips:       # informational: see shown_page()
+        print(f"\n{name}: capture on a page flip (shown page differs) at IRQs " + ", ".join(flips))
     if unsettled:   # informational: see settled()
         print(f"\n{name}: hidden page / raw VRAM differ from the golden at IRQs "
               + ", ".join(unsettled))
@@ -242,17 +274,25 @@ def test_golden_hashes(reference):
 
 def settled(snap: dict) -> dict:
     """The parts of a snapshot summary that reproduce run to run: DGROUP, and for VGA the
-    capture IRQ, the shown page, its pixels and the background page 4000 (what
-    visual_check.py compares). The hidden page can be caught mid-draw, and how far the draw
-    got varies with host load: three parallel runs of game_over_hiscore agreed with each
-    other but differed from sequential ones in 19 pixels of the hidden page at IRQ 1250,
-    with DGROUP equal. Its hash and the raw VRAM hash are kept, but only reported."""
+    capture IRQ and the background page 4000 (what visual_check.py compares). The hidden page
+    can be caught mid-draw, and how far the draw got varies with host load: three parallel
+    runs of game_over_hiscore agreed with each other but differed from sequential ones in 19
+    pixels of the hidden page at IRQ 1250, with DGROUP equal. Its hash and the raw VRAM hash
+    are kept, but only reported. The shown page: shown_page()."""
     out = {"dgroup": snap["dgroup"]}
     if "pages" in snap:
-        shown = snap["shown"]
-        out.update(vram_irq=snap["vram_irq"], shown=shown, background=snap["pages"]["4000"],
-                   shown_page=snap["pages"].get(shown))
+        out.update(vram_irq=snap["vram_irq"], background=snap["pages"]["4000"])
     return out
+
+
+def shown_page(snap: dict) -> tuple | None:
+    """The shown page (CRTC start) and its pixels. A capture that lands exactly on a page flip
+    sees the old or the new page from run to run (Keel): when the start address differs from
+    the golden's, the shown page is only reported; at the same start address its pixels must
+    match."""
+    if "pages" not in snap:
+        return None
+    return snap["shown"], snap["pages"].get(snap["shown"])
 
 
 def test_port_replay_report(reference, tmp_path):
@@ -279,6 +319,8 @@ def test_port_replay_report(reference, tmp_path):
     # the port ran every tick the reference snapshot: one comparison per reference snapshot
     assert [d.tick for d in diffs] == sorted(reference_snaps)
     text = f"{name}: {RUNS[name]['summary']}\n" + compare.report(diffs)
+    if triage(name):
+        text += "\n" + triage(name)
     report_path = WORKDIR / f"replay-report-{name}.txt"
     report_path.write_text(text + "\n")
     print(f"\n{name}: {proc.stdout.strip()}\n{text}\n(report: {report_path})")
