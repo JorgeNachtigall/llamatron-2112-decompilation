@@ -168,7 +168,7 @@ game86,1000:3dac,56,hit_kill_action_0b,kill_action_0b,src/game/entities/kill_act
 game86,1000:3de4,252,irq08_timer,timing_run_timer_ticks,src/engine/timing.c,ported,W2,D,"dispatch: driver tick 3e02 (snd_tick) then the game tick 3e08..3ebd (game_tick, W4); fire refresh 3e12..3e4e = input_tick_fire, diff-tested in test_engine_input.py; BIOS chain 3ec2 = bios_accumulator in timing_take_tick; reentry flag [428] not needed (ticks run between frames)"
 game86,1000:3ee0,143,title_draw,title_draw,src/game/attract.c,diff-tested,W5,D,tests/oracle/test_attract.py::test_title_draw
 game86,1000:3f6f,111,title_tick_hook,title_tick_hook,src/game/attract.c,diff-tested,W5,D,tests/oracle/test_attract.py::test_title_tick_hook (incl. attract_llamas_tick)
-game86,1000:3fde,1,hook_nop,hook_nop,,todo,W4,D,empty hook
+game86,1000:3fde,1,hook_nop,TICK_HOOK_NONE / anim_none,src/game/game.c,diff-tested,W5,D,"empty hook (a lone RET). As the tick hook: TICK_HOOK_NONE, a no-op case in game_tick (game.c), installed by continue_tick_hook on fire (test_continue.py compares 39E4 = 3fde); as the anim handler ANIM_IDLE: anim_none in entities/anim.c (W6, test_anim.py)"
 game86,1000:402c,621,title_draw_hook,title_draw_hook,src/game/attract.c,diff-tested,W5,D,"tests/oracle/test_attract.py::test_title_draw_hook (incl. title_menu 4081, logo row 40fc, llama draw 4603; pages + dirty lists)"
 game86,1000:40fc,,title_draw_logo_row,draw_logo_row,src/game/attract.c,diff-tested,W5,D,static in attract.c; via tests/oracle/test_attract.py::test_title_draw_hook
 game86,1000:424c,56,unk_1000_424c,,,todo,W5,D,dead code: no callers (agreed with W4)
