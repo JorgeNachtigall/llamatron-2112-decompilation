@@ -64,8 +64,12 @@ void entity_touch_player(GameState *game, unsigned touched)
     game->flash_list = asset_flash_list(FLASH_LIST_PLAYER_DEATH);
     if (game->smart_bomb)
         return;
+    player_kill(game, touched);
+}
 
-    /* game86 1000:441d (also entered from 37fa) */
+/* game86 1000:441d */
+void player_kill(GameState *game, unsigned touched)
+{
     game->player.bonus_countdown = BONUS_COUNTDOWN_RESET;
     if (touched & TOUCH_P2) {
         /* P2 wins when both are touched; outside double-controller mode nobody dies. */
