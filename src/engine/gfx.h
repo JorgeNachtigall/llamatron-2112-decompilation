@@ -182,6 +182,9 @@ enum { GFX_MAX_DIRTY = 800 };
 void gfx_mark_dirty(GfxPageId page, GfxRect rect);
 /* Restore every rectangle recorded for `page` from the background, then clear its list. */
 void gfx_restore_dirty(GfxPageId page);
+/* Forget the recorded rectangles of `page` without restoring them (game86 1000:5844 resets
+ * both lists this way). */
+void gfx_discard_dirty(GfxPageId page);
 
 #ifdef __cplusplus
 }

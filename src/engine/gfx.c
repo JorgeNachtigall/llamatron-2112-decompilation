@@ -299,3 +299,10 @@ void gfx_restore_dirty(GfxPageId page)
         gfx_restore_rect(page, g_gfx.dirty[page][i]);
     g_gfx.dirty_count[page] = 0;
 }
+
+/* game86 1000:5844 (list end pointers reset to the start, nothing erased) */
+void gfx_discard_dirty(GfxPageId page)
+{
+    if (page != GFX_PAGE_BACKGROUND)
+        g_gfx.dirty_count[page] = 0;
+}

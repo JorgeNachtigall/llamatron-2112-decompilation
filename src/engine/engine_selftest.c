@@ -162,6 +162,11 @@ static void test_gfx(void)
     gfx_mark_dirty(GFX_PAGE_0, (GfxRect){ 0, 0, 5, 5 });
     gfx_restore_dirty(GFX_PAGE_0);
     CHECK(gfx_page(GFX_PAGE_0)->pixels[4][4] == 3);
+    gfx_fill_rect(GFX_PAGE_0, (GfxRect){ 0, 0, 5, 5 }, 9);
+    gfx_mark_dirty(GFX_PAGE_0, (GfxRect){ 0, 0, 5, 5 });
+    gfx_discard_dirty(GFX_PAGE_0);
+    gfx_restore_dirty(GFX_PAGE_0);                          /* nothing left to restore */
+    CHECK(gfx_page(GFX_PAGE_0)->pixels[4][4] == 9);
 
     /* Restore spans are linear in page memory: wrap to the next row, clamp at the page end. */
     gfx_clear(GFX_PAGE_BACKGROUND, 3);

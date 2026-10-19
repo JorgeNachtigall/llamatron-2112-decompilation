@@ -16,3 +16,4 @@ Shared headers (PLAN.md §7) are owned by the integration lead (W0). Every chang
 | 2026-10-18 | src/assets/game_data.h | New: game_data_load() + accessors (asset_sprite_gfx, asset_sprite_number_gfx, asset_font_gfx, asset_palette_at, asset_flash_list_at, asset_text_raw, asset_level_title, asset_level, asset_sample, asset_default_scores, asset_config, ...); library llamatron_assets. | W1 Forge |
 | 2026-10-18 | build/generated/strings.dat | LTXT version 2: raw text bytes section (raw_texts[] + raw area) after the ops. | W1 Forge, for W6 Prism |
 | 2026-10-18 | src/assets/formats.h, game_data.h | HudGlyphs {digits[10][8], player_label[2][8]} + hud_glyphs_parse(), asset_hud_glyphs(); new data/hud_glyphs.dat (LHUD v1, DS:09EE / 0A8E / 0A9E even bytes). | W1 Forge, for W6 Prism |
+| 2026-10-18 | src/engine/gfx.h | New gfx_discard_dirty(page): empties a page's dirty list without restoring (game86 1000:5844, text scroller). Additive. | W2 Lantern, for W6 Prism |
