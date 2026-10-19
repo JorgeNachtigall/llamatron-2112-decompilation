@@ -1,0 +1,79 @@
+"""W5b pause.c against game86: pause_tick_hook (1000:14d0, incl. sound_toggle 1514 and
+pause_key_sample 1538). The keyboard bytes (0586 last make code, 0B72 its copy) live in the
+engine's InputState on the port side; the hooks (39E0 draw, 39E4 tick) are compared as
+GameState.draw_hook / tick_hook."""
+
+import ctypes
+import struct
+
+import pytest
+from generators import case_rng, fuzz_cases
+from think_oracle import ThinkCase, ThinkOracle
+
+from adapters.cport import bind
+from adapters.gamestate import SCRATCH
+
+LAST_MAKE_CODE, LAST_MAKE_CODE_COPY = 0x0586, 0x0B72
+SOUND_KEY_LATCH, SOUND_ON = 0x0686, 0x0688
+PAUSE_MESSAGE, PAUSE_MESSAGES = 0x09EC, 0x09E2
+DRAW_HOOK, TICK_HOOK = 0x39E0, 0x39E4
+PLAY_DRAW_HOOK, PLAY_TICK_HOOK, PAUSE_TICK_HOOK = 0x1A3B, 0x1562, 0x14D0
+KEY_O, KEY_S, KEY_G = 0x18, 0x1F, 0x22
+
+
+class InputPrefix(ctypes.Structure):
+    """The head of the engine's InputState (src/engine/input.h) up to the make codes."""
+    _fields_ = [("device", ctypes.c_int), ("single_stick", ctypes.c_bool),
+                ("keys_held", ctypes.c_uint8), ("last_scan_code", ctypes.c_uint8),
+                ("last_make_code", ctypes.c_uint8), ("last_make_code_copy", ctypes.c_uint8)]
+
+
+@pytest.fixture(scope="module")
+def oracle(cgame):
+    return ThinkOracle(cgame)
+
+
+@pytest.fixture(scope="module")
+def port(cgame):
+    hook = bind(cgame, "pause_tick_hook", None, ctypes.c_void_p)
+    keys = ctypes.cast(bind(cgame, "input_state", ctypes.c_void_p)(),
+                       ctypes.POINTER(InputPrefix)).contents
+    set_enabled = bind(cgame, "snd_set_enabled", None, ctypes.c_bool)
+    enabled = bind(cgame, "snd_enabled", ctypes.c_bool)
+    return hook, keys, set_enabled, enabled
+
+
+def make_case(oracle, machine, rnd):
+    c = oracle.make_case(machine, rnd, 0x01)
+    img = bytearray(c.image)
+    img[LAST_MAKE_CODE] = rnd.choice([KEY_O, KEY_S, KEY_S, KEY_G, 0x19, 0, rnd.randrange(0x80)])
+    img[LAST_MAKE_CODE_COPY] = rnd.choice([0x1b, 0x1c, 0x1d, 0x3f, rnd.randrange(0x80)])
+    struct.pack_into("<H", img, SOUND_KEY_LATCH, rnd.choice([0, 1]))
+    img[SOUND_ON] = rnd.choice([0, 1])
+    messages = struct.unpack_from("<4H", img, PAUSE_MESSAGES)
+    struct.pack_into("<H", img, PAUSE_MESSAGE, rnd.choice((0,) + messages))
+    struct.pack_into("<H", img, DRAW_HOOK, rnd.choice([PLAY_DRAW_HOOK, 0x0894]))
+    struct.pack_into("<H", img, TICK_HOOK, PAUSE_TICK_HOOK)
+    playing = rnd.choice([0, 0, rnd.randrange(1, 33)])
+    return ThinkCase(oracle.dg.canonical(bytes(img)), 0, (playing, c.status[1]))
+
+
+@pytest.mark.parametrize("case", fuzz_cases(192))
+def test_pause_tick_hook(machine, oracle, port, case):
+    hook, keys, set_enabled, enabled = port
+    case_ = make_case(oracle, machine, case_rng("pause_tick_hook", case))
+    want, want_sounds = oracle.run_original(machine, case_, None, "1000:14d0")
+
+    def run(state):
+        keys.last_make_code = case_.image[LAST_MAKE_CODE]
+        keys.last_make_code_copy = case_.image[LAST_MAKE_CODE_COPY]
+        hook(ctypes.addressof(state))
+    was_enabled = enabled()     # game_sound_toggle switches the engine; the testlib runs it off
+    try:
+        got, got_sounds = oracle.run_port(case_, None, run)
+    finally:
+        set_enabled(was_enabled)
+    bad = oracle.dg.mismatches(want, got, ignore=SCRATCH)
+    assert not bad, f"DGROUP differs at {[(hex(o), want[o], got[o]) for o in bad[:16]]}"
+    assert got_sounds == want_sounds
+

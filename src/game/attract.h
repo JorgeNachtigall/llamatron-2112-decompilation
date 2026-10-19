@@ -30,8 +30,8 @@ const AttractArt *attract_art_default(void);
 
 /* ---- The title tune ------------------------------------------------------------------- */
 
-/* Silence the tune and forget a fire press; the caller then installs title_tune_tick as
- * the tick hook. game86 1000:083b */
+/* Silence the tune, forget a fire press and install title_tune_tick as the tick hook.
+ * game86 1000:083b */
 void title_tune_start(GameState *game);
 
 /* title_tune_start, then play the tune from its start, a note every 0x24 ticks.

@@ -301,6 +301,18 @@ def check_pages(machine, c):
                                  f"port {got[i]}, original {want[i]}")
 
 
+def restore_frame(machine, c):
+    """Erase the frame with the recorded rectangles (1e7b:0213..0299 vs gfx_restore_dirty)
+    and compare the pages again."""
+    draw, shown = page_offset(c.draw_page_id()), page_offset(c.display_page_id())
+    machine.write_u16(CODE0, CS_DIRTY_PTR_B, DIRTY_LIST)
+    machine.write_u16(*CS_CODE0_SEG, CODE0)
+    machine.write_dgroup(FRONT_PAGE, struct.pack("<2H", shown, draw))
+    machine.run_until("1e7b:0213", "1e7b:029a", max_insns=2_000_000)
+    c.restore_dirty(c.draw_page_id())
+    check_pages(machine, c)
+
+
 @pytest.mark.parametrize("case", fuzz_cases(24))
 def test_title_draw(machine, oracle, c, case):
     rnd = case_rng("title_draw", case)
@@ -342,11 +354,4 @@ def test_title_draw_hook(machine, oracle, c, case):
     compare(oracle, want, got)
     check_pages(machine, c)
     if dirty:
-        # Erase the frame with the recorded rectangles (1e7b:0213..0299 vs gfx_restore_dirty).
-        draw, shown = page_offset(c.draw_page_id()), page_offset(c.display_page_id())
-        machine.write_u16(CODE0, CS_DIRTY_PTR_B, DIRTY_LIST)
-        machine.write_u16(*CS_CODE0_SEG, CODE0)
-        machine.write_dgroup(FRONT_PAGE, struct.pack("<2H", shown, draw))
-        machine.run_until("1e7b:0213", "1e7b:029a", max_insns=2_000_000)
-        c.restore_dirty(c.draw_page_id())
-        check_pages(machine, c)
+        restore_frame(machine, c)

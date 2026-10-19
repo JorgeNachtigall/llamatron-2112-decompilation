@@ -9,6 +9,8 @@ add_library(llamatron_game STATIC
     entity_loop.c
     player.c
     attract.c
+    continue.c
+    pause.c
     frame.c
     sound.c
     rng.c

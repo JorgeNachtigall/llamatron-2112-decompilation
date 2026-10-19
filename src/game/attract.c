@@ -88,6 +88,7 @@ void title_tune_start(GameState *game)
 {
     game->tune.fire_pressed = false;
     game->tune.countdown = -1;
+    game->tick_hook = TICK_HOOK_TITLE_TUNE;
 }
 
 void title_tune_begin(GameState *game)
