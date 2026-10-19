@@ -13,8 +13,8 @@ game86,1000:0438,29,script_op1_params,script_run_op,src/game/script.c,diff-teste
 game86,1000:0455,945,wave_run,wave_run,src/game/main_sm.c,todo,W4,A,
 game86,1000:07b7,16,shots_clear,shots_clear,src/game/bullets.c,todo,W4,A,
 game86,1000:0816,37,continue_tick_hook,continue_tick_hook,src/game/main_sm.c,todo,W4,A,
-game86,1000:083b,19,title_tune_start,title_tune_start,src/game/attract.c,todo,W4,A,
-game86,1000:084e,70,title_tune_tick,title_tune_tick,src/game/attract.c,todo,W4,A,
+game86,1000:083b,19,title_tune_start,title_tune_start,src/game/attract.c,diff-tested,W5,A,tests/oracle/test_attract.py::test_tune
+game86,1000:084e,70,title_tune_tick,title_tune_tick,src/game/attract.c,diff-tested,W5,A,tests/oracle/test_attract.py::test_tune
 game86,1000:0894,90,continue_draw_hook,continue_draw_hook,src/game/main_sm.c,todo,W4,A,
 game86,1000:08ee,146,game_over,game_over,src/game/main_sm.c,todo,W4,A,
 game86,1000:0981,644,player_fire,player_fire,src/game/player.c,diff-tested,W5,B,
@@ -166,12 +166,12 @@ game86,1000:3d4e,,entity_alloc_next,entity_alloc_next,src/game/entities/,todo,W5
 game86,1000:3d71,59,hit_kill_action_0a,kill_action_0a,src/game/entities/kill_actions.c,diff-tested,W5a,C,via ent_hit_03 (tests/oracle/test_hit.py)
 game86,1000:3dac,56,hit_kill_action_0b,kill_action_0b,src/game/entities/kill_actions.c,diff-tested,W5a,C,via ent_hit_03 (tests/oracle/test_hit.py)
 game86,1000:3de4,252,irq08_timer,timing_tick,src/engine/timing.c,todo,W2,D,50.16 Hz scheduler
-game86,1000:3ee0,143,title_draw,title_draw,src/game/attract.c,todo,W4,D,
-game86,1000:3f6f,111,title_tick_hook,title_tick_hook,src/game/attract.c,todo,W4,D,
+game86,1000:3ee0,143,title_draw,title_draw,src/game/attract.c,diff-tested,W5,D,tests/oracle/test_attract.py::test_title_draw
+game86,1000:3f6f,111,title_tick_hook,title_tick_hook,src/game/attract.c,diff-tested,W5,D,tests/oracle/test_attract.py::test_title_tick_hook (incl. attract_llamas_tick)
 game86,1000:3fde,1,hook_nop,hook_nop,,todo,W4,D,empty hook
-game86,1000:402c,621,title_draw_hook,title_draw_hook,src/game/attract.c,todo,W4,D,
-game86,1000:40fc,,title_draw_logo_row,title_draw_logo_row,src/game/attract.c,todo,W4,D,
-game86,1000:424c,56,unk_1000_424c,,,todo,W4,D,
+game86,1000:402c,621,title_draw_hook,title_draw_hook,src/game/attract.c,diff-tested,W5,D,"tests/oracle/test_attract.py::test_title_draw_hook (incl. title_menu 4081, logo row 40fc, llama draw 4603; pages + dirty lists)"
+game86,1000:40fc,,title_draw_logo_row,draw_logo_row,src/game/attract.c,diff-tested,W5,D,static in attract.c; via tests/oracle/test_attract.py::test_title_draw_hook
+game86,1000:424c,56,unk_1000_424c,,,todo,W5,D,dead code: no callers (agreed with W4)
 game86,1000:4284,56,g3_draw_all_pages,gfx_draw_sprite,src/engine/gfx.c,todo,W6,D,g3 shapes use the sprite format
 game86,1000:42bc,15,sprite_draw_nodirty,gfx_draw_sprite,src/engine/gfx.c,todo,W6,D,
 game86,1000:42cb,24,g3_draw_nodirty,gfx_draw_sprite,src/engine/gfx.c,todo,W6,D,g3 shapes use the sprite format
@@ -187,9 +187,9 @@ game86,1000:4465,52,anim_00,anim_00,src/game/entities/anim.c,todo,W6,D,
 game86,1000:4499,18,anim_05,anim_05,src/game/entities/anim.c,todo,W6,D,
 game86,1000:44ab,43,entity_sprite_setup,entity_sprite_setup,src/game/entities/anim.c,todo,W6,D,
 game86,1000:44d6,1,anim_08,anim_08,src/game/entities/anim.c,todo,W6,D,
-game86,1000:44d7,154,attract_llamas_init,attract_llamas_init,src/game/attract.c,todo,W4,D,
-game86,1000:4571,146,attract_llamas_tick,attract_llamas_tick,src/game/attract.c,todo,W4,D,
-game86,1000:4603,67,attract_llamas_draw,attract_llamas_draw,src/game/attract.c,todo,W4,D,
+game86,1000:44d7,154,attract_llamas_init,attract_llamas_init,src/game/attract.c,diff-tested,W5,D,"tests/oracle/test_attract.py::test_attract_llamas_init; llamas kept in attract.c, not in the entity table (gamestate.ATTRACT_LLAMAS)"
+game86,1000:4571,146,attract_llamas_tick,attract_llamas_tick,src/game/attract.c,diff-tested,W5,D,static in attract.c; via tests/oracle/test_attract.py::test_title_tick_hook
+game86,1000:4603,67,attract_llamas_draw,attract_llamas_draw,src/game/attract.c,diff-tested,W5,D,static in attract.c; via tests/oracle/test_attract.py::test_title_draw_hook
 game86,1000:4646,47,anim_04,anim_04,src/game/entities/anim.c,todo,W6,D,
 game86,1000:4675,1,anim_draw_current,anim_draw_current,src/game/entities/anim.c,todo,W6,E,
 game86,1000:4676,20,anim_09,anim_09,src/game/entities/anim.c,todo,W6,E,

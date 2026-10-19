@@ -8,6 +8,7 @@ add_library(llamatron_game STATIC
     script.c
     entity_loop.c
     player.c
+    attract.c
     frame.c
     sound.c
     rng.c

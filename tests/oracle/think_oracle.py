@@ -174,8 +174,16 @@ class ThinkOracle:
                      stop: str | None = None):
         """Runs think handler `think`, or the code at `entry` (until its RET, or until `stop`)."""
         machine.write_dgroup(0, case.image)
-        playing, priority = case.status     # stub: MOV AX, status; RETF
-        machine.write(STUB_SEG, 0, bytes([0xB8, priority, playing, 0xCB]))
+        # Stub driver: AH=6 answers the status (AH = sample playing, AL = priority); every
+        # other function returns AL = 0 with AH unchanged, as sblaster.bin's (e.g. AH=3 at
+        # its 0x10F leaves AX = 0x0300; title_tick_hook 1000:3f8f depends on that).
+        playing, priority = case.status
+        machine.write(STUB_SEG, 0, bytes([0x80, 0xFC, 0x06,           # CMP AH,6
+                                          0x75, 0x04,                 # JNE +4
+                                          0xB8, priority, playing,    # MOV AX,status
+                                          0xCB,                       # RETF
+                                          0xB0, 0x00,                 # MOV AL,0
+                                          0xCB]))                     # RETF
         machine.write_dgroup(SND_DRIVER, struct.pack("<2H", 0, STUB_SEG))
         heard = []
         bp = machine.add_breakpoint((STUB_SEG, 0), lambda m: heard.append(m.get_regs()))
