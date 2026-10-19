@@ -18,8 +18,8 @@ enum {
     DS_VGA = 0x058A,            /* byte */
     DS_JOYSTICK = 0x058B,       /* byte g_joystick_cfg */
     DS_KEYBOARD = 0x058D,       /* byte g_keyboard_mode = !joystick */
-    DS_SOUND_PRESENT = 0x0688,  /* byte */
-    DS_SOUND_ON = 0x0689,       /* byte, toggled at runtime by 1000:1514 */
+    DS_SOUND_PRESENT = 0x0689,  /* byte */
+    DS_SOUND_ON = 0x0688,       /* byte, toggled at runtime by 1000:1514 */
     DS_RNG_MIXER = 0x0453,      /* 4 words */
     DS_RNG_TABLE = 0x6AC9,
     DS_RNG_POSITION = 0x39E9,
@@ -48,6 +48,17 @@ enum {
     DS_WAVE_RESULT = 0x0810,
     DS_WAVE_INTRO_TIMER = 0x08FC,
     DS_TICK_COUNT = 0x39E6,
+    DS_TICK_HOOK = 0x39E4,      /* code addresses: TICK_HOOKS / DRAW_HOOKS */
+    DS_DRAW_HOOK = 0x39E0,
+    DS_SPEEDUP_TIMER = 0x2336,
+    DS_SPEEDUP_PERIOD = 0x2338,
+    DS_GAME_STARTED = 0x061D,
+    DS_WAVE_START_DELAY = 0x068A,
+    DS_PLAYER_LABEL_OFFSET = 0x07F5,
+    DS_SPAWN_DELAY = 0x07FE,
+    DS_PLAY_FLAG_0617 = 0x0617,
+    DS_LEVEL_DEFAULT = 0x059F,
+    DS_PULSE_ENABLE = 0x0902,   /* word flag */
     DS_FRAME_DRAWN = 0x0429,    /* byte */
     DS_SPAWN_REMAINING = 0x08FA,
     DS_SPAWN_TYPE = 0x0900,
@@ -382,8 +393,43 @@ static unsigned level_spawn_list(const LevelScript *level)
     return off + 1;
 }
 
+/* game86 code offsets of the hooks, indexed by TickHook / DrawHook (state.h). */
+static const uint16_t TICK_HOOKS[] = {
+    [TICK_HOOK_NONE] = 0x3fde,  [TICK_HOOK_TITLE_TUNE] = 0x084e, [TICK_HOOK_TITLE] = 0x3f6f,
+    [TICK_HOOK_PLAY] = 0x1562,  [TICK_HOOK_PAUSE] = 0x14d0,      [TICK_HOOK_CONTINUE] = 0x0816,
+    [TICK_HOOK_NAME_ENTRY] = 0x5b06,
+};
+static const uint16_t DRAW_HOOKS[] = {
+    [DRAW_HOOK_NONE] = 0x0000,  [DRAW_HOOK_TITLE] = 0x402c,      [DRAW_HOOK_PLAY] = 0x1a3b,
+    [DRAW_HOOK_CONTINUE] = 0x0894, [DRAW_HOOK_NAME_ENTRY] = 0x5ac4,
+};
+enum {
+    TICK_HOOK_COUNT = sizeof TICK_HOOKS / sizeof TICK_HOOKS[0],
+    DRAW_HOOK_COUNT = sizeof DRAW_HOOKS / sizeof DRAW_HOOKS[0],
+};
+
+/* Index of `address` in `table`, or 0 (NONE) for an address the port does not name. */
+static int hook_from(const uint16_t *table, int count, uint16_t address)
+{
+    for (int i = 0; i < count; i++)
+        if (table[i] == address)
+            return i;
+    return 0;
+}
+
+static uint16_t hook_to(const uint16_t *table, int count, int hook)
+{
+    return table[hook >= 0 && hook < count ? hook : 0];
+}
+
 static void spawn_from(SpawnCursor *c, uint16_t off)
 {
+    if (off == 0) {             /* null before the first level starts */
+        c->source = SPAWN_NONE;
+        c->level = 0;
+        c->index = 0;
+        return;
+    }
     unsigned roster = DS_PLAYER + PLAYER_ROSTER;
     if (off >= roster && off < roster + 2 * ROSTER_SIZE + 2 && (off - roster) % 2 == 0) {
         c->source = SPAWN_FROM_ROSTER;
@@ -485,10 +531,19 @@ static uint16_t pause_to(int16_t k, const uint8_t *image)
 
 static uint16_t spawn_to(const SpawnCursor *c)
 {
+    if (c->source == SPAWN_NONE)
+        return 0;
     if (c->source == SPAWN_FROM_ROSTER)
         return (uint16_t)(DS_PLAYER + PLAYER_ROSTER + 2u * c->index);
     const LevelScript *level = c->level >= 0 ? asset_level((unsigned)c->level) : NULL;
     return level ? (uint16_t)(level_spawn_list(level) + 2u * c->index) : 0;
+}
+
+/* Tune pointers: DS addresses in the list at 09D5, null (TUNE_NO_LIST) until 1000:5c42. */
+static uint16_t tune_from(uint16_t ptr) { return ptr ? (uint16_t)(ptr - TUNE_LIST) : TUNE_NO_LIST; }
+static uint16_t tune_to(uint16_t offset)
+{
+    return offset == TUNE_NO_LIST ? 0 : (uint16_t)(offset + TUNE_LIST);
 }
 
 /* ---- whole state ---------------------------------------------------------------------- */
@@ -525,6 +580,15 @@ void gamestate_from_dgroup(GameState *g, const uint8_t *dgroup)
     g->respawn_timer[1] = gets16(r, DS_RESPAWN_P2);
     g->loop_count = gets16(r, DS_LOOP_COUNT);
     g->level_flags = gets16(r, DS_LEVEL_FLAGS);
+    g->speedup_timer = gets16(r, DS_SPEEDUP_TIMER);
+    g->speedup_period = gets16(r, DS_SPEEDUP_PERIOD);
+    g->game_started = gets16(r, DS_GAME_STARTED);
+    g->wave_start_delay = gets16(r, DS_WAVE_START_DELAY);
+    g->player_label_offset = gets16(r, DS_PLAYER_LABEL_OFFSET);
+    g->spawn_delay = gets16(r, DS_SPAWN_DELAY);
+    g->play_flag_0617 = gets16(r, DS_PLAY_FLAG_0617);
+    g->level_default = gets16(r, DS_LEVEL_DEFAULT);
+    g->pulse_enable = getflag16(r, DS_PULSE_ENABLE);
     g->demo_mode = gets16(r, DS_DEMO_MODE);
 
     entity_from(&g->companion, r, DS_COMPANION);
@@ -622,8 +686,8 @@ void gamestate_from_dgroup(GameState *g, const uint8_t *dgroup)
     g->tune.fire_pressed = getflag16(r, DS_TUNE_FIRE_PRESSED);
     g->tune.period = gets16(r, DS_TUNE_PERIOD);
     g->tune.countdown = gets16(r, DS_TUNE_COUNTDOWN);
-    g->tune.position = (uint16_t)(get16(r, DS_TUNE_POSITION) - TUNE_LIST);
-    g->tune.restart = (uint16_t)(get16(r, DS_TUNE_RESTART) - TUNE_LIST);
+    g->tune.position = tune_from(get16(r, DS_TUNE_POSITION));
+    g->tune.restart = tune_from(get16(r, DS_TUNE_RESTART));
     g->options_default = get8(r, DS_OPTIONS_DEFAULT);
     for (int i = 0; i < TITLE_LETTERS; i++)
         g->title_objects[i] = gets16(r, DS_TITLE_OBJECTS + 2 * (unsigned)i);
@@ -648,6 +712,8 @@ void gamestate_from_dgroup(GameState *g, const uint8_t *dgroup)
         g->snake_trail[i].unused = gets16(r, b + 6);
     }
     g->tick_count = get16(r, DS_TICK_COUNT);
+    g->tick_hook = (TickHook)hook_from(TICK_HOOKS, TICK_HOOK_COUNT, get16(r, DS_TICK_HOOK));
+    g->draw_hook = (DrawHook)hook_from(DRAW_HOOKS, DRAW_HOOK_COUNT, get16(r, DS_DRAW_HOOK));
     g->frame_drawn = get8(r, DS_FRAME_DRAWN) != 0;
 
     for (int i = 0; i < HISCORE_COUNT; i++)
@@ -693,6 +759,15 @@ static void write_state(const GameState *g, Writer w)
     put16(w, DS_RESPAWN_P2, (uint16_t)g->respawn_timer[1]);
     put16(w, DS_LOOP_COUNT, (uint16_t)g->loop_count);
     put16(w, DS_LEVEL_FLAGS, (uint16_t)g->level_flags);
+    put16(w, DS_SPEEDUP_TIMER, (uint16_t)g->speedup_timer);
+    put16(w, DS_SPEEDUP_PERIOD, (uint16_t)g->speedup_period);
+    put16(w, DS_GAME_STARTED, (uint16_t)g->game_started);
+    put16(w, DS_WAVE_START_DELAY, (uint16_t)g->wave_start_delay);
+    put16(w, DS_PLAYER_LABEL_OFFSET, (uint16_t)g->player_label_offset);
+    put16(w, DS_SPAWN_DELAY, (uint16_t)g->spawn_delay);
+    put16(w, DS_PLAY_FLAG_0617, (uint16_t)g->play_flag_0617);
+    put16(w, DS_LEVEL_DEFAULT, (uint16_t)g->level_default);
+    putflag16(w, DS_PULSE_ENABLE, g->pulse_enable);
     put16(w, DS_DEMO_MODE, (uint16_t)g->demo_mode);
 
     entity_to(&g->companion, w, DS_COMPANION);
@@ -784,8 +859,8 @@ static void write_state(const GameState *g, Writer w)
     putflag16(w, DS_TUNE_FIRE_PRESSED, g->tune.fire_pressed);
     put16(w, DS_TUNE_PERIOD, (uint16_t)g->tune.period);
     put16(w, DS_TUNE_COUNTDOWN, (uint16_t)g->tune.countdown);
-    put16(w, DS_TUNE_POSITION, (uint16_t)(g->tune.position + TUNE_LIST));
-    put16(w, DS_TUNE_RESTART, (uint16_t)(g->tune.restart + TUNE_LIST));
+    put16(w, DS_TUNE_POSITION, tune_to(g->tune.position));
+    put16(w, DS_TUNE_RESTART, tune_to(g->tune.restart));
     put8(w, DS_OPTIONS_DEFAULT, g->options_default);
     for (int i = 0; i < TITLE_LETTERS; i++)
         put16(w, DS_TITLE_OBJECTS + 2 * (unsigned)i, (uint16_t)g->title_objects[i]);
@@ -815,6 +890,8 @@ static void write_state(const GameState *g, Writer w)
         clobber_to(g->spawns_clobbered_10b0, w);
     }
     put16(w, DS_TICK_COUNT, g->tick_count);
+    put16(w, DS_TICK_HOOK, hook_to(TICK_HOOKS, TICK_HOOK_COUNT, g->tick_hook));
+    put16(w, DS_DRAW_HOOK, hook_to(DRAW_HOOKS, DRAW_HOOK_COUNT, g->draw_hook));
     put8(w, DS_FRAME_DRAWN, g->frame_drawn ? 1 : 0);
 
     for (int i = 0; i < HISCORE_COUNT; i++)

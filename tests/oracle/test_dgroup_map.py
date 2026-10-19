@@ -69,8 +69,11 @@ def test_round_trip_game86_image(dg, image):
     # Before the game runs, the loaded image is canonical except for the never-referenced
     # player bytes, the spawn cursor (0, no list yet) and the high-score rows (zeros until
     # scores.yak is read). P2's trail_head (2CF9) starts as 2 in the image, not a multiple of
-    # 8; the trail code masks it with 0x3F8 before use.
-    allowed = {SPAWN_CURSOR, SPAWN_CURSOR + 1, 0x2CF9, *range(HISCORES, HISCORES + 160)}
+    # 8; the trail code masks it with 0x3F8 before use. The tick hook (39E4) is 0 until
+    # entry installs hook_nop, which is what TICK_HOOK_NONE writes.
+    allowed = {0x2CF9, *range(HISCORES, HISCORES + 160)}
+    if u16(image, 0x39E4) == 0:
+        allowed |= {0x39E4, 0x39E5}
     diff = [i for i in range(DGROUP_SIZE)
             if canon[i] != image[i] and dg.mask[i] != MASK_DERIVED and i not in allowed]
     assert diff == [], [hex(i) for i in diff[:16]]
