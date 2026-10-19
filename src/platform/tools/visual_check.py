@@ -70,7 +70,16 @@ def main() -> int:
         return 2
 
     first = None
+    compared = 0
     for tick, snap in captures:
+        shown = snap.get("shown")
+        if shown is not None:
+            shown = f"{shown:04X}" if isinstance(shown, int) else shown.upper()
+            if shown not in PAGE_OFFSETS[:2]:
+                # The CRTC start is inside the 64 KB canvas of the text scroller (game86 1000:5844,
+                # 40 bytes a frame): no page is on screen, the port's scroller keeps its own canvas.
+                print(f"tick {tick}: scroller window at {shown}h, not compared")
+                continue
         path = work / f"pages-{tick}.bin"
         if not path.exists():
             print(f"tick {tick}: no dump (the port did not reach this tick)")
@@ -80,7 +89,8 @@ def main() -> int:
         pages = [hashlib.sha256(data[i * PAGE_BYTES:(i + 1) * PAGE_BYTES]).hexdigest() for i in range(3)]
         port_shown = PAGE_OFFSETS[data[3 * PAGE_BYTES]]
         want = snap["pages"]
-        shown = snap.get("shown", port_shown)
+        shown = shown or port_shown
+        compared += 1
         problems = []
         if port_shown != shown:
             problems.append(f"port shows page {port_shown}, reference {shown}")
@@ -92,7 +102,8 @@ def main() -> int:
         if problems and first is None:
             first = tick
     if first is None:
-        print(f"visual: {args.run}: all {len(captures)} captures match")
+        print(f"visual: {args.run}: all {compared} page captures match "
+              f"({len(captures) - compared} scroller windows not compared)")
         return 0
     print(f"visual: {args.run}: first difference at tick {first} (dumps in {work})")
     return 1 if args.strict or os.environ.get("LLAMATRON_VISUAL_STRICT") == "1" else 0
