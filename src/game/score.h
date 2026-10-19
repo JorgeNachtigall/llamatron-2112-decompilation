@@ -27,7 +27,8 @@ static inline void score_to_digits(uint32_t score, uint8_t digits[SCORE_DIGITS])
 /* Awards `increments` steps of one unit at digit `place` (0 = ten millions .. 7 = units),
  * the whole award repeated score_scale+1 times, to the current player; nothing in demo mode.
  * An extra life (pickup_pending = 3 and sample 0x19) comes with every carry from the
- * thousands into the ten-thousands digit, so only awards below 10,000 points give one.
+ * thousands into the ten-thousands digit, so only awards below 10,000 points give one. A
+ * carry out of the top digit repeats the step (99,999,999 + 1 = 1).
  * game86 1000:0335 (there AX = increments-1, BX = place). */
 void score_add(GameState *game, int place, int increments);
 
