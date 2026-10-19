@@ -79,6 +79,16 @@ enum {
     DS_POWERUP_0652 = 0x0652,
     DS_DEBRIS_ALT = 0x0876,
     DS_SNAKE_HEAD = 0x0870,
+    DS_TUNE_FIRE_PRESSED = 0x0625,  /* word flag */
+    DS_TUNE_PERIOD = 0x0627,
+    DS_TUNE_COUNTDOWN = 0x0629,
+    DS_TUNE_POSITION = 0x062B,  /* DS pointers into the tune list (set to 09D5 at 1000:5c42) */
+    DS_TUNE_RESTART = 0x062D,
+    TUNE_LIST = 0x09D5,
+    DS_OPTIONS_DEFAULT = 0x059E,    /* byte */
+    DS_TITLE_OBJECTS = 0x2104,      /* TITLE_LETTERS words */
+    DS_TITLE_TIMER = 0x0904,
+    DS_TITLE_KEY_LATCH = 0x0906,    /* byte */
     DS_FIRE_DELAY = 0x0631,     /* byte */
     DS_FIRE_TURN = 0x0632,
     DS_STARTED_WITH_STICK_B = 0x09D3,   /* word flag */
@@ -568,6 +578,16 @@ void gamestate_from_dgroup(GameState *g, const uint8_t *dgroup)
         if (l->trail_flag)
             c->trail_flag = gets16(r, l->trail_flag);
     }
+    g->tune.fire_pressed = getflag16(r, DS_TUNE_FIRE_PRESSED);
+    g->tune.period = gets16(r, DS_TUNE_PERIOD);
+    g->tune.countdown = gets16(r, DS_TUNE_COUNTDOWN);
+    g->tune.position = (uint16_t)(get16(r, DS_TUNE_POSITION) - TUNE_LIST);
+    g->tune.restart = (uint16_t)(get16(r, DS_TUNE_RESTART) - TUNE_LIST);
+    g->options_default = get8(r, DS_OPTIONS_DEFAULT);
+    for (int i = 0; i < TITLE_LETTERS; i++)
+        g->title_objects[i] = gets16(r, DS_TITLE_OBJECTS + 2 * (unsigned)i);
+    g->title_timer = gets16(r, DS_TITLE_TIMER);
+    g->title_key_latch = get8(r, DS_TITLE_KEY_LATCH);
     g->fire_delay = get8(r, DS_FIRE_DELAY);
     g->fire_turn = gets16(r, DS_FIRE_TURN);
     g->started_with_stick_b = getflag16(r, DS_STARTED_WITH_STICK_B);
@@ -716,6 +736,16 @@ static void write_state(const GameState *g, Writer w)
         if (l->trail_flag)
             put16(w, l->trail_flag, (uint16_t)c->trail_flag);
     }
+    putflag16(w, DS_TUNE_FIRE_PRESSED, g->tune.fire_pressed);
+    put16(w, DS_TUNE_PERIOD, (uint16_t)g->tune.period);
+    put16(w, DS_TUNE_COUNTDOWN, (uint16_t)g->tune.countdown);
+    put16(w, DS_TUNE_POSITION, (uint16_t)(g->tune.position + TUNE_LIST));
+    put16(w, DS_TUNE_RESTART, (uint16_t)(g->tune.restart + TUNE_LIST));
+    put8(w, DS_OPTIONS_DEFAULT, g->options_default);
+    for (int i = 0; i < TITLE_LETTERS; i++)
+        put16(w, DS_TITLE_OBJECTS + 2 * (unsigned)i, (uint16_t)g->title_objects[i]);
+    put16(w, DS_TITLE_TIMER, (uint16_t)g->title_timer);
+    put8(w, DS_TITLE_KEY_LATCH, g->title_key_latch);
     put8(w, DS_FIRE_DELAY, g->fire_delay);
     put16(w, DS_FIRE_TURN, (uint16_t)g->fire_turn);
     putflag16(w, DS_STARTED_WITH_STICK_B, g->started_with_stick_b);

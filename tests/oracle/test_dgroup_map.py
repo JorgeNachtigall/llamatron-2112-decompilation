@@ -119,6 +119,15 @@ def test_spawns_clobbered_10b0(dg, image):
     assert dg.to_dgroup(state, image)[clobber.start:clobber.stop] == bytes(4)   # ... and writes 0
 
 
+def test_tune_pointers_are_list_offsets(dg, image):
+    raw = bytearray(image)
+    struct.pack_into("<HH", raw, 0x062B, 0x09D5 + 7, 0x09D5)
+    assert dg.canonical(bytes(raw))[0x062B:0x062F] == raw[0x062B:0x062F]
+    state = dg.from_dgroup(bytes(raw))
+    blank = dg.to_dgroup(state)                     # offsets survive a write into zeros
+    assert struct.unpack_from("<HH", blank, 0x062B) == (0x09D5 + 7, 0x09D5)
+
+
 def test_hiscore_rows(dg, image):
     raw = bytearray(image)
     raw[HISCORES:HISCORES + 16] = b"00123450ABCDEFGH"
