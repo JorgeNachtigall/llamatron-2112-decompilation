@@ -92,7 +92,7 @@ Status tags: **[C]** confirmed by reading code, **[H]** hypothesis. Addresses ar
   segment, 96 unrolled restore routines at `1e7b:031c`). Rendering uses GC set/reset, bit mask,
   read-map select, SEQ map mask (~147 `OUT DX,AX` sites). Sprites are centred, clipped, bit-mask
   blitted; shifted variants for x%8!=0 (`1000:aa29/ac03`); scaled/mirrored draws (`1000:63d2`).
-- **Timing**: PIT ch0 reprogrammed to divisor **0x5CEC (50.16 Hz)**; the INT 08 handler
+- **Timing**: PIT ch0 reprogrammed to divisor **0x5CEC (50.1590 Hz = 1193181.8 Hz / 23788; "50.16 Hz" elsewhere is this value rounded)**; the INT 08 handler
   (`1000:3de4`) calls the driver tick, reads fire buttons, does palette pulsing, and calls the
   **per-tick game hook `[0x39e4]`** — in play this is `1000:1562`, i.e. the entire simulation runs in
   the timer interrupt at 50 Hz. The frame loop (`1e7b:013f`) restores backgrounds, calls the
