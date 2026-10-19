@@ -154,7 +154,7 @@ game86,1000:3c84,102,entity_spawn_child_if,entity_spawn_child_if,src/game/entiti
 game86,1000:3c91,,entity_spawn_child,entity_spawn_child,src/game/entities/,todo,W5,C,
 game86,1000:3ca3,,entity_init_child,entity_init_child,src/game/entities/,todo,W5,C,
 game86,1000:3cea,31,think_0f,think_0f,src/game/entities/,todo,W5,C,
-game86,1000:3d43,46,entity_alloc,entity_alloc,src/game/entities/,todo,W5,C,
+game86,1000:3d43,46,entity_alloc,entity_alloc,src/game/entity_loop.c,diff-tested,W4,C,W4 service per entity_dispatch.h; tests/oracle/test_entity_loop.py
 game86,1000:3d4e,,entity_alloc_next,entity_alloc_next,src/game/entities/,todo,W5,C,
 game86,1000:3d71,59,hit_kill_action_0a,hit_kill_action_0a,src/game/entities/,todo,W5,C,
 game86,1000:3dac,56,hit_kill_action_0b,hit_kill_action_0b,src/game/entities/,todo,W5,C,
@@ -170,8 +170,8 @@ game86,1000:42bc,15,sprite_draw_nodirty,gfx_draw_sprite,src/engine/gfx.c,todo,W6
 game86,1000:42cb,24,g3_draw_nodirty,gfx_draw_sprite,src/engine/gfx.c,todo,W6,D,g3 shapes use the sprite format
 game86,1000:42da,22,g3_draw,gfx_draw_sprite,src/engine/gfx.c,todo,W6,D,g3 shapes use the sprite format
 game86,1000:42f0,23,sprite_draw,gfx_draw_sprite,src/engine/gfx.c,todo,W6,D,
-game86,1000:4307,36,entities_clear,entities_clear,,todo,W4,D,
-game86,1000:432b,73,entities_think_all,entities_think_all,,todo,W4,D,
+game86,1000:4307,36,entities_clear,entities_clear,src/game/entity_loop.c,diff-tested,W4,D,tests/oracle/test_entity_loop.py (original also clears 30 records past the table)
+game86,1000:432b,73,entities_think_all,entities_think_all,src/game/entity_loop.c,ported,W4,D,NULL (unported) handlers skipped
 game86,1000:4374,85,entities_animate_all,entities_animate_all,,todo,W4,D,
 game86,1000:43c9,19,think_02,think_02,src/game/entities/think_basic.c,diff-tested,W5,D,
 game86,1000:43dc,21,think_00,think_00,src/game/entities/think_basic.c,diff-tested,W5,D,

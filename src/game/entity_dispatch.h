@@ -71,6 +71,16 @@ extern const EnemyInitFn enemy_init_handlers[ENEMY_INIT_COUNT];
  * to it anyway; how the port reproduces that is decided per caller. */
 Entity *entity_alloc(GameState *game);
 
+/* All 70 slots free and idle. game86 1000:4307 */
+void entities_clear(GameState *game);
+
+/* The original's slot counter for `e` (BP, running 0x45 down to 0 over the table). */
+int entity_slot_counter(const GameState *game, const Entity *e);
+
+/* Every live entity's think handler (NULL entries, i.e. not yet ported, are skipped).
+ * game86 1000:432b */
+void entities_think_all(GameState *game);
+
 #ifdef __cplusplus
 }
 #endif
