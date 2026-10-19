@@ -5,7 +5,9 @@ clears [SI+8] and [SI+0A] with SI = think_13's code offset, which zeroes two spa
 the level script stored at that DS offset (levels.dat clobber_10b0). The test runs a real
 drop through the think loop (1000:432b) in unicorn, checks which pairs it zeroed against
 clobber_10b0, then walks that level's spawn list with 1000:3d09 and compares each pair with
-script_next_spawn_pair after script_clobber_spawns_10b0, and without it on a fresh image.
+script_next_spawn_pair, on the dropped image and on a fresh one (the adapter maps the zeroed
+bytes to spawns_clobbered_10b0), and checks that script_clobber_spawns_10b0 writes back the
+same bytes as the drop.
 """
 
 import ctypes
@@ -99,7 +101,7 @@ def drop_shot(machine, img):
     return out
 
 
-def walk_list(machine, port, img, level, clobbered):
+def walk_list(machine, port, img, level):
     start = spawn_list(img, level)
     index = 0
     while True:
@@ -111,9 +113,7 @@ def walk_list(machine, port, img, level, clobbered):
         machine.call("1000:3d09", max_insns=MAX_INSNS)
         orig = machine.read_dgroup(0, DGROUP_SIZE)
 
-        state = port.dg.from_dgroup(bytes(img))
-        if clobbered:
-            port.clobber(state)
+        state = port.dg.from_dgroup(bytes(img))   # the adapter derives spawns_clobbered_10b0
         more = port.next_pair(state, port.levels)
         mine = port.dg.to_dgroup(state, bytes(img))
 
@@ -146,4 +146,14 @@ def test_spawn_list_after_drop(machine, port, clobbered):
         img[ENTITY_TABLE:ENTITY_TABLE + ENTITY_COUNT * ENTITY_SIZE] = \
             clean_image(machine, port.dg)[ENTITY_TABLE:ENTITY_TABLE + ENTITY_COUNT * ENTITY_SIZE]
         img = bytearray(port.dg.canonical(bytes(img)))
-    walk_list(machine, port, img, target.level, clobbered)
+    walk_list(machine, port, img, target.level)
+
+
+def test_clobber_call_matches_drop(machine, port):
+    """script_clobber_spawns_10b0 on a clean state writes back the same bytes as a drop."""
+    img = clean_image(machine, port.dg)
+    dropped = drop_shot(machine, bytearray(img))
+    state = port.dg.from_dgroup(bytes(img))
+    port.clobber(state)
+    mine = port.dg.to_dgroup(state, bytes(img))
+    assert all(mine[o] == dropped[o] for o in range(0x244C, 0x2AFE))
