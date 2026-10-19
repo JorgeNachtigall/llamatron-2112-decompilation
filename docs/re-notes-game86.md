@@ -261,11 +261,11 @@ from `39D7` up is zero (BSS). Ranges marked [H] are inferred from usage, not ful
 | `0B7A-1FD1` | | text: attract scroller texts (`117A`, `14E1`), instructions/credits [H], misc tables `1FA2/1FB2/1FBA` used by `think_05` |
 | `1FD2-202D` | 92 | `tbl_think_handlers` (46 near ptrs) |
 | `202E-2053` | 38 | `tbl_anim_handlers` (19 near ptrs) |
-| `2054-2133` | | per-type tables [H] (`2054`/`2056` read by `ent_hit_02`), title objects `2104` (9 x word timers) |
+| `2054-2133` | | `g_score_awards` (`2054`, {count-1, digit} by think index, read at `0e38`/`0e3c`), `g_title_letter_sprites` (`2118`), title objects `2104` (9 x word timers) |
 | `2134-2173` | | `tbl_vga_4to6` (16 B), `tbl_palette_game` (16 words, 12-bit RGB), `tbl_palette_ega` (17 B), black palette `2175` |
 | `21A6-226D` | 200 | **`g_player`: current player state** (§8.4) |
 | `226E-2335` | 200 | `g_player_other`: the other player's saved copy (swapped by `player_swap_state`) |
-| `2336-233F` | | `2336/2338/233a` [H], `g_loop_count` (`233c`), `g_level_flags` (`233e`) |
+| `2336-233F` | | `g_speedup_timer`/`g_speedup_period` (`2336/2338`), `233a` [H], `g_loop_count` (`233c`), `g_level_flags` (`233e`) |
 | `2340-244B` | | `tbl_level_titles`: 4 records {level, 0, text ptr} + `-1`, then their texts |
 | `244C-2AFD` | 1714 | level scripts, back to back (byte code; pointers in `tbl_level_scripts`) |
 | `2AFE-2BD9` | 220 | zero in the image, no direct references [H: spare] |
@@ -276,12 +276,12 @@ from `39D7` up is zero (BSS). Ranges marked [H] are inferred from usage, not ful
 | `2D07-39D2` | 3276 | `tbl_row_offset`: VRAM byte offset per row, y*40 for y = 0..1637, i.e. the whole 64 KB plane as one tall canvas (used by `text_scroller`) [C, W6/Prism, re-checked against the image] |
 | `39D3-39ED` | | page offsets (`g_page_front/back`, `g_draw_page`), blitter flags/scale/mirror, `g_draw_hook` (far), `g_tick_hook`, `g_tick_count`, `g_rng_index`, `g_script_ptr` |
 | `39EE-409B` | 1710 | `g_font`: decoded f.cmp. Its last glyph (chars 7D-7F) is truncated in the file: its last 5 rows (10 bytes) are read from `409C-40A5`, i.e. from the variables below and the first hi-score bytes, so that glyph's look depends on runtime data |
-| `409C-409F` | | `enemy_aim_update` results [H] (also the tail of the 7D-7F glyph) |
+| `409C-409F` | 4 | `g_droid_aim_votes`: solid enemies per quadrant around P2 (`409e` cleared as a word at `1782`); also the tail of the 7D-7F glyph |
 | `40A0-413F` | 160 | `g_hiscores` (scores.yak image) |
 | `4141-4440` | 768 | decoded s.cmp: `g_sine8` (256 x s8), `g_sine16` (256 x s16) |
 | `4441-4450` | 16 | `g_score_p1`, `g_score_p2`: 8 decimal digits each, one digit per byte, most significant first |
 | `4451-4480` | 48 | [H] palette conversion buffer used by `palette_set` (`4451`, `4469`) |
-| `4481-4486` | 6 | [H] 3-word state used by `think_1d/1e` and `enemy_init_10` |
+| `4481-4680` | 512 | `g_snake_trail`: 64 x {x, y, sprite, unused} (8 bytes), ring indexed by `g_snake_head` (`0870`); `enemy_init_10` fills it, `think_1d` writes, `think_1e` reads `[BX+4481/4483/4485]` with BX = 8*index. (Earlier "3-word state" was wrong.) `4681-4880` has no direct references |
 | `4881-48C0` | 64 | `g_companion`: an entity record just before the table (`companion_update`) |
 | `48C1-5A40` | 4480 | `g_entities`: 70 x 64-byte records (§8.3). `entities_clear` initialises 100 records (to `61C0`) |
 | `68C9-69B8` | 240 | `g_shots`: 15 player shots x 16 bytes |
@@ -293,7 +293,8 @@ from `39D7` up is zero (BSS). Ranges marked [H] are inferred from usage, not ful
 | Off | Name | Type | Meaning |
 |---|---|---|---|
 | `0400` | `g_snd_driver` | far ptr | sound driver entry; `0404` `g_snd_stub` is the swap partner |
-| `0413/0415` | `g_tmp_413/415` | word | scratch parameters of child spawns |
+| `0413/0415` | `g_tmp_413/415` | word | scratch parameters of child spawns; `0413` is also the shot x after the move in `shots_update` |
+| `0417` | `g_shot_hit_y` | word | shot y after the move (`0c6b`), compared with entity y at `0d61` (port `EntityHit.at`) |
 | `0419..0421` | `g_eshot_param0..4` | word | enemy projectile template (copied into the new entity) |
 | `0428` | `g_irq08_busy` | byte | tick re-entrancy guard |
 | `0429` | `g_frame_drawn` | byte | the tick hook idles until the first frame of a wave is drawn |
@@ -307,12 +308,18 @@ from `39D7` up is zero (BSS). Ranges marked [H] are inferred from usage, not ful
 | `058e` | `g_joy_thresholds` | 8 words | calibrated joystick thresholds |
 | `061f` | `g_continues` | word | continues left (4 per game) |
 | `062f` | `g_enemies_alive` | word | the wave ends when it reaches 0 |
+| `0615` | `g_smart_bomb` | word | the next shot hits every solid entity (pickup `0fb5`, cleared `0d27`) |
+| `0636` | `g_speed_accum` | dword | 0x800 at start, the play tick adds 0x200 (`15df`) |
 | `0650` | `g_shots_bounce` | word | power-up: player shots reflect at the edges |
+| `069c..06c2`, `07f9` | `g_shot_velocity_p1/p2`, `g_shot_direction_p1/p2`, `g_move_p1/p2`, `g_aim_p1/p2`, `g_facing_p1/p2`, `g_trail_flag_p2` | word | per-player control state (port `control[]`); `_y` labels for the second words |
 | `06c4` | `g_demo_mode` | word | demo running, `score_add` disabled |
 | `06c7` | `g_flash_list` | word | pending screen-flash list (0 = none) |
 | `07f3/0634` | `g_p1/p2_respawn_timer` | word | [H] 0x64 at wave start; P1 `0xfffe` = dying |
 | `07fb/07fc` | `g_input_b/a` | byte | controller bytes (direction nibble, fire bits 4..7) |
 | `0810` | `g_wave_result` | word | 0 running, 1 player dead, 2 cleared, 3 aborted (X), 4 warp (+5 levels) |
+| `0812..0830`, `086e` | `g_init01_mode`, `g_init0d_hp`, `g_segment_family`, `g_orbit_*`, `g_accum_start` (dword), `g_p08xx`, `g_init19_vx` | word | level-script tuning set by script ops 3..7 (port names) |
+| `0832..0848` | `g_line_*` | word | `line_walk` (`32fe`) Bresenham state: swapped, major dir, major, minor dir, d major, d minor, count, error, error inc (2*dminor), error step (2*(dminor-dmajor)), end, minor |
+| `0870..0876` | `g_snake_head`, `g_death_sound_timer`, `g_rude_name`, `g_debris_alt` | word | |
 | `08fc` | `g_wave_intro_timer` | word | 0x32 ticks of freeze; most think handlers return while non-zero |
 | `0925` | `g_bounced` | word | set by `entity_move_bounce` |
 | `0927` | `g_free_slots` | word | free entity slots (0x45 at wave start) |
@@ -325,6 +332,7 @@ from `39D7` up is zero (BSS). Ranges marked [H] are inferred from usage, not ful
 | `39e0` | `g_draw_hook` | far ptr | per-frame hook |
 | `39e4` | `g_tick_hook` | word | per-tick hook |
 | `39e6` | `g_tick_count` | word | 50 Hz counter |
+| `39de` | `g_tick_flag` | word | set 1 by `video_init_tail` (`5994`, dead code), cleared by the timer tick (`3e0c`) and at start-up (`0070`) |
 | `39e9` | `g_rng_index` | word | `rng_next` index |
 | `39eb` | `g_script_ptr` | word | level script position |
 

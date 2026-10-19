@@ -3,10 +3,11 @@
 
 Inputs (local, never committed): re/functions/<program>.exe.functions.csv (ExportFunctions.java)
 and re/symbols.csv (func rows, including shared tails that Ghidra keeps as labels).
-Rows that already exist in docs/funcmap.csv keep their c_symbol, file, status, owner and notes
-(and their name when the export only has an unk_/FUN_ default), and rows other workstreams added
-by hand (e.g. labels) are kept, so the file can be edited by every workstream and regenerated
-after each RE pass.
+Rows that already exist in docs/funcmap.csv keep every column the workstreams own (size,
+c_symbol, file, status, owner, range, notes, even when empty) and are written back byte for
+byte unless the RE name changed; only new rows get the classify() defaults. Rows other
+workstreams added by hand (e.g. labels) are kept, so the file can be edited by every
+workstream and regenerated after each RE pass.
 
 Columns: program,orig_addr,size,name,c_symbol,file,status,owner,range,notes
 (docs/PLAN.md section 3.4 plus program and range).
@@ -129,11 +130,16 @@ def main():
             if r["type"] == "func":
                 e = funcs.setdefault((r["program"], r["address"]), {"size": ""})
                 e["name"] = r["name"]
-    old = {}
+    old, raw = {}, {}
     if os.path.exists(OUT):
         with open(OUT, newline="") as f:
-            for r in csv.DictReader(f):
-                old[(r["program"], r["orig_addr"])] = r
+            lines = f.read().split("\n")[1:]
+        for line in lines:
+            if not line:
+                continue
+            r = dict(zip(COLS, next(csv.reader([line]))))
+            old[(r["program"], r["orig_addr"])] = r
+            raw[(r["program"], r["orig_addr"])] = line
     rows = []
     for (prog, addr), e in funcs.items():
         seg, off = (int(x, 16) for x in addr.split(":"))
@@ -147,18 +153,23 @@ def main():
         prev = old.pop((prog, addr), None)
         if prev:
             if name.startswith(("unk_", "FUN_")) and not prev["name"].startswith(("unk_", "FUN_")):
-                row["name"] = prev["name"]
-            for k in ("c_symbol", "file", "status", "owner", "notes"):
-                if prev.get(k):
-                    row[k] = prev[k]
+                name = prev["name"]
+            row = dict(prev, name=name)
+            if name == prev["name"]:
+                row["_raw"] = raw[(prog, addr)]
         rows.append(row)
-    rows.extend(old.values())  # hand-added rows with no function or func symbol behind them
+    # hand-added rows with no function or func symbol behind them
+    rows.extend(dict(r, _raw=raw[k]) for k, r in old.items())
     order = {p: i for i, p in enumerate(PROGRAMS)}
     rows.sort(key=lambda r: (order[r["program"]], *(int(x, 16) for x in r["orig_addr"].split(":"))))
     with open(OUT, "w", newline="") as f:
-        w = csv.DictWriter(f, fieldnames=COLS, lineterminator="\n")
+        w = csv.DictWriter(f, fieldnames=COLS, lineterminator="\n", extrasaction="ignore")
         w.writeheader()
-        w.writerows(rows)
+        for r in rows:
+            if "_raw" in r:
+                f.write(r["_raw"] + "\n")
+            else:
+                w.writerow(r)
     print(f"{OUT}: {len(rows)} rows")
 
 
