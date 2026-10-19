@@ -12,6 +12,7 @@ add_library(llamatron_game STATIC
     draw_sprite.c
     hud.c
     draw_scroller.c
+    hiscore.c
 )
 target_include_directories(llamatron_game PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
     ${PROJECT_SOURCE_DIR}/src/assets)   # W6 hud.c: HudGlyphs type from formats.h (header only)

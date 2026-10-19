@@ -227,13 +227,13 @@ game86,1000:5844,284,text_scroller,scroller_start/scroller_frame/scroller_finish
 game86,1000:5960,52,video_init,video_init,src/engine/gfx.c,todo,W2,E,
 game86,1000:5994,23,video_init_tail,video_init_tail,src/engine/gfx.c,todo,W2,E,
 game86,1000:59ab,79,hud_draw_control_labels,hud_draw_control_labels,src/game/hud.c,diff-tested,W6,E,test_hud.py; g3 shapes 7..11 through a lookup
-game86,1000:59fa,202,hiscore_name_entry,hiscore_name_entry,src/game/hiscore.c,todo,W6,E,
-game86,1000:5ac4,66,name_entry_draw_hook,name_entry_draw_hook,src/game/hiscore.c,todo,W6,E,
-game86,1000:5b06,248,name_entry_tick_hook,name_entry_tick_hook,src/game/hiscore.c,todo,W6,E,
-game86,1000:5bfe,62,name_entry_cursor_pos,name_entry_cursor_pos,src/game/hiscore.c,todo,W6,E,
-game86,1000:5c3c,289,hiscore_table_show,hiscore_table_show,src/game/hiscore.c,todo,W6,E,
-game86,1000:5d5d,69,text_draw_row_coloured,text_draw_row_coloured,src/game/text.c,todo,W6,E,
-game86,1000:5da2,268,hiscore_check_insert,hiscore_check_insert,src/game/hiscore.c,todo,W6,E,
+game86,1000:59fa,202,hiscore_name_entry,name_entry_begin,src/game/hiscore.c,diff-tested,W6,E,test_hiscore.py 59fa..5a85; screen_reveal_bg and the frame_run loop are the caller
+game86,1000:5ac4,66,name_entry_draw_hook,name_entry_draw,src/game/hiscore.c,diff-tested,W6,E,test_hiscore.py
+game86,1000:5b06,248,name_entry_tick_hook,name_entry_tick,src/game/hiscore.c,diff-tested,W6,E,test_hiscore.py tick sequences incl. sound requests (returned to the caller)
+game86,1000:5bfe,62,name_entry_cursor_pos,name_entry_cursor_pos,src/game/hiscore.c,diff-tested,W6,E,via test_hiscore.py (begin/draw)
+game86,1000:5c3c,289,hiscore_table_show,hiscore_table_draw + hiscore_table_scroll_frame,src/game/hiscore.c,diff-tested,W6,E,test_hiscore.py drawing 5c3c..5d16 on the scroller canvas; scroll loop 5d19 as per-frame calls; tune and wait 5d3b.. left to the state machine
+game86,1000:5d5d,69,text_draw_row_coloured,hiscore_draw_row,src/game/hiscore.c,diff-tested,W6,E,"test_hiscore.py (opaque rows, leading zeros skipped)"
+game86,1000:5da2,268,hiscore_check_insert,hiscore_find_rank/hiscore_insert/hiscore_set_name (hiscore_check_insert),src/game/hiscore.c,diff-tested,W6,E,test_hiscore.py (name entry and save stubbed; save is Keel host hook via scores_format_yak); rude word from extracted code immediates
 game86,1000:5eae,43,unk_1000_5eae,,,todo,W6,E,
 game86,1000:5ed9,146,game_exit,game_exit,src/game/main_sm.c,todo,W4,E,
 game86,1000:5f6b,316,config_init,config_from_options,src/game/init.c,todo,W4,E,PSP tail -> port options; RNG seed step = rng_seed (diff-tested in oracle.rng)
@@ -248,7 +248,7 @@ game86,1000:6304,96,vram_copy_page,draw_copy_screen_to_draw_page,src/game/draw_p
 game86,1000:6364,31,vram_fill_setup,scroller_start/scroller_frame,src/game/draw_scroller.c,ported,W6,E,EGA write-mode/map-mask setup of the clears: no counterpart on indexed pages (folded into the clears)
 game86,1000:6383,12,vram_clear_from_1f40,scroller_start,src/game/draw_scroller.c,diff-tested,W6,E,folded into scroller_start (canvas after the first screen cleared); test_scroller.py
 game86,1000:638f,16,vram_clear_line,scroller_frame,src/game/draw_scroller.c,diff-tested,W6,E,folded into scroller_frame (row leaving the window cleared); test_scroller.py
-game86,1000:639f,37,vram_clear_lower,vram_clear_lower,src/engine/gfx.c,todo,W6,E,renderer API (W2) semantics
+game86,1000:639f,37,vram_clear_lower,scroller_clear_below,src/game/draw_scroller.c,diff-tested,W6,E,test_hiscore.py (table draw)
 game86,1000:63c4,9,vram_clear_page,vram_clear_page,src/engine/gfx.c,todo,W6,E,renderer API (W2) semantics
 game86,1000:63d2,393,sprite_draw_wide,draw_sprite,src/game/draw_sprite.c,diff-tested,W6,E,"test_sprites.py (one column aligned/shifted, fast tables and edge paths, several columns, dirty records)"
 game86,1000:655b,2,sprite_draw_wide_ret,draw_sprite,src/game/draw_sprite.c,diff-tested,W6,E,"test_sprites.py (one column aligned/shifted, fast tables and edge paths, several columns, dirty records)"

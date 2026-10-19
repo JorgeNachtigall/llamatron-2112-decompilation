@@ -12,6 +12,12 @@ enum {
     HISCORE_OFFSET = 0x6c00,     /* story, mode 3: window past this (signed) -> table */
     COUNTER_START = 0xc8,        /* rows on screen */
     PAGE_STRIDE_CELLS = 0x2000,  /* the original's pages lie 8 KB apart in the canvas */
+    GAME_OVER_TEXT_Y = 0xc8,
+    /* vram_clear_lower 1000:639f */
+    CLEAR_BELOW_FIRST_ROW = 198,
+    CLEAR_BELOW_CELLS = 0xfc8 * 2,
+    CLEAR_BELOW_LINE_ROWS = 2,
+    CLEAR_BELOW_LINE_PLANES = 0x0b,
 };
 
 static uint8_t s_canvas[DRAW_CANVAS_CELLS * DRAW_CELL_PIXELS];
@@ -47,22 +53,59 @@ static void print_at(Scroller *scroller, const char *text, int16_t y)
     text_print(&canvas, scroller->text, text);
 }
 
+static void canvas_copy_in(uint16_t first, const uint8_t *in, int32_t count)
+{
+    for (int32_t i = 0; i < count; i++)
+        memcpy(canvas_cell((uint16_t)(first + i)), in + (size_t)i * DRAW_CELL_PIXELS, DRAW_CELL_PIXELS);
+}
+
+/* The three pages where the original keeps them in its VRAM; the gaps between them and
+ * the rest of the 64 KB hold nothing visible here and are blank. Page 0 goes on display
+ * first, holding the screen (display_page_reset 1000:582f). */
+static void canvas_from_vram_pages(void)
+{
+    if (gfx_display_page_id() != GFX_PAGE_0) {
+        draw_copy_screen_to_draw_page();
+        gfx_flip();
+    }
+    memset(s_canvas, 0, sizeof s_canvas);
+    static const GfxPageId pages[] = { GFX_PAGE_0, GFX_PAGE_1, GFX_PAGE_BACKGROUND };
+    for (size_t i = 0; i < sizeof pages / sizeof pages[0]; i++)
+        canvas_copy_in((uint16_t)(i * PAGE_STRIDE_CELLS), &gfx_page(pages[i])->pixels[0][0],
+                       DRAW_PAGE_CELLS);
+}
+
 /* game86 1000:5844 */
 void scroller_start(Scroller *scroller, const ScrollerConfig *config, TextState *text)
 {
     *scroller = (Scroller){ .config = *config, .text = text };
     gfx_discard_dirty(GFX_PAGE_0);
     gfx_discard_dirty(GFX_PAGE_1);
-    if (gfx_display_page_id() != GFX_PAGE_0) {   /* display_page_reset 1000:582f */
-        draw_copy_screen_to_draw_page();
-        gfx_flip();
-    }
+    canvas_from_vram_pages();
     draw_set_canvas_wrapped(false);
     /* vram_clear_from_1f40 1000:6383: the screen stays at the canvas top. */
-    memcpy(s_canvas, &gfx_page(GFX_PAGE_0)->pixels[0][0], (size_t)DRAW_PAGE_CELLS * DRAW_CELL_PIXELS);
     canvas_clear(DRAW_PAGE_CELLS, DRAW_CANVAS_CELLS - DRAW_PAGE_CELLS);
     print_at(scroller, config->text, SCROLLER_TEXT_Y);
     scroller->counter = COUNTER_START;
+}
+
+/* game86 1000:094f..095e */
+void scroller_start_on_screen(Scroller *scroller, TextState *text)
+{
+    *scroller = (Scroller){ .text = text, .mode = draw_canvas_wrapped() ? 2 : 0 };
+    canvas_from_vram_pages();
+    text->x = 0;
+    text->y = GAME_OVER_TEXT_Y;
+}
+
+/* game86 1000:639f */
+void scroller_clear_below(const Scroller *scroller)
+{
+    uint16_t first = (uint16_t)(scroller->offset + CLEAR_BELOW_FIRST_ROW * SCROLLER_ROW_CELLS);
+    canvas_clear(first, CLEAR_BELOW_CELLS);
+    DrawTarget canvas = scroller_canvas();
+    for (int32_t i = 0; i < CLEAR_BELOW_LINE_ROWS * SCROLLER_ROW_CELLS; i++)
+        draw_cell_paint(&canvas, (uint16_t)(first + i), 0xff, 0, CLEAR_BELOW_LINE_PLANES);
 }
 
 /* The table is drawn from the row just below the window. game86 1000:5941 */

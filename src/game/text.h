@@ -54,7 +54,11 @@ void text_set_sprite_lookup(TextSpriteLookup lookup);
 void text_draw_glyph(const DrawTarget *target, const TextState *state, unsigned char ch,
                      int x, int y);
 
-/* Draw `ch` at the pen and advance it. game86 1000:54f6 */
+/* Advance of `ch` in the current font (0 if the font has no such glyph). */
+int text_glyph_advance(unsigned char ch);
+
+/* Draw `ch` at the pen and advance it. game86 1000:54f6 (which takes the position in AX/BX
+ * and returns AX + advance: text_draw_glyph + text_glyph_advance) */
 void text_draw_char(const DrawTarget *target, TextState *state, unsigned char ch);
 
 /* Print an escaped string from the pen; the pen ends where \e left it. game86 1000:536f

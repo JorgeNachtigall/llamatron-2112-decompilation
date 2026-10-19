@@ -288,3 +288,39 @@ def test_scroller_plain_to_end(machine, c):
     log = run_scroller(machine, c, case_rng("scroller_end", 0), story=False, script=[],
                        end_offset=0xE800)
     assert log["checks"] == 0xE800 // 40
+
+
+@pytest.mark.parametrize("case", fuzz_cases(6))
+def test_scroller_start_on_screen(machine, c, case):
+    """The game-over start (1000:094f..095e): page 0 shown, the pages kept in the canvas."""
+    rnd = case_rng("scroller_on_screen", case)
+    pages = [indexed_page(rnd, rnd.choice(["noise", "blocks"])) for _ in range(3)]
+    for p in machine.ega.planes:
+        p[:] = bytes(rnd.randrange(256) for _ in range(CELLS))
+    for off, px in zip(PAGE_OFFSETS, pages):
+        machine.ega.load_indexed(px, page=off)
+    for pid, px in enumerate(pages):
+        c.load(pid, px)
+    shown = rnd.randrange(2)
+    if c.display() != shown:
+        c.flip()
+    machine.write_dgroup(PAGES, struct.pack("<2H", 0x2000 * (1 - shown), 0x2000 * shown))
+    machine.write_dgroup(SCROLL_OFF, struct.pack("<H", rnd.randrange(0x10000)))
+    for ptr in CS_DIRTY_PTRS:
+        machine.write_u16(CODE0, ptr, DIRTY_LIST)
+    machine.write_u16(*CS_CODE0_SEG, CODE0)
+    machine.run_until("1000:094f", "1000:0964", max_insns=2_000_000)
+
+    state = TextState(7, 7, 0, 1, 0, False)
+    sc = Scroller()
+    bind(c.lib, "scroller_start_on_screen", None, ctypes.POINTER(Scroller),
+         ctypes.POINTER(TextState))(ctypes.byref(sc), ctypes.byref(state))
+
+    assert sc.offset == struct.unpack("<H", machine.read_dgroup(SCROLL_OFF, 2))[0] == 0
+    assert (state.x, state.y) == struct.unpack("<2h", machine.read_dgroup(TEXT_X, 4))
+    assert c.display() == 0 and machine.read_dgroup(PAGES + 2, 2) == b"\0\0"
+    canvas = ctypes.string_at(c.canvas().pixels, CANVAS_PIXELS)
+    for off in PAGE_OFFSETS:            # the gaps between the pages are never shown
+        want = window(machine.ega.planes, off)
+        got = canvas[off * 8:(off + PAGE_CELLS) * 8]
+        assert got == want, f"canvas at {off:#x}: " + first_diff(got, want)

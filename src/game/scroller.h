@@ -76,6 +76,12 @@ DrawTarget scroller_canvas(void);
  * screen followed by blank rows, and config->text is printed below it. game86 1000:5844..5881 */
 void scroller_start(Scroller *scroller, const ScrollerConfig *config, TextState *text);
 
+/* Use the screen on display as the top of the canvas without a text, keeping the rest of
+ * the original's VRAM (pages 1 and background at 0x2000 / 0x4000) below it, window at the
+ * top and the text pen at (0, 200): the game-over path to the hi-score table.
+ * game86 1000:094f..095e */
+void scroller_start_on_screen(Scroller *scroller, TextState *text);
+
 /* One frame: read the input left from the last frame, then scroll one row and show the
  * window. game86 1000:5883..593e */
 ScrollerStatus scroller_frame(Scroller *scroller, ScrollerInput input);
@@ -83,6 +89,11 @@ ScrollerStatus scroller_frame(Scroller *scroller, ScrollerInput input);
 /* Move the window one row down and show it, without the scroll step's bookkeeping or row
  * clearing (the hi-score table's own scroll, game86 1000:5d19). */
 void scroller_scroll_row(Scroller *scroller);
+
+/* Blank the canvas from the window's row 198 on for 202 rows, with rows 198..199 in colour
+ * 11 (a line along the bottom of the window): room for the hi-score table.
+ * game86 vram_clear_lower 1000:639f */
+void scroller_clear_below(const Scroller *scroller);
 
 /* Copy the window at scroller->offset into page 0. */
 void scroller_show(const Scroller *scroller);

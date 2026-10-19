@@ -44,6 +44,11 @@ static int glyph_advance(unsigned char ch)
     return g ? g->advance : 0;
 }
 
+int text_glyph_advance(unsigned char ch)
+{
+    return glyph_advance(ch);
+}
+
 /* ---- Glyphs ------------------------------------------------------------------------ */
 
 /* The original walks the target cell by cell. Where a row is clipped at the left or right
