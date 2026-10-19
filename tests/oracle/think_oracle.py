@@ -29,6 +29,7 @@ ENEMIES_ALIVE = 0x062F
 RESPAWN_P2 = 0x0634
 DEMO_MODE = 0x06C4
 FLASH_LIST = 0x06C7
+FLASH_LISTS = (0x06C9, 0x06CD, 0x06FD, 0x0707, 0x0713, 0x0721, 0x0729, 0x072D)  # 0-terminated
 RESPAWN_P1 = 0x07F3
 WAVE_RESULT = 0x0810
 DEATH_SOUND_TIMER = 0x0872
@@ -74,6 +75,18 @@ class ThinkCase:
     @property
     def bp(self) -> int:
         return ENTITY_COUNT - 1 - self.slot
+
+
+def flash_in_progress(rnd, image):
+    """No flash, or a position inside (or at the end of) one of the flash lists, so a
+    handler that starts a flash without rewinding it shows up (as in w5a_oracle)."""
+    if rnd.random() < 0.4:
+        return 0
+    start = rnd.choice(FLASH_LISTS)
+    length = 0
+    while struct.unpack_from("<H", image, start + 2 * length)[0] != 0:
+        length += 1
+    return start + 2 * rnd.choice([0, length, rnd.randrange(length + 1)])
 
 
 class ThinkOracle:
@@ -158,7 +171,7 @@ class ThinkOracle:
             SWARM_COUNT: rnd.randrange(40),
             DEATH_SOUND_TIMER: rnd.randrange(0x15),
             BONUS_COUNTDOWN: rnd.randrange(3),
-            FLASH_LIST: 0,
+            FLASH_LIST: flash_in_progress(rnd, image),
             BOUNCED: rnd.randrange(2),
         }
         words.update(extra or {})
