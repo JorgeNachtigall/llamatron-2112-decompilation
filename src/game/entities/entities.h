@@ -58,6 +58,13 @@ void think_0d(GameState *game, Entity *e);
 /* think_spawners.c */
 void think_0b(GameState *game, Entity *e);
 void think_0c(GameState *game, Entity *e);
+/* think_homing.c */
+void think_10(GameState *game, Entity *e);
+void think_11(GameState *game, Entity *e);
+void think_12(GameState *game, Entity *e);
+/* Steering towards game->target with inertia (16.16 fixed point in the record, see
+ * think_homing.c). Tail of think_10..13, 1f, 28, 2a. game86 1000:38a2 */
+void entity_homing_move(GameState *game, Entity *e);
 
 /* ---- movement.c (Moss)---------------------------------------------------------------- */
 

@@ -2,7 +2,8 @@
 think_00 hatch (43dc, also 04/07/0a), think_01 touch-only (43f1) with the player-touch tail
 43f7 and entity_hits_player 4b49, think_02 fade (43c9), think_03 swarm (4ac9) with
 entity_move_bounce 4e7f, think_09 timer (4ec8), think_0b/0c/0d mother, shooter and shot
-(4ed7, 4feb with entity_aim_at_target 509b, 504f)."""
+(4ed7, 4feb with entity_aim_at_target 509b, 504f), think_10 homing (388a, mover 38a2) and
+the beam emitters think_11/12 (382d, 37fe)."""
 
 import pytest
 from generators import case_rng, fuzz_cases
@@ -62,6 +63,28 @@ def shooter_entity(rnd, rec):
     rec.raw[0x17] = rnd.choice([0, 1, 0xff, 0x80, rnd.randrange(256)])
 
 
+def homing_entity(rnd, rec):
+    """16.16 velocity +14/+18, accel +1c/+20, position +26/+2a (integer part = x / y)."""
+    import struct
+    def fixed(v):
+        return struct.pack("<i", v)
+    for off in (0x14, 0x18):
+        rec.raw[off:off + 4] = fixed(rnd.choice([0, rnd.randrange(-0x40000, 0x40000),
+                                                 rnd.randrange(-0x400000, 0x400000)]))
+    for off in (0x1c, 0x20):
+        rec.raw[off:off + 4] = fixed(rnd.choice([0x800, 0x1000, 0x2000, rnd.randrange(0x10000)]))
+    rec.raw[0x26:0x2a] = fixed(rec.get("x") << 16 | rnd.randrange(0x10000))
+    rec.raw[0x2a:0x2e] = fixed(rec.get("y") << 16 | rnd.randrange(0x10000))
+    if rnd.random() < 0.3:
+        rec.raw[0x28:0x2a] = rnd.choice([9, 10, 0x12e, 0x12f]).to_bytes(2, "little")
+        rec.raw[0x2c:0x2e] = rnd.choice([0x11, 0x12, 0xb5, 0xb6]).to_bytes(2, "little")
+    rec.raw[0x30:0x32] = rnd.choice([b"\xff\xff", b"\xff\xff", b"\x00\x00", b"\x05\x00"])
+    rec.raw[0x24] = rnd.randrange(1, 0x20)
+    rec.raw[0x25] = rnd.choice([0, 0, 1, rnd.randrange(0x20)])
+    rec.raw[0x2e] = rnd.randrange(1, 0x40)
+    rec.raw[0x2f] = rnd.choice([1, 2, 0, rnd.randrange(0x40)])
+
+
 CASES = {
     0x00: hatch_entity, 0x04: hatch_entity, 0x07: hatch_entity, 0x0a: hatch_entity,
     0x01: None,
@@ -71,6 +94,9 @@ CASES = {
     0x0b: mother_entity,
     0x0c: shooter_entity,
     0x0d: shot_entity,
+    0x10: homing_entity,
+    0x11: homing_entity,
+    0x12: homing_entity,
 }
 
 
