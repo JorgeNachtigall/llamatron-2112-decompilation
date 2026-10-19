@@ -24,6 +24,7 @@
  */
 #include "dgroup_map.h"
 #include "game.h"
+#include "game_data.h"
 #include "gfx.h"
 #include "input.h"
 #include "input_script.h"
@@ -192,7 +193,11 @@ int main(int argc, char **argv)
 
     input_init(INPUT_DEVICE_KEYBOARD, true);
     gfx_init();
-    gfx_set_adapter(launch.vga ? GFX_ADAPTER_VGA : GFX_ADAPTER_EGA, NULL);
+    if (!game_data_load()) {
+        fprintf(stderr, "llamatron_replay: the game data could not be loaded\n");
+        return 1;
+    }
+    gfx_set_adapter(launch.vga ? GFX_ADAPTER_VGA : GFX_ADAPTER_EGA, asset_palettes()->nibble_to_dac);
     if (!game_init(&r->game, &launch)) {
         fprintf(stderr, "llamatron_replay: the game could not start\n");
         return 1;

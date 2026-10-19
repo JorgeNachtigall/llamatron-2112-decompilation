@@ -35,6 +35,7 @@
  */
 #include "assets.h"
 #include "game.h"
+#include "game_data.h"
 #include "gfx.h"
 #include "input.h"
 #include "input_script.h"
@@ -269,7 +270,12 @@ static bool start_game(App *app)
     }
     input_init(app->device, true);
     gfx_init();
-    gfx_set_adapter(app->adapter, NULL);
+    /* The game's extracted tables, palettes and pictures (game_data.h), once per run. */
+    if (!game_data_load()) {
+        fprintf(stderr, "llamatron: the game data could not be loaded\n");
+        return false;
+    }
+    gfx_set_adapter(app->adapter, asset_palettes()->nibble_to_dac);
     memset(&app->game, 0, sizeof app->game);
     GameLaunch launch = make_launch(app);
     if (!game_init(&app->game, &launch)) {

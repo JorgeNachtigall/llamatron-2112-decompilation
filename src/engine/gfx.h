@@ -93,8 +93,9 @@ typedef struct GfxGamePalette {
     uint8_t ega_registers[GFX_GAME_COLORS + 1]; /* rgbRGB per colour + overscan (border) */
 } GfxGamePalette;
 
-/* `nibble_to_dac` (16 entries, extracted from DS:2134) maps an ST nibble to a 6-bit DAC level;
- * only used on VGA. */
+/* `nibble_to_dac` (16 entries, extracted from DS:2134: asset_palettes()->nibble_to_dac) maps
+ * an ST nibble to a 6-bit DAC level; only used on VGA, but always required: NULL aborts with a
+ * message (it used to keep an all-zero table, which made every VGA game palette black). */
 void gfx_set_adapter(GfxAdapter adapter, const uint8_t nibble_to_dac[16]);
 GfxAdapter gfx_adapter(void);
 

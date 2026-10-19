@@ -3,6 +3,8 @@
  */
 #include "gfx.h"
 
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 static struct {
@@ -99,9 +101,13 @@ void gfx_set_palette_dac(int first, int count, const uint8_t (*rgb6)[3])
 
 void gfx_set_adapter(GfxAdapter adapter, const uint8_t nibble_to_dac[16])
 {
+    if (!nibble_to_dac) {
+        /* A missing table would turn every VGA game palette black (or worse), silently. */
+        fprintf(stderr, "gfx_set_adapter: nibble_to_dac is NULL (pass asset_palettes()->nibble_to_dac)\n");
+        abort();
+    }
     g_gfx.adapter = adapter;
-    if (nibble_to_dac)
-        memcpy(g_gfx.nibble_to_dac, nibble_to_dac, sizeof g_gfx.nibble_to_dac);
+    memcpy(g_gfx.nibble_to_dac, nibble_to_dac, sizeof g_gfx.nibble_to_dac);
 }
 
 GfxAdapter gfx_adapter(void)
