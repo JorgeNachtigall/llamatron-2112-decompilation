@@ -363,6 +363,20 @@ typedef struct GameState {
     int16_t snake_head;                 /* 0870 newest snake_trail entry, 0..63 (think_1d 36e1) */
     uint16_t tick_count;                /* 39E6 50 Hz counter */
     TickHook tick_hook;                 /* 39E4 what each timer tick runs */
+    /* Wave and game bookkeeping of the top-level flow (main_sm.c, 1000:00db..0980). */
+    int16_t game_started;               /* 061D 0 at a new game, 1 after the first wave start
+                                           (045d), 2 once both players had a turn (07a8) */
+    int16_t wave_start_delay;           /* 068A 0x32 at a new game / respawn; the play tick
+                                           counts it down (156a) and the draw hook tests it (1a40) */
+    int16_t player_label_offset;        /* 07F5 0x0C, or 0x5E for P2 in shared-start mode (0471);
+                                           a draw offset of play_draw_hook (1aab) */
+    int16_t spawn_delay;                /* 07FE 7 at wave start; the spawn tick (1d40) counts it
+                                           down, wave_spawn_enemies sets -1 (1cfe) */
+    int16_t play_flag_0617;             /* 0617 [H] -1 at wave start (05f3), 1 from the play tick
+                                           (1a16); no reader known */
+    int16_t level_default;              /* 059F level the attract mode starts with (00ed), saved
+                                           before a demo picks a random one (028a) */
+    bool pulse_enable;                  /* 0902 the timer may flash colour 1 (3e55); set at 00d5 */
     DrawHook draw_hook;                 /* 39E0 what each frame draws */
     bool frame_drawn;                   /* 0429 the tick hook idles until a wave frame is drawn */
 
