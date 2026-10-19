@@ -5,7 +5,8 @@ For one VGA reference scenario: write its input script (PROBE.KEY, the config's 
 it in the llamatron executable with the same BIOS tick seed and llama.inf options, let the
 port dump its pages right before every tick at which the reference captured VRAM
 (`vram_irq`, inside game86's vsync wait), and compare sha256 hashes of the 320x200 indexed
-pages with the reference's `pages`:
+pages with the reference's `pages` (with the run's clock calibration, config tick_phase and
+start_delay, if any):
   * the shown page (the reference's `shown`, read from the CRTC start at capture time),
     which must also be the page the port shows;
   * the background page (4000h).
@@ -63,7 +64,8 @@ def main() -> int:
     cmd = [args.llamatron, "--replay", str(keys), "--seed", str(cfg["ticks"]), "--vga", "--keyboard",
            "--flash", cfg.get("flash", "N"), "--mute",
            "--frames", str(int(last * FRAMES_PER_TICK) + 8),
-           "--dump-pages", str(work), "--dump-ticks", ",".join(str(t) for t, _ in captures)]
+           "--dump-pages", str(work), "--dump-ticks", ",".join(str(t) for t, _ in captures),
+           "--tick-phase", str(cfg.get("tick_phase", 0)), "--start-delay", str(cfg.get("start_delay", 0))]
     proc = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
     if proc.returncode != 0:
         print(f"visual: llamatron failed ({proc.returncode})\n{proc.stderr}")

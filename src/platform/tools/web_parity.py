@@ -40,12 +40,14 @@ def main() -> int:
     frames = int(last * FRAMES_PER_TICK) + 8
     video = "vga" if cfg.get("machine", "vga") == "vga" else "ega"
     flash = cfg.get("flash", "N")
+    phase, delay = cfg.get("tick_phase", 0), cfg.get("start_delay", 0)
 
     with tempfile.TemporaryDirectory() as prefs:
         env = dict(os.environ, LLAMATRON_PREF_DIR=prefs)
         native = subprocess.run(
             [args.native, f"--{video}", "--keyboard", "--mute", "--flash", flash, "--seed", str(cfg["ticks"]),
-             "--keys", keys, "--page-hashes", ticks, "--frames", str(frames)],
+             "--keys", keys, "--page-hashes", ticks, "--frames", str(frames),
+             "--tick-phase", str(phase), "--start-delay", str(delay)],
             capture_output=True, text=True, timeout=600, env=env)
     if native.returncode != 0:
         print(f"parity: native run failed\n{native.stderr}")
@@ -57,7 +59,7 @@ def main() -> int:
     print(f"parity: native gave {len(lines)} page hashes, ticks {args.every}..{last}")
 
     query = (f"frames={frames}&{video}&keyboard&mute&flash={flash}&seed={cfg['ticks']}"
-             f"&keys={keys}&hashes={ticks}")
+             f"&keys={keys}&hashes={ticks}&phase={phase}&delay={delay}")
     smoke = Path(__file__).with_name("web_smoke.py")
     cmd = [sys.executable, str(smoke), "--dir", args.web_dir, "--page", "llamatron.html", "--report",
            "--timeout-s", "120", "--query", query]

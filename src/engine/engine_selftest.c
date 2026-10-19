@@ -70,6 +70,26 @@ static void test_timing(void)
 
     CHECK(timing_tick_hz() > 50.158 && timing_tick_hz() < 50.160);
 
+    /* Start-up phase: the first tick falls in the first retrace by which (1 - phase) of a tick
+     * has passed (a tick is 1.397 VGA retraces); timing_tick_phase() reads the phase back. */
+    double retraces_per_tick = timing_display_hz(&DISPLAY_VGA_MODE_0D) / timing_tick_hz();
+    for (unsigned p = 0; p < 65536u; p += 4096u) {
+        timing_init_display(&v, &DISPLAY_VGA_MODE_0D);
+        timing_set_phase(&v, (uint16_t)p);
+        CHECK(timing_tick_phase(&v) == p);
+        int empty = 0;
+        while (timing_advance_frame(&v, &DISPLAY_VGA_MODE_0D) == 0)
+            empty++;
+        CHECK(empty == (int)((1.0 - p / 65536.0) * retraces_per_tick - 1e-9));
+        CHECK(run_ticks(&v) == 1);
+    }
+    /* Whole ticks still due are kept. */
+    timing_init_display(&v, &DISPLAY_VGA_MODE_0D);
+    for (int f = 0; f < 3; f++)
+        timing_advance_frame(&v, &DISPLAY_VGA_MODE_0D);
+    timing_set_phase(&v, 0x8000);
+    CHECK(run_ticks(&v) == 2 && timing_tick_phase(&v) == 0x8000);
+
     /* Retrace clock: 10000 s of a 60 Hz host (16666/16667 us steps) give floor(10000 * 70.086)
      * VGA retraces, 1 or 2 per host frame; a 120 Hz host gets 0 or 1. */
     RetraceClock rc;

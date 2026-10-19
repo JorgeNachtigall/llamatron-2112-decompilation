@@ -132,6 +132,13 @@ uint16_t timing_tick_phase(const TickScheduler *s)
     return (uint16_t)(within * 65536u / s->tick_cost);
 }
 
+void timing_set_phase(TickScheduler *s, uint16_t phase)
+{
+    /* Round up so timing_tick_phase() reads the same value back. */
+    uint64_t within = ((uint64_t)phase * s->tick_cost + 65535u) / 65536u;
+    s->pending = s->pending - s->pending % s->tick_cost + within;
+}
+
 double timing_tick_hz(void)
 {
     return (double)PIT_CRYSTAL_NUM / PIT_CRYSTAL_DEN / PIT_GAME_DIVISOR;

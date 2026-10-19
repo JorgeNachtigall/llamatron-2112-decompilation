@@ -6,7 +6,7 @@
  *   llamatron [--vga|--ega] [--keyboard|--joystick] [--flash N|P|Y] [--mute] [--data DIR]
  *             [--frames N] [--start-after K] [--seed BIOS_TICKS]
  *             [--record FILE | --replay FILE | --keys T:SC,...] [--page-hashes T1,T2,...]
- *             [--dump-pages DIR --dump-ticks T1,T2,...]
+ *             [--dump-pages DIR --dump-ticks T1,T2,...] [--tick-phase F] [--start-delay N]
  *
  * Settings come from the saved llama.inf (settings.h); the options here override them for this
  * run only. The game gets them as game86 did, on its command tail (GameLaunch); the RNG seed is
@@ -18,12 +18,18 @@
  * writes every key byte the game receives, keyed to the game tick it precedes; --replay starts
  * the game directly (no title, like the reference runs, which start game86 itself), ignores
  * the live keyboard, runs the fixed display clock and feeds each scripted byte to the keyboard
- * handler right before its tick. Ticks count from 1 after game_init.
+ * handler right before its tick. Ticks count from 1 after game_init. Two calibrations of a
+ * reference run (its config's tick_phase and start_delay) apply to replays only: --tick-phase F
+ * sets the fraction 0..1 of a timer tick already elapsed at game_init (timing_set_phase; the
+ * port otherwise starts a tick and a retrace together), and --start-delay N runs N retraces
+ * right after game_init with their timer ticks but no game frame (the original's timer runs
+ * through its RNG shuffle and mode set before the first frame).
  *
  * Test hooks: --frames N quits after N frames and prints the phase, tick count and a hash of
  * what is shown; --start-after K presses a key on frame K to leave the title. On the web the
  * page URL stands in for the command line:
  * ?ega&vga&joystick&keyboard&mute&frames=N&start=K&seed=T&flash=N|P|Y&keys=T:SC,...&hashes=T1,...
+ * &phase=F&delay=N
  * --keys is an input script given inline (tick:scan byte pairs, as in PROBE.KEY), so the web
  * build can replay too. --page-hashes prints, right before each listed tick, the FNV-1a hash of
  * the three pages and the shown page ("pages tick=..."), to compare native and web runs.
@@ -92,6 +98,8 @@ typedef struct App {
     size_t dump_tick_count;
     uint32_t hash_ticks[256];       /* --page-hashes */
     size_t hash_tick_count;
+    uint16_t tick_phase;            /* --tick-phase, 0..65535 of a tick (replays only) */
+    uint32_t start_delay;           /* --start-delay, retraces (replays only) */
 } App;
 
 enum {
@@ -178,6 +186,15 @@ static void print_page_hashes(uint32_t tick)
         h[page] = fnv1a(&gfx_page((GfxPageId)page)->pixels[0][0], (size_t)GFX_WIDTH * GFX_HEIGHT, 2166136261u);
     printf("pages tick=%u fnv=%08x,%08x,%08x shown=%d\n", (unsigned)tick, h[0], h[1], h[2],
            (int)gfx_display_page_id());
+}
+
+/* A fraction 0..1 of a tick as timing_set_phase() takes it. */
+static uint16_t parse_phase(const char *text)
+{
+    double f = strtod(text, NULL);
+    if (!(f > 0))
+        return 0;
+    return f * 65536.0 >= 65535.0 ? 65535u : (uint16_t)(f * 65536.0 + 0.5);
 }
 
 static bool tick_listed(const uint32_t *ticks, size_t count, uint32_t tick)
@@ -274,6 +291,8 @@ static void update_pads(App *app)
         input_set_stick(i, sticks[i].x, sticks[i].y, sticks[i].button_a, sticks[i].button_b);
 }
 
+static void run_retrace_ticks(App *app);
+
 /* fs.exe ends and llama.exe starts game86 with a freshly loaded sound driver and keyboard
  * handler; the game gets the llama.inf settings. */
 static bool start_game(App *app)
@@ -299,6 +318,13 @@ static bool start_game(App *app)
     }
     app->phase = PHASE_GAME;
     app->game_ticks = 0;
+    if (app->replaying) {
+        /* A reference run's calibration: where in a tick game_init falls, then the retraces
+         * the original's timer runs before its first frame. */
+        timing_set_phase(&app->scheduler, app->tick_phase);
+        for (uint32_t i = 0; i < app->start_delay; i++)
+            run_retrace_ticks(app);
+    }
     return true;
 }
 
@@ -494,6 +520,10 @@ int main(int argc, char **argv)
             app->dump_tick_count = parse_ticks(argv[++i], app->dump_ticks, TICK_LIST_MAX);
         else if (strcmp(argv[i], "--page-hashes") == 0 && i + 1 < argc)
             app->hash_tick_count = parse_ticks(argv[++i], app->hash_ticks, TICK_LIST_MAX);
+        else if (strcmp(argv[i], "--tick-phase") == 0 && i + 1 < argc)
+            app->tick_phase = parse_phase(argv[++i]);
+        else if (strcmp(argv[i], "--start-delay") == 0 && i + 1 < argc)
+            app->start_delay = (uint32_t)strtoul(argv[++i], NULL, 10);
         else if (strcmp(argv[i], "--keys") == 0 && i + 1 < argc) {
             if (!parse_keys(argv[++i], &app->replay))
                 return 1;
@@ -534,6 +564,12 @@ int main(int argc, char **argv)
     const char *hashes = strstr(query, "hashes=");
     if (hashes)
         app->hash_tick_count = parse_ticks(hashes + 7, app->hash_ticks, TICK_LIST_MAX);
+    const char *phase = strstr(query, "phase=");
+    if (phase)
+        app->tick_phase = parse_phase(phase + 6);
+    const char *delay = strstr(query, "delay=");
+    if (delay)
+        app->start_delay = (uint32_t)strtoul(delay + 6, NULL, 10);
     const char *keys = strstr(query, "keys=");
     if (keys) {
         if (!parse_keys(keys + 5, &app->replay))
@@ -541,6 +577,10 @@ int main(int argc, char **argv)
         app->replaying = true;
     }
 #endif
+    if (!app->replaying && (app->tick_phase || app->start_delay)) {
+        fprintf(stderr, "llamatron: --tick-phase and --start-delay need --replay or --keys\n");
+        return 1;
+    }
     app->adapter = app->settings.vga ? GFX_ADAPTER_VGA : GFX_ADAPTER_EGA;
     app->device = app->settings.joystick ? INPUT_DEVICE_JOYSTICK : INPUT_DEVICE_KEYBOARD;
     uint8_t inf[SETTINGS_INF_SIZE];

@@ -119,6 +119,12 @@ uint32_t timing_retraces_due(RetraceClock *c, uint64_t elapsed_us);
 /* Fraction (0..65535) of the next tick already elapsed, e.g. for audio scheduling. */
 uint16_t timing_tick_phase(const TickScheduler *s);
 
+/* Replays only: set that fraction (the inverse of timing_tick_phase()), keeping any whole ticks
+ * still due. timing_init_display() starts a tick and a retrace together; in the original the
+ * first timer interrupt falls anywhere in a retrace period (IRQ0 is hooked at game86 1000:0067,
+ * well before the mode set), so a replay of a reference run sets that run's measured phase. */
+void timing_set_phase(TickScheduler *s, uint16_t phase);
+
 /* Exact rates, for display/logging only. */
 double timing_tick_hz(void);
 double timing_display_hz(const DisplayTiming *display);
