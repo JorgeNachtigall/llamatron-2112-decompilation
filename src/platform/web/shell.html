@@ -75,15 +75,23 @@
        (inside one frame) right after start-up. Does nothing without the parameter. */
     var KEY_CODES = { Space: 32, ArrowLeft: 37, ArrowUp: 38, ArrowRight: 39, ArrowDown: 40 };
     var tapMatch = /[?&]tap=(\w+)/.exec(location.search);
-    function tap(code) {
-      ['keydown', 'keyup'].forEach(function (type) {
-        var e = new KeyboardEvent(type, { code: code, key: code === 'Space' ? ' ' : code,
-                                          bubbles: true, cancelable: true });
-        Object.defineProperty(e, 'keyCode', { get: function () { return KEY_CODES[code] || 0; } });
-        Object.defineProperty(e, 'which', { get: function () { return KEY_CODES[code] || 0; } });
-        canvas.dispatchEvent(e);
-      });
+    function sendKey(type, code) {
+      var e = new KeyboardEvent(type, { code: code, key: code === 'Space' ? ' ' : code,
+                                        bubbles: true, cancelable: true });
+      Object.defineProperty(e, 'keyCode', { get: function () { return KEY_CODES[code] || 0; } });
+      Object.defineProperty(e, 'which', { get: function () { return KEY_CODES[code] || 0; } });
+      canvas.dispatchEvent(e);
     }
+    function tap(code) {
+      sendKey('keydown', code);
+      sendKey('keyup', code);
+    }
+    /* Test hook for the game's ?taps=F:SC:N (llamatron_main.c): a real browser key event for a
+       PC make code, dispatched from inside a frame, so SDL hands it over with the next batch. */
+    var CODE_BY_SCAN = { 57: 'Space', 72: 'ArrowUp', 75: 'ArrowLeft', 77: 'ArrowRight', 80: 'ArrowDown' };
+    window.llamatronKey = function (type, scan) {
+      if (CODE_BY_SCAN[scan]) sendKey(type, CODE_BY_SCAN[scan]);
+    };
 
     window.Module = {
       canvas: canvas,

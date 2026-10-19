@@ -4,7 +4,7 @@
  * and connects the platform services (window, audio, input, settings, host requests).
  *
  *   llamatron [--vga|--ega] [--keyboard|--joystick] [--flash N|P|Y] [--mute] [--data DIR]
- *             [--frames N] [--start-after K] [--seed BIOS_TICKS]
+ *             [--frames N] [--start-after K] [--tap F:SC:N,...] [--seed BIOS_TICKS]
  *             [--record FILE | --replay FILE | --keys T:SC,...] [--page-hashes T1,T2,...]
  *             [--dump-pages DIR --dump-ticks T1,T2,...] [--tick-phase F] [--start-delay N]
  *
@@ -26,10 +26,12 @@
  * through its RNG shuffle and mode set before the first frame).
  *
  * Test hooks: --frames N quits after N frames and prints the phase, tick count and a hash of
- * what is shown; --start-after K presses a key on frame K to leave the title. On the web the
+ * what is shown; --start-after K presses a key on frame K to leave the title; --tap F:SC:N,...
+ * presses make code SC on host frame F as a live key and releases it N frames later (N = 0:
+ * in the same event batch). On the web the
  * page URL stands in for the command line:
  * ?ega&vga&joystick&keyboard&mute&frames=N&start=K&seed=T&flash=N|P|Y&keys=T:SC,...&hashes=T1,...
- * &phase=F&delay=N
+ * &phase=F&delay=N&taps=F:SC:N,...
  * --keys is an input script given inline (tick:scan byte pairs, as in PROBE.KEY), so the web
  * build can replay too. --page-hashes prints, right before each listed tick, the FNV-1a hash of
  * the three pages and the shown page ("pages tick=..."), to compare native and web runs.
@@ -83,6 +85,8 @@ typedef struct App {
 
     long frames_left;               /* --frames */
     long start_after;               /* --start-after */
+    struct { long frame, release; uint8_t code; } taps[8];   /* --tap F:SC:N,... */
+    size_t tap_count;
     bool seed_pinned;               /* --seed */
     uint32_t seed;
     long frame_count;
@@ -92,6 +96,8 @@ typedef struct App {
     InputScript record;
     bool replaying;                 /* --replay */
     PadMap padmap;                  /* gamepad -> keys (keyboard control) */
+    uint8_t unseen_makes[16];       /* live make codes (bit per code) no game frame has run since */
+    uint8_t held_breaks[16];        /* their breaks, held back until that frame has run */
     InputScript replay;
     const char *dump_dir;           /* --dump-pages */
     uint32_t dump_ticks[256];       /* --dump-ticks */
@@ -146,19 +152,75 @@ static uint32_t fnv1a(const uint8_t *data, size_t n, uint32_t h)
     return h;
 }
 
+static bool code_bit(const uint8_t bits[16], uint8_t code)
+{
+    return (bits[code >> 3 & 15] >> (code & 7)) & 1;
+}
+
+static void set_code_bit(uint8_t bits[16], uint8_t code, bool on)
+{
+    uint8_t mask = (uint8_t)(1u << (code & 7));
+    bits[code >> 3 & 15] = on ? (uint8_t)(bits[code >> 3 & 15] | mask) : (uint8_t)(bits[code >> 3 & 15] & ~mask);
+}
+
+/* One byte to game86's keyboard handler (1000:e567), recorded with --record. */
+static void deliver_key(App *app, uint8_t scan_code)
+{
+    /* Delivered before the frame's ticks run, i.e. before tick game_ticks + 1. */
+    if (app->record_path && !input_script_add(&app->record, app->game_ticks + 1, scan_code))
+        fprintf(stderr, "llamatron: recording failed\n");
+    input_keyboard_byte(scan_code);
+}
+
 static void on_key(uint8_t code, bool pressed, void *user)
 {
     App *app = user;
+    code &= 0x7f;
     uint8_t scan_code = pressed ? code : (uint8_t)(code | PC_KEY_BREAK);
     if (app->phase == PHASE_TITLE) {
         input_keyboard_byte(scan_code);
         title_key(&app->title, code, pressed);
     } else if (!app->replaying) {
-        /* Delivered before the frame's ticks run, i.e. before tick game_ticks + 1. */
-        if (app->record_path && !input_script_add(&app->record, app->game_ticks + 1, scan_code))
-            fprintf(stderr, "llamatron: recording failed\n");
-        input_keyboard_byte(scan_code);
+        /* The original's INT 09 runs the moment a key moves, so even a quick tap is a make code
+         * the game sees for a frame or more before the break replaces it ([587], read e.g. by
+         * the scrollers' skip check 1000:58a4). The host may report press and release in one
+         * batch (a fast tap, keydown + keyup in one rAF): hold the break back until a game frame
+         * has run with the make. */
+        if (!pressed && code_bit(app->unseen_makes, code)) {
+            set_code_bit(app->held_breaks, code, true);
+            return;
+        }
+        if (pressed) {
+            set_code_bit(app->unseen_makes, code, true);
+            set_code_bit(app->held_breaks, code, false);   /* pressed again: still down */
+        }
+        deliver_key(app, scan_code);
     }
+}
+
+/* --tap / ?taps=: natively straight into on_key (the same batch for N = 0); on the web as real
+ * browser key events (web/shell.html llamatronKey), which SDL hands over with the next poll. */
+static void test_key(App *app, uint8_t code, bool pressed)
+{
+#ifdef __EMSCRIPTEN__
+    (void)app;
+    char script[64];
+    snprintf(script, sizeof script, "llamatronKey('%s', %u)", pressed ? "keydown" : "keyup", (unsigned)code);
+    emscripten_run_script(script);
+#else
+    on_key(code, pressed, app);
+#endif
+}
+
+/* After a game frame: every make so far has been seen; deliver the breaks held back. */
+static void release_held_breaks(App *app)
+{
+    memset(app->unseen_makes, 0, sizeof app->unseen_makes);
+    for (unsigned code = 0; code < 0x80; code++)
+        if (code_bit(app->held_breaks, (uint8_t)code)) {
+            set_code_bit(app->held_breaks, (uint8_t)code, false);
+            deliver_key(app, (uint8_t)(code | PC_KEY_BREAK));
+        }
 }
 
 /* What is on screen while game tick `tick` is about to run: the frames before it are done. */
@@ -186,6 +248,30 @@ static void print_page_hashes(uint32_t tick)
         h[page] = fnv1a(&gfx_page((GfxPageId)page)->pixels[0][0], (size_t)GFX_WIDTH * GFX_HEIGHT, 2166136261u);
     printf("pages tick=%u fnv=%08x,%08x,%08x shown=%d\n", (unsigned)tick, h[0], h[1], h[2],
            (int)gfx_display_page_id());
+}
+
+/* --tap F:SC:N,...: live key presses of make code SC (decimal) on host frame F, each released
+ * N host frames later (0 = in the same batch, like keydown + keyup in one rAF). */
+static bool parse_taps(const char *text, App *app)
+{
+    app->tap_count = 0;
+    for (;;) {
+        unsigned long frame, code, hold;
+        int used = 0;
+        if (sscanf(text, "%lu:%lu:%lu%n", &frame, &code, &hold, &used) != 3 || code == 0 ||
+            code > 0x7f || app->tap_count == sizeof app->taps / sizeof app->taps[0]) {
+            fprintf(stderr, "llamatron: bad --tap near \"%s\" (F:SC:N,...)\n", text);
+            return false;
+        }
+        app->taps[app->tap_count].frame = (long)frame;
+        app->taps[app->tap_count].code = (uint8_t)code;
+        app->taps[app->tap_count].release = (long)(frame + hold);
+        app->tap_count++;
+        text += used;
+        if (*text != ',')
+            return true;
+        text++;
+    }
 }
 
 /* A fraction 0..1 of a tick as timing_set_phase() takes it. */
@@ -392,6 +478,12 @@ static bool frame(void *user)
     app->pending_requests |= plat_take_requests();
     bool running = true;
     app->frame_count++;
+    for (size_t i = 0; i < app->tap_count; i++) {
+        if (app->frame_count == app->taps[i].frame)
+            test_key(app, app->taps[i].code, true);
+        if (app->frame_count == app->taps[i].release)
+            test_key(app, app->taps[i].code, false);    /* after the press when N = 0: one batch */
+    }
     uint32_t due = retraces_due(app);
 
     if (app->phase == PHASE_TITLE) {
@@ -418,6 +510,7 @@ static bool frame(void *user)
             GameHostInput host = { app->pending_requests, plat_has_focus() };
             app->pending_requests = 0;
             game_frame(&app->game, &host);
+            release_held_breaks(app);
             if (game_wants_quit(&app->game))
                 running = false;
         }
@@ -520,7 +613,10 @@ int main(int argc, char **argv)
             app->dump_tick_count = parse_ticks(argv[++i], app->dump_ticks, TICK_LIST_MAX);
         else if (strcmp(argv[i], "--page-hashes") == 0 && i + 1 < argc)
             app->hash_tick_count = parse_ticks(argv[++i], app->hash_ticks, TICK_LIST_MAX);
-        else if (strcmp(argv[i], "--tick-phase") == 0 && i + 1 < argc)
+        else if (strcmp(argv[i], "--tap") == 0 && i + 1 < argc) {
+            if (!parse_taps(argv[++i], app))
+                return 1;
+        } else if (strcmp(argv[i], "--tick-phase") == 0 && i + 1 < argc)
             app->tick_phase = parse_phase(argv[++i]);
         else if (strcmp(argv[i], "--start-delay") == 0 && i + 1 < argc)
             app->start_delay = (uint32_t)strtoul(argv[++i], NULL, 10);
@@ -564,6 +660,9 @@ int main(int argc, char **argv)
     const char *hashes = strstr(query, "hashes=");
     if (hashes)
         app->hash_tick_count = parse_ticks(hashes + 7, app->hash_ticks, TICK_LIST_MAX);
+    const char *taps = strstr(query, "taps=");
+    if (taps && !parse_taps(taps + 5, app))
+        return 1;
     const char *phase = strstr(query, "phase=");
     if (phase)
         app->tick_phase = parse_phase(phase + 6);

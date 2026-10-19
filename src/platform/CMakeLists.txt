@@ -129,6 +129,9 @@ if(EXISTS ${PROJECT_SOURCE_DIR}/src/game/CMakeLists.txt)
                 --workdir ${CMAKE_CURRENT_BINARY_DIR}/visual)
             set_tests_properties(llamatron_visual_walk_vga PROPERTIES
                 ENVIRONMENT "LLAMATRON_PREF_DIR=${_llama_prefs}" SKIP_REGULAR_EXPRESSION "visual: skipped")
+            # A key press and release in one host event batch acts like a one-frame press.
+            add_test(NAME llamatron_tap COMMAND ${Python3_EXECUTABLE}
+                ${CMAKE_CURRENT_SOURCE_DIR}/tools/tap_check.py --native $<TARGET_FILE:llamatron>)
         endif()
         set_tests_properties(llamatron_title_phase llamatron_to_game llamatron_replay PROPERTIES
             ENVIRONMENT "LLAMATRON_PREF_DIR=${_llama_prefs}")
@@ -213,7 +216,13 @@ if(EMSCRIPTEN)
                 ${CMAKE_CURRENT_SOURCE_DIR}/tools/web_parity.py --native ${LLAMATRON_NATIVE_LLAMATRON}
                 --web-dir ${CMAKE_CURRENT_BINARY_DIR} --golden ${PROJECT_SOURCE_DIR}/tests/golden/reference_runs.json
                 --run walk_vga)
-            set_tests_properties(web_llamatron_title web_llamatron_to_game web_llamatron_parity PROPERTIES
+            # A Space keydown + keyup dispatched back to back (one batch) in the version
+            # scroller acts like a one-frame press, as on the native side (llamatron_tap).
+            add_test(NAME web_llamatron_tap COMMAND ${Python3_EXECUTABLE}
+                ${CMAKE_CURRENT_SOURCE_DIR}/tools/tap_check.py --native ${LLAMATRON_NATIVE_LLAMATRON}
+                --web-dir ${CMAKE_CURRENT_BINARY_DIR})
+            set_tests_properties(web_llamatron_title web_llamatron_to_game web_llamatron_parity
+                web_llamatron_tap PROPERTIES
                 SKIP_RETURN_CODE 77 LABELS web TIMEOUT 300)
         endif()
     endif()

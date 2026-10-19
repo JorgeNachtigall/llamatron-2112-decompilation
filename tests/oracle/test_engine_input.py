@@ -42,7 +42,8 @@ class InputState(ctypes.Structure):
     _fields_ = [("device", ctypes.c_int), ("single_stick", ctypes.c_bool),
                 ("keys_held", ctypes.c_uint8), ("last_scan_code", ctypes.c_uint8),
                 ("last_make_code", ctypes.c_uint8), ("last_make_code_copy", ctypes.c_uint8),
-                ("unsampled", ctypes.c_uint8), ("release_pending", ctypes.c_uint8),
+                ("unseen_by_frame", ctypes.c_uint8), ("unseen_by_tick", ctypes.c_uint8),
+                ("release_pending", ctypes.c_uint8),
                 ("controls", ctypes.c_uint8 * 2), ("joystick_buttons", ctypes.c_uint8),
                 ("calibration", Calibration * 2), ("sticks", Reading * 2)]
 
@@ -142,7 +143,7 @@ def test_keyboard_stream(machine, cgame):
             else:
                 tick_fire(machine), c.tick_fire()
                 frame_read(machine), c.frame_read(False)
-            assert st.unsampled == 0 and st.release_pending == 0
+            assert st.unseen_by_frame == 0 and st.unseen_by_tick == 0 and st.release_pending == 0
             check_keyboard(machine, st, f"case {case} step {step} byte {byte:02x} (sampled)")
 
 

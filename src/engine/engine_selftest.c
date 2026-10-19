@@ -133,12 +133,14 @@ static void test_input(void)
     input_key_event(PC_KEY_SPACE, true);
     input_tick_fire();
     CHECK(in->controls[0] & INPUT_FIRE);
-    input_key_event(PC_KEY_SPACE, false);
+    input_frame_read(false);
+    input_key_event(PC_KEY_SPACE, false);               /* seen by both readers: up at once */
+    CHECK(!(in->keys_held & INPUT_FIRE));
     input_tick_fire();
     CHECK(!(in->controls[0] & INPUT_FIRE));
 
     /* Taps inside one host frame (press + release delivered in the same event batch) must be
-     * seen once by their consumer, then released. */
+     * seen once by each reader, then released. */
     input_init(INPUT_DEVICE_KEYBOARD, true);
     in = input_state();
     input_key_event(PC_KEY_SPACE, true);
@@ -155,6 +157,29 @@ static void test_input(void)
     input_frame_read(false);
     CHECK(!(in->controls[0] & INPUT_LEFT));
     CHECK(in->keys_held == 0);
+    /* The same-frame fire tap in the shell's order: the retrace's tick runs, then the frame
+     * read, which the title's start check (game86 1000:0136..016a) looks at. Both see it,
+     * once (Prism's portal check: a quick Space at the title was lost when the tick ran first). */
+    for (int tick_first = 0; tick_first < 2; tick_first++) {
+        input_init(INPUT_DEVICE_KEYBOARD, true);
+        in = input_state();
+        input_key_event(PC_KEY_SPACE, true);
+        input_key_event(PC_KEY_SPACE, false);
+        if (tick_first) {
+            input_tick_fire();
+            CHECK(in->controls[0] & INPUT_FIRE);
+        }
+        input_frame_read(false);
+        CHECK(in->controls[0] & INPUT_FIRE);            /* the title starts */
+        if (!tick_first) {
+            input_tick_fire();
+            CHECK(in->controls[0] & INPUT_FIRE);        /* the shot still fires */
+        }
+        CHECK(in->keys_held == 0);
+        input_tick_fire();
+        input_frame_read(false);
+        CHECK(!(in->controls[0] & INPUT_FIRE));
+    }
     /* A held key released after it was sampled goes up immediately (original behaviour). */
     input_key_event(PC_KEY_UP, true);
     input_frame_read(false);

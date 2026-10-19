@@ -73,7 +73,8 @@ typedef struct InputState {
     uint8_t last_scan_code;         /* [0x587]: last byte, make or break */
     uint8_t last_make_code;         /* [0x586]: last make code; the game clears it after use */
     uint8_t last_make_code_copy;    /* [0xb72]: second copy, consumed independently */
-    uint8_t unsampled;              /* port only: pressed keys not yet seen by their consumer */
+    uint8_t unseen_by_frame;        /* port only: pressed keys input_frame_read has not read yet */
+    uint8_t unseen_by_tick;         /* port only: INPUT_FIRE pressed, input_tick_fire not run yet */
     uint8_t release_pending;        /* port only: released before being seen; cleared once seen */
 
     /* Per-controller control bytes: [0] = controller 1 ([0x7fc]), [1] = controller 2 ([0x7fb]). */
@@ -95,9 +96,11 @@ InputState *input_state(void);
 JoystickCalibration input_calibrate(uint16_t centre_x, uint16_t centre_y);
 
 /* game86 1000:e567: one byte from the keyboard (make code, or make | 0x80 for a release).
- * A key released before it was sampled (directions by input_frame_read, fire by
- * input_tick_fire) stays held until that sample, so taps shorter than one host frame are not
- * lost. last_make_code is set on the press as in the original and survives the release. */
+ * A key released before it was sampled stays held until every reader of keys_held has seen it:
+ * input_frame_read for all keys and, for fire, input_tick_fire too (game86 reads fire in both,
+ * e.g. the title starts on the frame's copy, the shots on the tick's), so taps shorter than one
+ * host frame are not lost. last_make_code is set on the press as in the original and survives
+ * the release. */
 void input_keyboard_byte(uint8_t scan_code);
 /* Convenience for platform key events. */
 void input_key_event(uint8_t make_code, bool pressed);
