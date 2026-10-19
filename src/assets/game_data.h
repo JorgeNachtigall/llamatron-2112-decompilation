@@ -38,6 +38,10 @@ const SpriteRefTable *asset_sprite_refs(void);
 const GfxSprite *asset_sprite_ref_gfx(unsigned ref_index);
 /* Sprite number n of \s and of an entity's sprite field: refs[SPRITE_NUMBER_BASE + n]. */
 const GfxSprite *asset_sprite_number_gfx(unsigned number);
+/* A frame the code names directly (SpriteId, formats.h): its sprites.bin index (-1 if not
+ * loaded) or its gfx view. Pause picture i is SPRITE_ID_PAUSE_FIRST + i. */
+int asset_sprite_id_index(SpriteId id);
+const GfxSprite *asset_sprite_id_gfx(SpriteId id);
 
 /* ---- Font, sine ---- */
 

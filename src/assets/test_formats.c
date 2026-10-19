@@ -61,6 +61,7 @@ static bool parse_enemies(const uint8_t *d, size_t n) { EnemyTables e; return en
 static bool parse_controls(const uint8_t *d, size_t n) { ControlTables c; return control_tables_parse(d, n, &c); }
 static bool parse_title(const uint8_t *d, size_t n) { TitleTables t; return title_tables_parse(d, n, &t); }
 static bool parse_hud(const uint8_t *d, size_t n) { HudGlyphs h; return hud_glyphs_parse(d, n, &h); }
+static bool parse_named(const uint8_t *d, size_t n) { NamedSprites s; return named_sprites_parse(d, n, 100, &s); }
 
 static void test_sprites(void)
 {
@@ -342,6 +343,18 @@ static void test_samples_scores_config(void)
     check_rejects_damage(&t, parse_title, "LTTL");
     t.bytes[t.size - 1] = 3; /* no 0 rate byte at the end */
     CHECK(!parse_title(t.bytes, t.size));
+
+    Buf ns = {0};
+    header(&ns, "LNSP", FORMAT_LNSP_VERSION);
+    put16(&ns, SPRITE_ID_COUNT);
+    for (int i = 0; i < SPRITE_ID_COUNT; i++) { put16(&ns, (unsigned)(0x1000 + i)); put16(&ns, (unsigned)(90 + i)); }
+    NamedSprites named;
+    CHECK(named_sprites_parse(ns.bytes, ns.size, 100, &named));
+    CHECK(named.bank_offset[SPRITE_ID_SHIELD] == 0x1002 && named.frame[SPRITE_ID_COUNT - 1] == 99);
+    check_rejects_damage(&ns, parse_named, "LNSP");
+    CHECK(!named_sprites_parse(ns.bytes, ns.size, 99, &named)); /* frame 99 out of range */
+    ns.bytes[6] = SPRITE_ID_COUNT - 1;                           /* wrong name count */
+    CHECK(!parse_named(ns.bytes, ns.size));
 }
 
 int main(void)

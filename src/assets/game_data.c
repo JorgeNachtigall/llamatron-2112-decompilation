@@ -21,6 +21,9 @@ _Static_assert(LLAMA_FMT_LHSC_VERSION == FORMAT_LHSC_VERSION, "hiscore.dat versi
 _Static_assert(LLAMA_FMT_LENM_VERSION == FORMAT_LENM_VERSION, "enemies.dat version");
 _Static_assert(LLAMA_FMT_LCTL_VERSION == FORMAT_LCTL_VERSION, "controls.dat version");
 _Static_assert(LLAMA_FMT_LTTL_VERSION == FORMAT_LTTL_VERSION, "title.dat version");
+_Static_assert(LLAMA_FMT_LNSP_VERSION == FORMAT_LNSP_VERSION, "named_sprites.dat version");
+_Static_assert(LLAMA_NAMED_SPRITE_COUNT == SPRITE_ID_COUNT, "named_sprites.dat names");
+_Static_assert(LLAMA_PAUSE_PICTURE_COUNT == PAUSE_PICTURE_COUNT, "pause pictures");
 
 static struct {
     bool loaded;
@@ -39,6 +42,7 @@ static struct {
     EnemyTables enemies;
     ControlTables controls;
     TitleTables title;
+    NamedSprites named_sprites;
 } data;
 
 static bool report(const char *name)
@@ -58,6 +62,8 @@ bool game_data_load(void)
     bool ok = LOAD(LLAMA_ASSET_SPRITES_BIN, sprite_bank_parse(bytes, size, &data.banks[SPRITE_BANK_GAME])) &&
               LOAD(LLAMA_ASSET_G3_BIN, sprite_bank_parse(bytes, size, &data.banks[SPRITE_BANK_TITLE])) &&
               LOAD(LLAMA_ASSET_SPRITE_REFS_BIN, sprite_refs_parse(bytes, size, &data.refs)) &&
+              LOAD(LLAMA_ASSET_NAMED_SPRITES_DAT, named_sprites_parse(bytes, size, data.banks[SPRITE_BANK_GAME].frame_count,
+                                                                      &data.named_sprites)) &&
               LOAD(LLAMA_ASSET_FONT_BIN, font_parse(bytes, size, &data.font)) &&
               LOAD(LLAMA_ASSET_SINE_BIN, sine_parse(bytes, size, &data.sine)) &&
               LOAD(LLAMA_ASSET_PALETTES_DAT, palettes_parse(bytes, size, &data.palettes)) &&
@@ -116,6 +122,17 @@ const GfxSprite *asset_sprite_ref_gfx(unsigned ref_index)
 const GfxSprite *asset_sprite_number_gfx(unsigned number)
 {
     return asset_sprite_ref_gfx(SPRITE_NUMBER_BASE + number);
+}
+
+int asset_sprite_id_index(SpriteId id)
+{
+    return data.loaded && (unsigned)id < SPRITE_ID_COUNT ? data.named_sprites.frame[id] : -1;
+}
+
+const GfxSprite *asset_sprite_id_gfx(SpriteId id)
+{
+    int frame = asset_sprite_id_index(id);
+    return frame >= 0 ? asset_sprite_gfx(SPRITE_BANK_GAME, (unsigned)frame) : NULL;
 }
 
 const AssetFont *asset_font(void)

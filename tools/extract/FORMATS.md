@@ -260,6 +260,27 @@ u8    tune[tune_length]   DS:09D5 verbatim: {rate index, sample} pairs, then a 0
                           makes title_tune_tick (1000:0870..0889) restart at the first pair
 ```
 
+## `named_sprites.dat` (game-bank frames the code names directly)
+```
+char  magic[4] = "LNSP"
+u16   version = 1
+u16   count = 10
+struct { u16 bank_offset; u16 frame; } names[count]   original pointer 218C:bank_offset and its
+                                                      sprites.bin frame index
+```
+In this order (`SpriteId` in src/assets/formats.h). The first six are the imm16 of a `MOV SI,imm16`
+(opcode BE) drawn with ES = the sprite bank; the extractor checks the opcode and that all sites of
+one name hold the same pointer:
+| # | name | code sites |
+|---|------|------------|
+| 0 | beam head | 1000:46b6, 1000:477f (anim 02/03) |
+| 1 | power-up mark | 1000:469f (anim 10; the same frame as sprite number 0xc5) |
+| 2 | shield | 1000:1a81, 1000:1b4b (while the shield timer DS:0907 runs) |
+| 3 | rescue marker | 1000:1afe, 1000:1bd2 (y from DS:0921 / DS:0923) |
+| 4 | hiscore mark 1 | 1000:5cde (row DS:09DE of the high-score table) |
+| 5 | hiscore mark 2 | 1000:5d04 (row DS:09E0) |
+| 6..9 | pause pictures | DS:09E2, 4 words then -1 (checked); 1000:15a2 picks `rng & 3`, 1000:1a5c draws it at (0xA0, 0x46) |
+
 ## `levels.dat` (tbl_level_scripts DS:2BDA; interpreter game86 1000:020b)
 The table has **100** entries (up to the 0 word at DS:2CA2), not 40. A 0 entry makes the game wrap
 to level 0 and increment the loop count.

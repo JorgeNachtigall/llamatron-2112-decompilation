@@ -1,8 +1,9 @@
-/* sprites.c - sprites.bin / g3.bin (LSPR) and sprite_refs.bin (LSRF). */
+/* sprites.c - sprites.bin / g3.bin (LSPR), sprite_refs.bin (LSRF), named_sprites.dat (LNSP). */
 #include "formats.h"
 #include "reader.h"
 
 #include <stdlib.h>
+#include <string.h>
 
 enum { FRAME_RECORD_SIZE = 20 };
 
@@ -102,4 +103,24 @@ void sprite_refs_free(SpriteRefTable *table)
 {
     free(table->refs);
     *table = (SpriteRefTable){0};
+}
+
+bool named_sprites_parse(const uint8_t *data, size_t size, uint16_t frame_count, NamedSprites *out)
+{
+    memset(out, 0, sizeof *out);
+    Reader r = reader_open(data, size);
+    if (!reader_header(&r, "LNSP", FORMAT_LNSP_VERSION))
+        return false;
+    uint16_t count = reader_u16(&r);
+    if (r.ok && count != SPRITE_ID_COUNT)
+        return format_fail("LNSP: %u names, expected %u", (unsigned)count, (unsigned)SPRITE_ID_COUNT);
+    for (int i = 0; i < SPRITE_ID_COUNT; i++) {
+        out->bank_offset[i] = reader_u16(&r);
+        out->frame[i] = reader_u16(&r);
+        if (r.ok && out->frame[i] >= frame_count)
+            return format_fail("LNSP: name %d is frame %u of %u", i, (unsigned)out->frame[i], (unsigned)frame_count);
+    }
+    if (!r.ok || r.pos != size)
+        return format_fail("LNSP: %s", r.ok ? "trailing bytes" : "truncated");
+    return true;
 }

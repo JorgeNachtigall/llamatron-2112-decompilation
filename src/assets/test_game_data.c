@@ -59,6 +59,18 @@ static void check_sprites(void)
     CHECK(frames > 0);
     CHECK(asset_sprite_number_gfx(0) == asset_sprite_ref_gfx(SPRITE_NUMBER_BASE));
     CHECK(asset_sprite_ref_gfx(LLAMA_SPRITE_REF_COUNT) == NULL);
+
+    const SpriteBank *bank = asset_sprite_bank(SPRITE_BANK_GAME);
+    for (int id = 0; bank && id < SPRITE_ID_COUNT; id++) {
+        int frame = asset_sprite_id_index((SpriteId)id);
+        CHECK(frame >= 0 && asset_sprite_id_gfx((SpriteId)id) == asset_sprite_gfx(SPRITE_BANK_GAME, (unsigned)frame));
+        for (int other = 0; other < id; other++) /* every name is a different frame */
+            CHECK(asset_sprite_id_index((SpriteId)other) != frame);
+    }
+    /* anim 10 draws 218C:92A4 by pointer, the comment there says it is sprite number 0xc5 */
+    CHECK(asset_sprite_id_gfx(SPRITE_ID_POWERUP_MARK) == asset_sprite_number_gfx(0xc5));
+    CHECK(asset_sprite_id_index(SPRITE_ID_BEAM_HEAD) == asset_sprite_index_at(SPRITE_BANK_GAME, 0x7aa2)); /* 1000:46b6 */
+    CHECK(asset_sprite_id_gfx(SPRITE_ID_COUNT) == NULL);
 }
 
 static void check_font(void)

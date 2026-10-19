@@ -39,6 +39,7 @@ enum {
     FORMAT_LENM_VERSION = 2,
     FORMAT_LCTL_VERSION = 1,
     FORMAT_LTTL_VERSION = 1,
+    FORMAT_LNSP_VERSION = 1,
 };
 
 const char *format_error(void);
@@ -83,6 +84,31 @@ typedef struct SpriteRefTable {
 
 bool sprite_refs_parse(const uint8_t *data, size_t size, SpriteRefTable *out);
 void sprite_refs_free(SpriteRefTable *table);
+
+/* ---- named_sprites.dat (LNSP): game-bank frames the code names directly --------------- */
+
+/* In file order. The code draws these by a fixed 218C pointer (MOV SI,imm16), not by sprite
+ * number; the pause pictures come from DS:09E2. */
+typedef enum SpriteId {
+    SPRITE_ID_BEAM_HEAD,        /* 1000:46b6 / 477f, anim 02/03 beams */
+    SPRITE_ID_POWERUP_MARK,     /* 1000:469f, anim 10 (also sprite number 0xc5) */
+    SPRITE_ID_SHIELD,           /* 1000:1a81 / 1b4b, while the shield timer DS:0907 runs */
+    SPRITE_ID_RESCUE_MARKER,    /* 1000:1afe / 1bd2, at DS:0921 / 0923 */
+    SPRITE_ID_HISCORE_MARK_1,   /* 1000:5cde, beside the new score at row DS:09DE */
+    SPRITE_ID_HISCORE_MARK_2,   /* 1000:5d04, row DS:09E0 */
+    SPRITE_ID_PAUSE_FIRST,      /* DS:09E2: 4 pause pictures, one picked at random (1000:15a2) */
+    SPRITE_ID_COUNT = SPRITE_ID_PAUSE_FIRST + 4,
+} SpriteId;
+
+enum { PAUSE_PICTURE_COUNT = SPRITE_ID_COUNT - SPRITE_ID_PAUSE_FIRST };
+
+typedef struct NamedSprites {
+    uint16_t bank_offset[SPRITE_ID_COUNT];  /* the original pointer (218C:offset) */
+    uint16_t frame[SPRITE_ID_COUNT];        /* index into sprites.bin */
+} NamedSprites;
+
+/* Fails unless the file names exactly SPRITE_ID_COUNT frames, all below frame_count. */
+bool named_sprites_parse(const uint8_t *data, size_t size, uint16_t frame_count, NamedSprites *out);
 
 /* ---- font.bin (LFNT) ------------------------------------------------------------------ */
 
