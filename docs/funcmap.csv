@@ -384,22 +384,22 @@ fs,1000:011c,15,kbd_flush,,src/platform/,ported,W2,fs,no counterpart: no BIOS ke
 fs,1000:012b,23,exit_cleanup,title_free,src/engine/title.c,ported,W2,fs,app leaves the title phase
 fs,1000:0142,76,FUN_1000_0142,title_frame,src/engine/title.c,ported,W2,fs,two retraces before leaving (TITLE_LEAVING)
 fs,1000:018e,49,irq08_timer,timing_run_timer_ticks,src/engine/timing.c,ported,W2,fs,driver tick only (NULL timer callback in the title phase)
-fs,1000:01bf,106,show_title,title_load,src/engine/title.c,ported,W2,fs,"shows the extracted picture; title_hash_vga/ega regression hashes, not diff-tested against fs.exe"
-fs,1000:0229,105,ega_show_planes,extract_ega_title,tools/extract/title.c,ported,W2,fs,"build-time extractor (W1 file): planes decoded to chunky, palette registers; title_load shows them"
-fs,1000:0293,424,lbm_load,ilbm_decode,tools/extract/ilbm.c,ported,W2,fs,build-time extractor (W1 file); file I/O replaced by the extractor input
-fs,1000:043a,118,cmap_apply,extract_vga_title,tools/extract/title.c,ported,W2,fs,VGA: CMAP >> 2 into the DAC; EGA: ega_register_for (2-bit levels via DS:0122/0126/012a)
-fs,1000:04b0,17,FUN_1000_04b0,ega_register_for,tools/extract/title.c,ported,W2,fs,CMAP byte >> 6 inside cmap_apply EGA path
-fs,1000:04c1,11,ega_palette_set,title_load,src/engine/title.c,ported,W2,fs,EGA registers from title_ega.pal shown through gfx_ega_color
-fs,1000:04cc,106,planar_to_chunky,decode_body,tools/extract/ilbm.c,ported,W2,fs,planar -> chunky
-fs,1000:0536,7387,FUN_1000_0536,decode_body,tools/extract/ilbm.c,ported,W2,fs,unrolled bit loop of planar_to_chunky 04cc
-fs,1000:2211,270,body_decode,decode_body,tools/extract/ilbm.c,ported,W2,fs,ByteRun1 BODY
-fs,1000:231f,53,byterun1_row,byterun1_row,tools/extract/ilbm.c,ported,W2,fs,runs cut at the row end like fs.exe
-fs,1000:2354,14,src_wrap,byterun1_row,tools/extract/ilbm.c,ported,W2,fs,source wrap of the load buffer: the extractor reads the whole file
-fs,1000:2362,41,skip_mask_row,decode_body,tools/extract/ilbm.c,ported,W2,fs,extra row skipped for any masking value
-fs,1000:238b,18,clear_load_buf,decode_body,tools/extract/ilbm.c,ported,W2,fs,output starts zeroed
-fs,1000:239d,5,chunky_to_modex_lower,title_load,src/engine/title.c,ported,W2,fs,mode X lower half: the port keeps 320x400 chunky (title_vga.idx8 rows 200..399)
-fs,1000:23a2,91,chunky_to_modex,title_load,src/engine/title.c,ported,W2,fs,mode X upper half: the port keeps 320x400 chunky
-fs,1000:23fd,91,vga_set_320x400,title_load,src/engine/title.c,ported,W2,fs,"320x400 picture, presented by the platform at that size"
+fs,1000:01bf,106,show_title,title_load,src/engine/title.c,diff-tested,W2,fs,"shows the extracted picture; test_fs_title.py runs fs.exe show_title 01bf on the original pictures (VGA mode X + EGA): pixels, DAC/EGA registers = extractor files and title_load hash"
+fs,1000:0229,105,ega_show_planes,extract_ega_title,tools/extract/title.c,diff-tested,W2,fs,"build-time extractor (W1 file): planes decoded to chunky, palette registers; title_load shows them; test_fs_title.py runs fs.exe show_title 01bf on the original pictures (VGA mode X + EGA): pixels, DAC/EGA registers = extractor files and title_load hash"
+fs,1000:0293,424,lbm_load,ilbm_decode,tools/extract/ilbm.c,diff-tested,W2,fs,"build-time extractor (W1 file); file I/O replaced by the extractor input; test_fs_title.py runs fs.exe show_title 01bf on the original pictures (VGA mode X + EGA): pixels, DAC/EGA registers = extractor files and title_load hash"
+fs,1000:043a,118,cmap_apply,extract_vga_title,tools/extract/title.c,diff-tested,W2,fs,"VGA: CMAP >> 2 into the DAC; EGA: ega_register_for (2-bit levels via DS:0122/0126/012a); test_fs_title.py runs fs.exe show_title 01bf on the original pictures (VGA mode X + EGA): pixels, DAC/EGA registers = extractor files and title_load hash"
+fs,1000:04b0,17,FUN_1000_04b0,ega_register_for,tools/extract/title.c,diff-tested,W2,fs,"CMAP byte >> 6 inside cmap_apply EGA path; test_fs_title.py runs fs.exe show_title 01bf on the original pictures (VGA mode X + EGA): pixels, DAC/EGA registers = extractor files and title_load hash"
+fs,1000:04c1,11,ega_palette_set,title_load,src/engine/title.c,diff-tested,W2,fs,"EGA registers from title_ega.pal shown through gfx_ega_color; test_fs_title.py runs fs.exe show_title 01bf on the original pictures (VGA mode X + EGA): pixels, DAC/EGA registers = extractor files and title_load hash"
+fs,1000:04cc,106,planar_to_chunky,decode_body,tools/extract/ilbm.c,diff-tested,W2,fs,"planar -> chunky; test_fs_title.py runs fs.exe show_title 01bf on the original pictures (VGA mode X + EGA): pixels, DAC/EGA registers = extractor files and title_load hash"
+fs,1000:0536,7387,FUN_1000_0536,decode_body,tools/extract/ilbm.c,diff-tested,W2,fs,"unrolled bit loop of planar_to_chunky 04cc; test_fs_title.py runs fs.exe show_title 01bf on the original pictures (VGA mode X + EGA): pixels, DAC/EGA registers = extractor files and title_load hash"
+fs,1000:2211,270,body_decode,decode_body,tools/extract/ilbm.c,diff-tested,W2,fs,"ByteRun1 BODY; test_fs_title.py runs fs.exe show_title 01bf on the original pictures (VGA mode X + EGA): pixels, DAC/EGA registers = extractor files and title_load hash"
+fs,1000:231f,53,byterun1_row,byterun1_row,tools/extract/ilbm.c,diff-tested,W2,fs,"runs cut at the row end like fs.exe; test_fs_title.py runs fs.exe show_title 01bf on the original pictures (VGA mode X + EGA): pixels, DAC/EGA registers = extractor files and title_load hash"
+fs,1000:2354,14,src_wrap,byterun1_row,tools/extract/ilbm.c,diff-tested,W2,fs,"source wrap of the load buffer: the extractor reads the whole file; test_fs_title.py runs fs.exe show_title 01bf on the original pictures (VGA mode X + EGA): pixels, DAC/EGA registers = extractor files and title_load hash"
+fs,1000:2362,41,skip_mask_row,decode_body,tools/extract/ilbm.c,diff-tested,W2,fs,"extra row skipped for any masking value; test_fs_title.py runs fs.exe show_title 01bf on the original pictures (VGA mode X + EGA): pixels, DAC/EGA registers = extractor files and title_load hash"
+fs,1000:238b,18,clear_load_buf,decode_body,tools/extract/ilbm.c,diff-tested,W2,fs,"output starts zeroed; test_fs_title.py runs fs.exe show_title 01bf on the original pictures (VGA mode X + EGA): pixels, DAC/EGA registers = extractor files and title_load hash"
+fs,1000:239d,5,chunky_to_modex_lower,title_load,src/engine/title.c,diff-tested,W2,fs,"mode X lower half: the port keeps 320x400 chunky (title_vga.idx8 rows 200..399); test_fs_title.py runs fs.exe show_title 01bf on the original pictures (VGA mode X + EGA): pixels, DAC/EGA registers = extractor files and title_load hash"
+fs,1000:23a2,91,chunky_to_modex,title_load,src/engine/title.c,diff-tested,W2,fs,"mode X upper half: the port keeps 320x400 chunky; test_fs_title.py runs fs.exe show_title 01bf on the original pictures (VGA mode X + EGA): pixels, DAC/EGA registers = extractor files and title_load hash"
+fs,1000:23fd,91,vga_set_320x400,title_load,src/engine/title.c,diff-tested,W2,fs,"320x400 picture, presented by the platform at that size; test_fs_title.py runs fs.exe show_title 01bf on the original pictures (VGA mode X + EGA): pixels, DAC/EGA registers = extractor files and title_load hash"
 fs,1000:2458,34,mem_shrink,,src/platform/,ported,W2,fs,no counterpart: DOS memory shrink
 llama,1000:0010,54,entry,entry,,todo,W0,llama,launcher/installer: llama.inf semantics become port options
 llama,1000:0103,147,launch_children,launch_children,,todo,W0,llama,launcher/installer: llama.inf semantics become port options
