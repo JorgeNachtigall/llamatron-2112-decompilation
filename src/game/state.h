@@ -16,6 +16,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "formats.h"   /* HighScore (src/assets) */
 #include "rng.h"
 
 #ifdef __cplusplus
@@ -28,7 +29,7 @@ enum {
     SHOT_COUNT = 15,            /* player shots, DS:68C9 */
     TRAIL_LENGTH = 128,         /* position history per player, DS:6CC9 / DS:70C9 */
     ROSTER_SIZE = 50,           /* DS:220A, 50 slots cleared; 31 searched (1000:1ced) */
-    SCORE_DIGITS = 8,
+    SCORE_DIGITS = 8,           /* scores are kept modulo 10^8 */
     HISCORE_COUNT = 10,
     HISCORE_NAME_LENGTH = 8,
     LEVEL_COUNT = 100,          /* tbl_level_scripts DS:2BDA..2CA1 */
@@ -163,10 +164,9 @@ typedef enum GameOptions {      /* DS:2CF6 bits */
     OPT_CURRENT_IS_P2 = 0x10,   /* toggled by player_swap_state */
 } GameOptions;
 
-typedef struct HiscoreEntry {   /* scores.yak record: 8 ASCII digits + 8 name chars */
-    char digits[SCORE_DIGITS];
-    char name[HISCORE_NAME_LENGTH];
-} HiscoreEntry;
+/* One high-score row (scores.yak / DS:40A0 is 8 ASCII digits + 8 name bytes); the same type
+ * the extractor's score table uses, so loading and saving copy rows unchanged. */
+typedef HighScore HiscoreEntry;
 
 typedef struct GameState {
     /* Configuration from the launcher's command tail (game86 1000:5f6b) */
@@ -183,7 +183,11 @@ typedef struct GameState {
     Player player_other;                /* 226E */
     Point16 ship[PLAYER_COUNT];         /* 2CFB/2CFD P1, 2CFF/2D01 P2 */
     Point16 target;                     /* 2D03/2D05 ship the current entity aims at */
-    uint8_t score[PLAYER_COUNT][SCORE_DIGITS]; /* 4441/4449 one decimal digit per byte, MSD first */
+    /* 4441/4449, there 8 decimal digits, one per byte, most significant first. Kept as a number
+     * modulo 10^8: score_add's digit carries are plain addition, its extra life fires when a
+     * carry reaches the 10,000s digit (= a multiple of 10,000 crossed), the high-score compare
+     * is digit-wise (= numeric) and the HUD converts to digits when drawing. */
+    uint32_t score[PLAYER_COUNT];
     int16_t continues;                  /* 061F 4 per game */
     int16_t respawn_timer[PLAYER_COUNT];/* 07F3 / 0634 [H] 0x64 at wave start, P1 0xFFFE = dying */
     int16_t loop_count;                 /* 233C times the level scripts wrapped to level 0 */
