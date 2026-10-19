@@ -17,6 +17,7 @@ add_library(llamatron_game STATIC
     hud.c
     draw_scroller.c
     hiscore.c
+    entities/anim.c
     entities/movement.c
     entities/think_basic.c
     entities/think_table.c
