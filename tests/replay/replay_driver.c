@@ -3,7 +3,7 @@
  * as DGROUP images, for comparison with the DOSBox-X reference runs (tools/harness/dosbox,
  * PROBE.SNP). Test-only (tests/, PLAN §3.3); the game itself never sees the DGROUP layout.
  *
- *   llamatron_replay --ticks N [--every K [--first F]] [--ega|--vga] [--seed BIOS_TICKS]
+ *   llamatron_replay --ticks N [--every K [--first F] [--around R]] [--ega|--vga] [--seed T]
  *                    [--keys PROBE.KEY] [--pokes PROBE.POK] [--out FILE] [--data DIR]
  *
  * Sequencing is the shell's replay mode (src/platform/apps/llamatron_main.c): game_init, then
@@ -12,7 +12,9 @@
  * due at that tick into the keyboard handler, then game_tick) and one game_frame. Ticks count
  * from 1 after game_init, like the probe's IRQs. After tick F and every K-th tick from there
  * (F defaults to K, as the probe's first-snapshot argument), after the game's handler as in
- * the probe, the GameState goes through gamestate_to_dgroup into the output.
+ * the probe, the GameState goes through gamestate_to_dgroup into the output. --around R also
+ * dumps the R ticks either side of each of those (compare.py uses them to recognise a
+ * one-tick timing shift).
  *
  * PROBE.POK (the probe's scripted state changes, {u32 tick, u16 DS offset, u16 word}) is
  * applied before the keys of its tick, like the probe does: the GameState goes out through
@@ -53,6 +55,7 @@ typedef struct Replay {
     uint32_t max_ticks;
     uint32_t every;
     uint32_t first;             /* first snapshot tick (0 = every) */
+    uint32_t around;            /* also dump this many ticks either side of a snapshot */
     uint32_t dumped;
     FILE *out;
     uint8_t image[DGROUP_SIZE];
@@ -125,6 +128,19 @@ static void apply_pokes(Replay *r)
     }
 }
 
+/* Tick F + n*K, or within `around` of one. */
+static bool due_snapshot(const Replay *r, uint32_t tick)
+{
+    if (!r->every)
+        return false;
+    uint32_t first = r->first ? r->first : r->every;
+    if (tick + r->around < first)
+        return false;
+    uint32_t rel = tick + r->around - first;    /* >= 0: tick - (first - around) */
+    uint32_t pos = rel % r->every;              /* (tick - nearest point + around) */
+    return pos <= 2 * r->around || pos + r->every <= 2 * r->around;
+}
+
 static void tick_cb(void *user)
 {
     Replay *r = user;
@@ -136,8 +152,7 @@ static void tick_cb(void *user)
     while (r->have_keys && (e = input_script_take_due(&r->keys, r->ticks)) != NULL)
         input_keyboard_byte(e->scan_code);
     game_tick(&r->game);
-    uint32_t first = r->first ? r->first : r->every;
-    if (r->out && r->every && r->ticks >= first && (r->ticks - first) % r->every == 0) {
+    if (r->out && due_snapshot(r, r->ticks)) {
         memset(r->image, 0, sizeof r->image);
         gamestate_to_dgroup(&r->game, r->image);
         put_u32(r->out, r->ticks);
@@ -148,7 +163,8 @@ static void tick_cb(void *user)
 
 static int usage(void)
 {
-    fprintf(stderr, "usage: llamatron_replay --ticks N [--every K [--first F]] [--ega|--vga] "
+    fprintf(stderr, "usage: llamatron_replay --ticks N [--every K [--first F] [--around R]] "
+                    "[--ega|--vga] "
                     "[--seed T] "
                     "[--keys PROBE.KEY] [--pokes PROBE.POK] [--out FILE] [--data DIR]\n");
     return 2;
@@ -170,6 +186,8 @@ int main(int argc, char **argv)
             r->max_ticks = (uint32_t)strtoul(argv[++i], NULL, 10);
         else if (strcmp(a, "--every") == 0 && v)
             r->every = (uint32_t)strtoul(argv[++i], NULL, 10);
+        else if (strcmp(a, "--around") == 0 && v)
+            r->around = (uint32_t)strtoul(argv[++i], NULL, 10);
         else if (strcmp(a, "--first") == 0 && v)
             r->first = (uint32_t)strtoul(argv[++i], NULL, 10);
         else if (strcmp(a, "--seed") == 0 && v)

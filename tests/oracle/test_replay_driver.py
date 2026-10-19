@@ -143,3 +143,50 @@ def test_compare_skips_stale_bytes_of_free_slots():
     assert diffs[0].offsets == []
     assert "[ignored stale bytes of 1 free entity slots]" in compare.report(diffs[:1])
     assert diffs[1].offsets == [slot, slot + 1, slot + 2]
+
+
+def _image(tick_hook, value, tick_count):
+    img = bytearray(compare.DGROUP_SIZE)
+    struct.pack_into("<H", img, compare.TICK_HOOK, tick_hook)
+    struct.pack_into("<H", img, 0x39E6, tick_count)
+    img[0x0927] = value                             # free_slots, some state
+    return bytes(img)
+
+
+def test_compare_one_tick_shift_at_a_hook_switch_is_timing():
+    """Reference switches to play at 20, the port one tick later: the bytes its tick 21
+    explains are timing (carried while the shift holds); other bytes stay real."""
+    mask = bytearray(compare.DGROUP_SIZE)
+    for off in (compare.TICK_HOOK, compare.TICK_HOOK + 1, 0x39E6, 0x39E7, 0x0927, 0x0810):
+        mask[off] = 1
+    nop, play = 0x3FDE, compare.PLAY_HOOK
+
+    def img(hook, value, tick, other=0):
+        image = bytearray(_image(hook, value, tick))
+        image[0x0810] = other
+        return bytes(image)
+
+    ref = {10: img(nop, 0, 10), 20: img(play, 5, 20), 30: img(play, 6, 30),
+           40: img(play, 7, 40, other=1)}
+    port = {10: img(nop, 0, 10),
+            19: img(nop, 0, 19), 20: img(nop, 0, 20), 21: img(play, 5, 21),
+            29: img(play, 5, 29), 30: img(play, 5, 30), 31: img(play, 6, 31),
+            39: img(play, 6, 39), 40: img(play, 6, 40), 41: img(play, 7, 41)}
+    diffs = {d.tick: d for d in compare.compare(compare.PortRun(10, bytes(mask), port), ref)}
+    assert diffs[10].offsets == [] and diffs[10].shift == 0
+    assert diffs[20].shift == 1 and diffs[20].offsets == []        # at the switch
+    assert diffs[30].shift == 1 and diffs[30].offsets == []        # carried, no switch
+    assert diffs[40].shift == 1 and diffs[40].offsets == [0x0810]  # timing + a real byte
+    text = compare.report(list(diffs.values()))
+    assert "timing shifts (one tick, at hook switches): ticks 20, 30, 40" in text
+    assert "first divergence at tick 40" in text
+
+
+def test_compare_shift_without_a_hook_switch_is_a_divergence():
+    mask = bytearray(compare.DGROUP_SIZE)
+    mask[0x0927] = 1
+    play = compare.PLAY_HOOK
+    ref = {20: _image(play, 5, 20)}
+    port = {20: _image(play, 4, 20), 21: _image(play, 5, 21)}
+    diffs = compare.compare(compare.PortRun(10, bytes(mask), port), ref)
+    assert diffs[0].shift == 0 and compare.first_divergence(diffs) == 20

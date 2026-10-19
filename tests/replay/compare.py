@@ -30,6 +30,8 @@ from adapters.gamestate import ATTRACT_LLAMAS  # noqa: E402
 TICK_HOOK = 0x39E4
 TITLE_HOOKS = {0x3F6F, 0x084E}  # title_tick_hook, title_tune_tick
 PLAY_HOOK = 0x1562              # play_tick_hook
+DRAW_HOOK = 0x39E0
+TICK_COUNT = range(0x39E6, 0x39E8)  # counts every IRQ whatever runs: not part of a shift
 
 # Entity slots: a free slot (type word < 0) keeps stale bytes from its last user in the
 # original (e.g. the title llamas) and whatever the port leaves there; only its type word
@@ -145,6 +147,11 @@ class TickDiff:
     tick: int
     offsets: list[int]
     ignored: list[tuple[range, str]] = field(default_factory=list)
+    # +1 / -1: the port one tick behind / ahead (its tick t+shift matches the reference's
+    # tick t), at a hook switch or carried on from one;
+    # `timing` holds the bytes that shift explains (not in `offsets`, which stay real)
+    shift: int = 0
+    timing: list[int] = field(default_factory=list)
 
     def fields(self, limit: int = 12) -> list[str]:
         seen: list[str] = []
@@ -166,10 +173,19 @@ def compare(port: PortRun, reference: dict[int, bytes], ignore=()) -> list[TickD
     keeps them in the entity table, the port in attract.c. hook_nop transitions in between
     stay in the attract phase, because the bytes survive until entities_clear. P2's trail
     head is skipped while the reference still holds its loaded value (DEVIATIONS #10).
-    Entity slots free on both sides are compared by their type word only."""
+    Entity slots free on both sides are compared by their type word only.
+
+    Timing: a differing byte that equals the port's byte one tick later (or earlier) is a
+    one-tick shift, provided a tick or draw hook switches there (in either run, or between
+    them) or the same shift was already established at the previous snapshot. Such bytes go
+    to `timing`; the rest stay in `offsets` and count as real differences. The tick counter
+    never counts as either. The port's neighbouring ticks come from llamatron_replay
+    --around 1."""
     ignore = set(ignore)
     out = []
     attract = False
+    prev_ref_hooks = None
+    carried = 0
     for tick in sorted(set(port.snapshots) & set(reference)):
         a, b = reference[tick], port.snapshots[tick]
         hook = struct.unpack_from("<H", a, TICK_HOOK)[0]
@@ -177,37 +193,78 @@ def compare(port: PortRun, reference: dict[int, bytes], ignore=()) -> list[TickD
             attract = True
         elif hook == PLAY_HOOK:
             attract = False
-        skipped = [(ATTRACT_LLAMAS, "attract llamas")] if attract else []
-        if struct.unpack_from("<H", a, P2_TRAIL_HEAD)[0] == P2_TRAIL_HEAD_LOADED:
-            skipped.append((range(P2_TRAIL_HEAD, P2_TRAIL_HEAD + 2),
-                            "trail_head[1] = 2 (DEVIATIONS #10)"))
-        free = [i for i in range(ENTITY_COUNT)
-                if _type(a, i) < 0 and _type(b, i) < 0]
-        if free:
-            skipped.append((None, f"stale bytes of {len(free)} free entity slots"))
-        skip = set().union(*(r for r, _ in skipped if r is not None))
-        for i in free:
-            base = ENTITIES + ENTITY_SIZE * i
-            skip.update(range(base + 2, base + ENTITY_SIZE))
-        offs = [i for i in range(DGROUP_SIZE)
-                if port.mask[i] and a[i] != b[i] and i not in ignore and i not in skip]
-        out.append(TickDiff(tick, offs, skipped))
+        offs, skipped = _differences(a, b, port.mask, ignore, attract)
+        shift, timing = 0, []
+        state = [o for o in offs if o not in TICK_COUNT]
+        best = []
+        for s in (-1, +1):
+            other = port.snapshots.get(tick + s)
+            if other is None or not state:
+                continue
+            prev = prev_ref_hooks if prev_ref_hooks is not None else _hooks(a)
+            switch = (_hooks(a) != prev or _hooks(a) != _hooks(b)
+                      or _hooks(b) != _hooks(other))
+            explained = [o for o in state if other[o] == a[o]]
+            if (switch or s == carried) and len(explained) > len(best):
+                shift, best = s, explained
+        if shift:
+            timing = best
+            explained = set(best)
+            offs = [o for o in offs if o not in explained and o not in TICK_COUNT]
+        carried = shift
+        prev_ref_hooks = _hooks(a)
+        out.append(TickDiff(tick, offs, skipped, shift, timing))
     return out
+
+
+def _hooks(image: bytes) -> tuple[int, int]:
+    return (struct.unpack_from("<H", image, TICK_HOOK)[0],
+            struct.unpack_from("<H", image, DRAW_HOOK)[0])
+
+
+def _differences(a: bytes, b: bytes, mask: bytes, ignore: set, attract: bool):
+    """Compared offsets where reference `a` and port `b` differ, and what was skipped."""
+    skipped = [(ATTRACT_LLAMAS, "attract llamas")] if attract else []
+    if struct.unpack_from("<H", a, P2_TRAIL_HEAD)[0] == P2_TRAIL_HEAD_LOADED:
+        skipped.append((range(P2_TRAIL_HEAD, P2_TRAIL_HEAD + 2),
+                        "trail_head[1] = 2 (DEVIATIONS #10)"))
+    free = [i for i in range(ENTITY_COUNT) if _type(a, i) < 0 and _type(b, i) < 0]
+    if free:
+        skipped.append((None, f"stale bytes of {len(free)} free entity slots"))
+    skip = set().union(*(r for r, _ in skipped if r is not None))
+    for i in free:
+        base = ENTITIES + ENTITY_SIZE * i
+        skip.update(range(base + 2, base + ENTITY_SIZE))
+    offs = [i for i in range(DGROUP_SIZE)
+            if mask[i] and a[i] != b[i] and i not in ignore and i not in skip]
+    return offs, skipped
 
 
 def _type(image: bytes, slot: int) -> int:
     return struct.unpack_from("<h", image, ENTITIES + ENTITY_SIZE * slot)[0]
 
 
+def first_divergence(diffs: list[TickDiff]) -> int | None:
+    """First tick with a real (non-timing) difference."""
+    return next((d.tick for d in diffs if d.offsets), None)
+
+
 def report(diffs: list[TickDiff]) -> str:
     lines = []
     for d in diffs:
         state = "ok" if not d.offsets else f"{len(d.offsets)} bytes: " + ", ".join(d.fields())
+        if d.shift:
+            state += (f"  [timing: port one tick {'behind' if d.shift > 0 else 'ahead'}, "
+                      f"{len(d.timing)} bytes match its tick {d.tick + d.shift}]")
         skipped = "".join(f"  [ignored {name} {r.start:04X}..{r.stop - 1:04X}]" if r else
                           f"  [ignored {name}]" for r, name in d.ignored)
         lines.append(f"tick {d.tick:6d}  {state}{skipped}")
-    first = next((d.tick for d in diffs if d.offsets), None)
-    lines.append("identical on every common tick" if first is None
+    timing = [d.tick for d in diffs if d.shift]
+    if timing:
+        lines.append(f"timing shifts (one tick, at hook switches): ticks "
+                     + ", ".join(map(str, timing)))
+    first = first_divergence(diffs)
+    lines.append("identical on every common tick (apart from timing)" if first is None
                  else f"first divergence at tick {first}")
     return "\n".join(lines)
 
@@ -225,7 +282,7 @@ def main(argv=None) -> int:
     ref = {s.irq: s.dgroup for s in refrun.read_snapshots(args.probe_snp)}
     diffs = compare(port, ref, [int(x, 16) for x in args.ignore])
     print(report(diffs))
-    return 1 if any(d.offsets for d in diffs) else 0
+    return 1 if first_divergence(diffs) is not None else 0
 
 
 if __name__ == "__main__":

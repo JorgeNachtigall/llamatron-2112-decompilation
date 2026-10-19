@@ -65,9 +65,11 @@ def main(argv=None) -> int:
         script += ["--pokes", str(drive / "PROBE.POK")]
     out = workdir / "port.lrpl"
     machine = "--vga" if cfg["machine"] == "vga" else "--ega"
-    proc = subprocess.run([args.driver, "--ticks", str(last), "--every", "1",
-                           "--first", str(args.first), machine, "--seed", str(cfg["ticks"]),
-                           *script, "--out", str(out)], capture_output=True, text=True)
+    # one extra tick either side, for the timing classification
+    proc = subprocess.run([args.driver, "--ticks", str(last + 1), "--every", "1",
+                           "--first", str(max(1, args.first - 1)), machine,
+                           "--seed", str(cfg["ticks"]), *script, "--out", str(out)],
+                          capture_output=True, text=True)
     if proc.returncode != 0:
         print(proc.stderr, file=sys.stderr)
         return 1

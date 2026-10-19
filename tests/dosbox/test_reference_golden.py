@@ -204,8 +204,8 @@ def test_port_replay_report(reference, tmp_path):
     script = ["--keys", str(drive / "PROBE.KEY")]
     if (drive / "PROBE.POK").exists():
         script += ["--pokes", str(drive / "PROBE.POK")]
-    proc = subprocess.run([driver, "--ticks", str(last), "--every", str(cfg["interval"]),
-                           machine, "--seed", str(cfg["ticks"]), *script,
+    proc = subprocess.run([driver, "--ticks", str(last + 1), "--every", str(cfg["interval"]),
+                           "--around", "1", machine, "--seed", str(cfg["ticks"]), *script,
                            "--out", str(out)], capture_output=True, text=True, timeout=300)
     assert proc.returncode == 0, proc.stderr
     port = compare.read_port(out)
@@ -219,4 +219,4 @@ def test_port_replay_report(reference, tmp_path):
     report_path.write_text(text + "\n")
     print(f"\n{name}: {proc.stdout.strip()}\n{text}\n(report: {report_path})")
     if os.environ.get("LLAMATRON_REPLAY_STRICT") == "1":
-        assert all(not d.offsets for d in diffs), text
+        assert compare.first_divergence(diffs) is None, text
