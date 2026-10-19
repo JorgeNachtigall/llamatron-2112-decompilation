@@ -202,7 +202,7 @@ u8    rude_word[4]       the immediates of the CMPs at 1000:5e52, 5e5c, 5e61, 5e
 ## `enemies.dat` (read-only tables of the enemy hit / kill handlers)
 ```
 char  magic[4] = "LENM"
-u16   version = 1
+u16   version = 2
 u16   award_count = 45
 struct { u16 count_minus_1; u16 digit; } score_awards[award_count]
                          DS:2054, indexed by the entity's think index (ent_hit_00 1000:0e38);
@@ -216,6 +216,13 @@ struct { u16 sprite; s16 vx; s16 vy; } debris[16]
                          DS:0878 (the original's 4th word, always 0, is dropped); the kill
                          actions use groups starting at DS:0878 / 0898 / 08B8 = index 0 / 4 / 8
                          (1000:3bcb..3c46)
+s8    seek_dir_by_quadrant[4] DS:084A, direction 0..7 by quadrant (bit 0 = x < target x,
+                              bit 1 = y < target y), think_24 1000:34cc       (version 2)
+s16   seek_vx[8], seek_vy[8]  DS:084E / DS:085E, speed by direction (1000:350d / 3514)
+s16   wander_vx[8]            DS:1FA2, by random direction 0..7 (think_05 1000:4e13)
+s16   wander_vy[8]            DS:1FB2 (1000:4e1a)
+s16   wander_sprite[8]        DS:1FBA, sprite offset (1000:4e21); in the original this table
+                              starts inside wander_vy (they share 4 words); each is stored whole
 ```
 
 ## `levels.dat` (tbl_level_scripts DS:2BDA; interpreter game86 1000:020b)

@@ -59,6 +59,14 @@ enum {
     DEBRIS_TEMPLATES = 0x0878,       /* 16 x {u16 sprite, s16 vx, s16 vy, u16 0}, 1000:3c46 */
     DEBRIS_TEMPLATE_COUNT = 16,
     DEBRIS_TEMPLATE_SIZE = 8,
+
+    SEEK_DIR_BY_QUADRANT = 0x084A,   /* 4 x s8, think_24 1000:34cc */
+    SEEK_VX = 0x084E,                /* 8 x s16 by direction, 1000:350d */
+    SEEK_VY = 0x085E,                /* 8 x s16 by direction, 1000:3514 */
+    WANDER_VX = 0x1FA2,              /* 8 x s16 by random direction, think_05 1000:4e13 */
+    WANDER_VY = 0x1FB2,              /* 1000:4e1a */
+    WANDER_SPRITE = 0x1FBA,          /* 1000:4e21; overlaps WANDER_VY[4..7] in the original */
+    DIRECTIONS = 8,
 };
 
 /* The entered name is compared with a 4-letter word by CMP byte ptr [SI+d], imm8 instructions
@@ -286,6 +294,9 @@ static bool write_enemy_tables(ExtractContext *ctx)
         else
             ok = append_words(ctx, &out, (uint16_t)(DEBRIS_TEMPLATES + i * DEBRIS_TEMPLATE_SIZE), 3);
     }
+    ok = ok && append_dgroup(ctx, &out, SEEK_DIR_BY_QUADRANT, 4) && append_words(ctx, &out, SEEK_VX, DIRECTIONS) &&
+         append_words(ctx, &out, SEEK_VY, DIRECTIONS) && append_words(ctx, &out, WANDER_VX, DIRECTIONS) &&
+         append_words(ctx, &out, WANDER_VY, DIRECTIONS) && append_words(ctx, &out, WANDER_SPRITE, DIRECTIONS);
     ok = ok && output_write(ctx->outputs, "data/enemies.dat", out.data, out.size) &&
          index_define(ctx, "SCORE_AWARD_COUNT", awards);
     bytebuf_free(&out);

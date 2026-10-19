@@ -121,6 +121,12 @@ bool enemy_tables_parse(const uint8_t *data, size_t size, EnemyTables *out)
         out->debris[i].vx = (int16_t)reader_u16(&r);
         out->debris[i].vy = (int16_t)reader_u16(&r);
     }
+    for (int i = 0; i < SEEK_QUADRANTS; i++)
+        out->seek_dir_by_quadrant[i] = (int8_t)reader_u8(&r);
+    int16_t *word_tables[] = {out->seek_vx, out->seek_vy, out->wander_vx, out->wander_vy, out->wander_sprite};
+    for (size_t t = 0; t < sizeof word_tables / sizeof *word_tables; t++)
+        for (int i = 0; i < ENEMY_DIRECTIONS; i++)
+            word_tables[t][i] = (int16_t)reader_u16(&r);
     if (!r.ok || r.pos != size)
         return format_fail("LENM: %s", r.ok ? "trailing bytes" : "truncated");
     return true;

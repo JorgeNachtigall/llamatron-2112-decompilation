@@ -36,7 +36,7 @@ enum {
     FORMAT_LLVL_VERSION = 1,
     FORMAT_LHUD_VERSION = 1,
     FORMAT_LHSC_VERSION = 1,
-    FORMAT_LENM_VERSION = 1,
+    FORMAT_LENM_VERSION = 2,
 };
 
 const char *format_error(void);
@@ -354,6 +354,8 @@ enum {
     DROP_DIRECTIONS = 4,
     PICKUP_KINDS = 10,
     DEBRIS_TEMPLATE_COUNT = 16,
+    ENEMY_DIRECTIONS = 8,
+    SEEK_QUADRANTS = 4,
     /* First template of each group the kill actions use (DS:0878 / 0898 / 08B8, 1000:3bcb..) */
     DEBRIS_GROUP_0878 = 0,
     DEBRIS_GROUP_0898 = 4,
@@ -378,6 +380,16 @@ typedef struct EnemyTables {
     int8_t drop_by_direction[DROP_DIRECTIONS];   /* DS:0654, by (shot dir - 0x1d) & 3 */
     uint16_t pickup_sprites[PICKUP_KINDS];       /* DS:063C, sprite number per pickup kind */
     DebrisTemplate debris[DEBRIS_TEMPLATE_COUNT]; /* DS:0878 */
+    /* think_24 (1000:34cc..3514): direction 0..7 by quadrant (bit 0 = x < target x,
+     * bit 1 = y < target y), then speed by direction */
+    int8_t seek_dir_by_quadrant[SEEK_QUADRANTS];  /* DS:084A */
+    int16_t seek_vx[ENEMY_DIRECTIONS];            /* DS:084E */
+    int16_t seek_vy[ENEMY_DIRECTIONS];            /* DS:085E */
+    /* think_05 (1000:4e13..4e21), by a random direction 0..7 */
+    int16_t wander_vx[ENEMY_DIRECTIONS];          /* DS:1FA2 */
+    int16_t wander_vy[ENEMY_DIRECTIONS];          /* DS:1FB2 */
+    int16_t wander_sprite[ENEMY_DIRECTIONS];      /* DS:1FBA sprite offset (shares 4 words with
+                                                   * wander_vy in the original) */
 } EnemyTables;
 
 bool enemy_tables_parse(const uint8_t *data, size_t size, EnemyTables *out);

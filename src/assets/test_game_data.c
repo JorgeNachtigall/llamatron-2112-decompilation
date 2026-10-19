@@ -181,6 +181,10 @@ static void check_samples_scores_config(void)
     CHECK(enemies && enemies->score_awards[enemies->score_award_count - 1].digit == 0xFFFF);
     for (int i = 0; enemies && i < PICKUP_KINDS; i++) /* sprite numbers resolve through the refs */
         CHECK(asset_sprite_number_gfx(enemies->pickup_sprites[i]) != NULL);
+    for (int i = 0; enemies && i < SEEK_QUADRANTS; i++)
+        CHECK(enemies->seek_dir_by_quadrant[i] >= 0 && enemies->seek_dir_by_quadrant[i] < ENEMY_DIRECTIONS);
+    for (int i = 0; enemies && i < 4; i++) /* the original's overlap of DS:1FB2 and DS:1FBA */
+        CHECK(enemies->wander_vy[4 + i] == enemies->wander_sprite[i]);
     const HiscoreData *hiscore = asset_hiscore_data();
     CHECK(hiscore && strlen(hiscore->alphabet) == HISCORE_ALPHABET_SIZE);
     for (int i = 0; hiscore && i < HISCORE_RUDE_WORD_SIZE; i++)

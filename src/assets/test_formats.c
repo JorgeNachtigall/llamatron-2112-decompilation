@@ -302,11 +302,15 @@ static void test_samples_scores_config(void)
     for (int i = 0; i < PICKUP_KINDS; i++) put16(&e, (unsigned)(0x100 + i));
     put16(&e, DEBRIS_TEMPLATE_COUNT);
     for (int i = 0; i < DEBRIS_TEMPLATE_COUNT; i++) { put16(&e, (unsigned)i); put16(&e, 0xFFFE); put16(&e, 3); }
+    put8(&e, 7); put8(&e, 1); put8(&e, 5); put8(&e, 3);
+    for (int i = 0; i < 5 * ENEMY_DIRECTIONS; i++) put16(&e, (unsigned)(0xFFF0 + i));
     EnemyTables enemies;
     CHECK(enemy_tables_parse(e.bytes, e.size, &enemies));
     CHECK(enemies.score_award_count == 2 && enemies.score_awards[0].count_minus_1 == 4 && enemies.score_awards[0].digit == 6);
     CHECK(enemies.drop_by_direction[1] == -1 && enemies.drop_by_direction[3] == -2 && enemies.pickup_sprites[9] == 0x109);
     CHECK(enemies.debris[15].sprite == 15 && enemies.debris[15].vx == -2 && enemies.debris[15].vy == 3);
+    CHECK(enemies.seek_dir_by_quadrant[0] == 7 && enemies.seek_dir_by_quadrant[3] == 3);
+    CHECK(enemies.seek_vx[0] == -16 && enemies.seek_vy[0] == -8 && enemies.wander_sprite[7] == 0x17);
     check_rejects_damage(&e, parse_enemies, "LENM");
 }
 
