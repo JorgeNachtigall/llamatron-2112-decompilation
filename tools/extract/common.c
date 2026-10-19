@@ -96,18 +96,6 @@ bool write_file(const char *path, const uint8_t *data, size_t size)
     return ok ? true : fail("error writing %s", path);
 }
 
-bool write_file_if_changed(const char *path, const uint8_t *data, size_t size)
-{
-    ByteBuf existing = {0};
-    if (file_exists(path) && read_file(path, &existing) && existing.size == size &&
-        (size == 0 || memcmp(existing.data, data, size) == 0)) {
-        bytebuf_free(&existing);
-        return true;
-    }
-    bytebuf_free(&existing);
-    return write_file(path, data, size);
-}
-
 bool file_exists(const char *path)
 {
     struct stat st;

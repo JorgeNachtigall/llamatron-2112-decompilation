@@ -19,5 +19,4 @@ llamatron-extract --sha256 FILE...
 | `exe/<n>.layout.json` | load segment, image/header size, min/max alloc, reloc count, raw and loaded entry CS:IP / SS:SP |
 | `extract.stamp` | SHA-256 of every output, fixed order |
 
-`<n>` = `game86`, `fs`, `llama`, `install`. Outputs are only rewritten when their content
-changes. Original file names are matched as given or in upper case (DOS copies).
+`<n>` = `game86`, `fs`, `llama`, `install`. Original file names are matched as given or in upper case (DOS copies).

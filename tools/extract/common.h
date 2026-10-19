@@ -34,8 +34,6 @@ const char *last_error(void);
 
 bool read_file(const char *path, ByteBuf *out);
 bool write_file(const char *path, const uint8_t *data, size_t size);
-/* Leaves the file untouched (and its timestamp unchanged) when the content is identical. */
-bool write_file_if_changed(const char *path, const uint8_t *data, size_t size);
 /* Creates every missing directory of `path` (like `mkdir -p`). */
 bool make_dirs(const char *path);
 bool file_exists(const char *path);

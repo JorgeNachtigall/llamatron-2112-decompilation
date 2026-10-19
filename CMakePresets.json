@@ -1,0 +1,56 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": { "major": 3, "minor": 25, "patch": 0 },
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "generator": "Ninja",
+      "cacheVariables": {
+        "LLAMATRON_ORIGINAL_DIR": "${sourceDir}/original"
+      }
+    },
+    {
+      "name": "macos-native",
+      "displayName": "macOS native (SDL2)",
+      "inherits": "base",
+      "binaryDir": "${sourceDir}/build",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "LLAMATRON_TARGET": "native"
+      },
+      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Darwin" }
+    },
+    {
+      "name": "linux-native",
+      "displayName": "Linux native (SDL2)",
+      "inherits": "base",
+      "binaryDir": "${sourceDir}/build",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "LLAMATRON_TARGET": "native"
+      },
+      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Linux" }
+    },
+    {
+      "name": "web-emscripten",
+      "displayName": "Browser (Emscripten, SDL2 port) - configure via emcmake",
+      "inherits": "base",
+      "binaryDir": "${sourceDir}/build-web",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "LLAMATRON_TARGET": "web"
+      }
+    }
+  ],
+  "buildPresets": [
+    { "name": "macos-native", "configurePreset": "macos-native" },
+    { "name": "linux-native", "configurePreset": "linux-native" },
+    { "name": "web-emscripten", "configurePreset": "web-emscripten" }
+  ],
+  "testPresets": [
+    { "name": "macos-native", "configurePreset": "macos-native", "output": { "outputOnFailure": true } },
+    { "name": "linux-native", "configurePreset": "linux-native", "output": { "outputOnFailure": true } },
+    { "name": "web-emscripten", "configurePreset": "web-emscripten", "output": { "outputOnFailure": true } }
+  ]
+}

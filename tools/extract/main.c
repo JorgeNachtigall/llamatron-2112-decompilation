@@ -60,7 +60,7 @@ static bool output_write(OutputSet *set, const char *relative, const uint8_t *da
     if (set->count == MAX_OUTPUTS)
         return fail("too many outputs");
     char path[4096];
-    if (!path_join(path, sizeof path, set->root, relative) || !write_file_if_changed(path, data, size))
+    if (!path_join(path, sizeof path, set->root, relative) || !write_file(path, data, size))
         return false;
     OutputRecord *record = &set->records[set->count++];
     snprintf(record->path, sizeof record->path, "%s", relative);
@@ -85,7 +85,7 @@ static bool write_stamp(const OutputSet *set)
     }
     char path[4096];
     ok = ok && path_join(path, sizeof path, set->root, "extract.stamp") &&
-         write_file_if_changed(path, text.data, text.size);
+         write_file(path, text.data, text.size);
     bytebuf_free(&text);
     return ok;
 }
