@@ -24,6 +24,7 @@ _Static_assert(LLAMA_FMT_LTTL_VERSION == FORMAT_LTTL_VERSION, "title.dat version
 _Static_assert(LLAMA_FMT_LNSP_VERSION == FORMAT_LNSP_VERSION, "named_sprites.dat version");
 _Static_assert(LLAMA_NAMED_SPRITE_COUNT == SPRITE_ID_COUNT, "named_sprites.dat names");
 _Static_assert(LLAMA_PAUSE_PICTURE_COUNT == PAUSE_PICTURE_COUNT, "pause pictures");
+_Static_assert(LLAMA_SAMPLE_COUNT == SAMPLE_ID_HIT_0F, "SampleId names every sample");
 
 static struct {
     bool loaded;

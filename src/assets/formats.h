@@ -346,6 +346,49 @@ void levels_free(LevelSet *set);
 
 /* ---- samples.idx (LSMP) + samples.bin -------------------------------------------------- */
 
+/* The game's sample numbers (driver AH=3, AL; samples[n - 1]), named after their call sites
+ * (game86 addresses; docs/re-notes-sound-data.md §3), not by listening. "death of XX" = enemy
+ * type XX's death sound (played by the kill at 1000:0eb0). The pause screen plays the last scan
+ * code & 0x1F (1000:155d, above 0x1C -> 0x1B): the only way the KEY_ samples are heard. */
+typedef enum SampleId {
+    SAMPLE_ID_KEY_01 = 0x01,           /* pause-screen keys only */
+    SAMPLE_ID_LETTER_LANDS = 0x02,     /* title letter lands 3f97; death of 04 */
+    SAMPLE_ID_KEY_03 = 0x03,           /* pause-screen keys only */
+    SAMPLE_ID_HIT_0B = 0x04,           /* hit handler 0b 2afc */
+    SAMPLE_ID_DEATH_0B = 0x05,         /* death of 0b */
+    SAMPLE_ID_WARP = 0x06,             /* warp banner 0654 (waited for); death of 27, kill-action debris */
+    SAMPLE_ID_POP = 0x07,              /* hits 0a/0d 2dea/3205, herder spawn 23fd, name-entry cursor 5b41;
+                                          deaths of 0c, 10, segments, edge runners, dropped shots */
+    SAMPLE_ID_BEAM = 0x08,             /* homing beam 3884, drop shooter 4f36; death of 1f */
+    SAMPLE_ID_ENEMY_DEATH = 0x09,      /* deaths of 00, 01, 0d, 0e, 0f, 17 and debris */
+    SAMPLE_ID_KEY_0A = 0x0A,           /* pause-screen keys only */
+    SAMPLE_ID_DROP = 0x0B,             /* homing drop 259f; death of 17 (rate 4) */
+    SAMPLE_ID_RELEASE = 0x0C,          /* chaser release 20f2, name-entry delete 5bdf; kill action 03 */
+    SAMPLE_ID_KNOCK = 0x0D,            /* hits 07/01/06 102a/10ab, warp-in death; death of 04 */
+    SAMPLE_ID_FIRE = 0x0E,             /* player shot 0ad9/0bff */
+    SAMPLE_ID_SHOT_DEATH = 0x0F,       /* death of enemy shots (1232) and drifters */
+    SAMPLE_ID_SMART_BOMB = 0x10,       /* smart-bomb pickup 0fc9 */
+    SAMPLE_ID_EXPLOSION = 0x11,        /* player death 161c, thunder 2750, dropper lands 30be, title logo
+                                          done 3fd5, enemy death 4450 */
+    SAMPLE_ID_DEATH_24 = 0x12,         /* death of 24 */
+    SAMPLE_ID_KEY_13 = 0x13,           /* pause-screen keys only */
+    SAMPLE_ID_WAVE_CLEARED = 0x14,     /* wave cleared 16bc, title letters done 3fb9 */
+    SAMPLE_ID_WAVE_START = 0x15,       /* game start 011a, next wave 01ef */
+    SAMPLE_ID_LEVEL_SOUND_OP = 0x16,   /* level-script op 2 041a */
+    SAMPLE_ID_RESCUE = 0x17,           /* llama rescued 4dee, snake head hit 116b; title tune */
+    SAMPLE_ID_CAUGHT = 0x18,           /* llama caught 4a97, name-entry letter 5bb0 */
+    SAMPLE_ID_EXTRA_LIFE = 0x19,       /* extra life 0373, extra-life pickup 100a, shield pickup 0fb0 */
+    SAMPLE_ID_ALERT = 0x1A,            /* shield ending 1591, bonus pickup appears 0f0b, last llama 4ceb,
+                                          new herder, name entry done 5bf2; death of 1a; title tune */
+    SAMPLE_ID_TITLE = 0x1B,            /* fs.exe title picture, title tune, pause keys above 0x1C */
+    SAMPLE_ID_PICKUP = 0x1C,           /* pickup 00 101d */
+    SAMPLE_ID_DEADLY_TOUCH = 0x1D,     /* deadly touch 37ee, last enemies' death 4443 */
+    SAMPLE_ID_GAME_OVER = 0x1E,        /* game over 091b (waited for), hits 0c/11 364f/366a/2718, herder
+                                          proximity 248c; deaths of 19 and 28 */
+    SAMPLE_ID_UNUSED_1F = 0x1F,        /* never requested (its PCM lies inside sample 0x1D's) */
+    SAMPLE_ID_HIT_0F = 0x20,           /* hit handler 0f 12e8; title tune */
+} SampleId;
+
 typedef struct Sample {
     const uint8_t *pcm;      /* 8-bit unsigned mono, 0x80 = silence */
     uint32_t length;
