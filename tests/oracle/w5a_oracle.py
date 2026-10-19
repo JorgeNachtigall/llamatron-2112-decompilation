@@ -205,14 +205,3 @@ class W5aOracle(ThinkOracle):
         detail = [(hex(o), want[o], got[o]) for o in bad[:16]]
         assert not bad, f"slot {case.slot}: DGROUP differs at {detail}"
         assert got_sounds == want_sounds
-
-    def with_sprite_frames(self, image: bytes, slots) -> bytes:
-        """`image` with +2c of the given slots converted from the original's sprite bank
-        offset to the port's frame index (Entity.sprite_ref when sprite < 0)."""
-        out = bytearray(image)
-        for s in slots:
-            off = slot_address(s) + 0x2C
-            frame = self.frame_of_offset(u16(image, off))
-            assert frame >= 0, f"slot {s}: +2c {u16(image, off):#x} is not a frame"
-            out[off:off + 2] = w16(frame)
-        return bytes(out)

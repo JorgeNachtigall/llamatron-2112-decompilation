@@ -19,7 +19,6 @@ from w5a_oracle import (INIT_COUNT, INIT_FN, INIT_TABLE, WAVE, W5aOracle, slot_a
 SINE8 = 0x4141              # g_sine8: filled by data_load at start-up, not in the EXE image
 SPRITE_REF_LLAMA = 0x1B1    # 218C:0362 / 2
 # Inits that leave sprite < 0 with a frame in +2c (Entity.sprite_ref).
-SPRITE_REF_INITS = {0x01}
 MIN_FREE = 12               # enemy_init_10 needs nine slots
 
 
@@ -70,8 +69,6 @@ def check_init(machine, oracle, case, index):
     assert fn, f"enemy_init_{index:02x} missing"
     INIT_FN(fn)(ctypes.addressof(state), oracle.dg.entity(state, case.slot))
     got = oracle.dg.to_dgroup(state, case.image)
-    if index in SPRITE_REF_INITS:
-        want = oracle.with_sprite_frames(want, [case.slot])
     oracle.compare(case, want, got, want_sounds, oracle.port_sounds())
 
 
@@ -86,8 +83,8 @@ def test_enemy_init(machine, oracle, index, case):
 @pytest.mark.parametrize("toggle", range(2))
 def test_llama_sprite_refs_are_frames(machine, oracle, wave, toggle):
     """enemy_init_01 copies 218C:0362 + 4*wave + 2*toggle into +2c; for every wave the levels
-    use, that entry must be a frame (not a link into the ref table) for the port's
-    frame-index sprite_ref to be exact."""
+    use, that entry must be a frame (not a link into the ref table): the port copies that
+    frame's bank offset."""
     refs = bind(oracle.lib, "asset_sprite_refs", ctypes.c_void_p)()
 
     class SpriteRefTable(ctypes.Structure):
