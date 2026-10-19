@@ -40,3 +40,29 @@ modes 0/1, bit mask; CRTC registers stored. Port writes to 3C4/3C5, 3CE/3CF and
 `ega.load_indexed(pixels, page)` is the inverse, for building input pages.
 `CallResult.vram_in/vram/vram_changed` hold the planes before and after a call.
 `bios_int10` is an opt-in INT 10h stub (mode 0Dh reset).
+
+## DOSBox-X reference runs (`dosbox/refrun.py`, PLAN §3.3)
+
+`brew install dosbox-x` (local, no account). Each run copies the original folder to
+`build-dosbox/<run>/c` (gitignored; the original is never touched) and writes the
+chosen `llama.inf` there: video V/E, keyboard, no sound, flash Y/P/N. It then
+generates a config with fixed CPU settings (normal core, 386, fixed cycles, no sound
+devices), injects keys with DOSBox-X's `AUTOTYPE`, and runs `-silent` with a time
+limit. The batch line after `llama.exe` writes `REFRUN.TXT`, so a clean exit through
+the launcher can be told apart from a hang or a kill.
+
+    tools/harness/dosbox/refrun.py smoke [--machine ega]   # space past fs.exe, q quits game86
+    tools/harness/dosbox/refrun.py run --keys "space" --time-limit 120 --window
+
+ctest: `dosbox.smoke_vga` and `dosbox.smoke_ega` (label `dosbox`, ~25 s each, exclude
+with `-LE dosbox`). These are registered only when dosbox-x and the original files exist.
+
+Findings: COMMAND.COM here leaves `%errorlevel%` empty, so the exit code is not
+recorded. Keys typed before game86 installs its INT 09 handler (`1000:e567`) are
+lost, so the smoke run repeats `q`.
+
+Still to do for real reference runs: pin the BIOS tick schedule during the RNG
+shuffle (tests/README.md), deterministic input timing, and DGROUP/VRAM dumps every
+N frames. The Homebrew build includes the debugger, but it is interactive. The plan
+is a small DOS-side probe of our own (load game86 with INT 21h/4B01, wrap its
+INT 08 hook, copy DGROUP/VRAM to a buffer, write it out at exit).

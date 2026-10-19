@@ -31,6 +31,29 @@ if(LLAMATRON_TESTLIB_ENV)
   list(APPEND _harness_env "${LLAMATRON_TESTLIB_ENV}")
 endif()
 
+# DOSBox-X reference-run smoke tests (PLAN §3.3): the original launch chain runs
+# headless on a copy of the original folder. Needs dosbox-x and the original files;
+# label "dosbox" (about 25 s each), exclude with ctest -LE dosbox.
+find_program(LLAMATRON_DOSBOX_X dosbox-x)
+find_program(LLAMATRON_PYTHON3 python3)
+if(DEFINED LLAMATRON_ORIGINAL_DIR AND NOT LLAMATRON_ORIGINAL_DIR STREQUAL "")
+  set(_original_dir "${LLAMATRON_ORIGINAL_DIR}")
+else()
+  set(_original_dir "${LLAMATRON_REPO_DIR}/original")
+endif()
+if(LLAMATRON_DOSBOX_X AND LLAMATRON_PYTHON3 AND EXISTS "${_original_dir}/llama.exe")
+  foreach(_machine vga ega)
+    add_test(NAME dosbox.smoke_${_machine}
+             COMMAND "${LLAMATRON_PYTHON3}" "${LLAMATRON_HARNESS_DIR}/dosbox/refrun.py" smoke
+                     --machine ${_machine} --original "${_original_dir}"
+                     --workdir "${CMAKE_CURRENT_BINARY_DIR}/dosbox/smoke-${_machine}"
+                     --time-limit 60)
+    set_tests_properties(dosbox.smoke_${_machine} PROPERTIES LABELS "dosbox" TIMEOUT 120)
+  endforeach()
+else()
+  message(STATUS "DOSBox-X smoke tests disabled (need dosbox-x on PATH and the original files)")
+endif()
+
 if(NOT EXISTS "${LLAMATRON_HARNESS_PYTHON}" AND LLAMATRON_HARNESS_SETUP)
   execute_process(COMMAND sh "${LLAMATRON_HARNESS_DIR}/setup_venv.sh"
                   RESULT_VARIABLE _venv_rc)
