@@ -63,6 +63,7 @@ def think_address(machine, think: int) -> int:
 class ThinkCase:
     image: bytes
     slot: int
+    status: tuple[int, int] = (0, 0)    # driver AH=6 answer: (sample playing, priority)
 
     @property
     def di(self) -> int:
@@ -85,12 +86,19 @@ class ThinkOracle:
                         ("priority", ctypes.c_uint8)]
         self.sound_at = bind(cgame, "game_sound_log_at", SoundRequest, ctypes.c_uint)
 
+        class SoundStatus(ctypes.Structure):
+            _fields_ = [("playing", ctypes.c_uint8), ("priority", ctypes.c_uint8)]
+        self.SoundStatus = SoundStatus
+        self.override_status = bind(cgame, "game_sound_override_status", None, ctypes.c_bool,
+                                    SoundStatus)
+
     # ---- state generation -------------------------------------------------------------
 
     def make_case(self, machine, rnd, think: int, entity=None, near_ship: float = 0.3,
-                  extra: dict[int, int] | None = None) -> ThinkCase:
+                  extra: dict[int, int] | None = None, table=None) -> ThinkCase:
         """A random image with entity `slot` given think index `think`. `entity(rnd, rec)`
-        tightens the record's handler-specific fields; `extra` = {DS offset: word}."""
+        tightens the record's handler-specific fields; `table(rnd, records, slot)` may edit
+        the other records and returns extra {DS offset: word}; `extra` = {DS offset: word}."""
         image = bytearray(machine.read_dgroup(0, 0x10000))
         records = entity_table(rnd, n_think=THINK_COUNT)
         slot = rnd.randrange(ENTITY_COUNT)
@@ -102,6 +110,7 @@ class ThinkOracle:
         rec.set("type", rnd.randrange(46) << 8 | think)
         if entity:
             entity(rnd, rec)
+        table_words = table(rnd, records, slot) if table else {}
         image[ENTITY_TABLE:ENTITY_TABLE + ENTITY_COUNT * ENTITY_SIZE] = b"".join(
             bytes(r.raw) for r in records)
 
@@ -138,15 +147,18 @@ class ThinkOracle:
             BOUNCED: rnd.randrange(2),
         }
         words.update(extra or {})
+        words.update(table_words)
         for off, v in words.items():
             image[off:off + 2] = w16(v)
-        return ThinkCase(self.dg.canonical(bytes(image)), slot)
+        status = (rnd.choice([0, rnd.randrange(1, 33)]), rnd.choice([0, 0x0c, rnd.randrange(256)]))
+        return ThinkCase(self.dg.canonical(bytes(image)), slot, status)
 
     # ---- running both sides -----------------------------------------------------------
 
     def run_original(self, machine, case: ThinkCase, think: int):
         machine.write_dgroup(0, case.image)
-        machine.write(STUB_SEG, 0, b"\xcb")
+        playing, priority = case.status     # stub: MOV AX, status; RETF
+        machine.write(STUB_SEG, 0, bytes([0xB8, priority, playing, 0xCB]))
         machine.write_dgroup(SND_DRIVER, struct.pack("<2H", 0, STUB_SEG))
         heard = []
         bp = machine.add_breakpoint((STUB_SEG, 0), lambda m: heard.append(m.get_regs()))
@@ -164,6 +176,7 @@ class ThinkOracle:
         fn = self.table[think]
         assert fn, f"think_{think:02x} not in entity_think_handlers"
         self.sound_clear()
+        self.override_status(True, self.SoundStatus(*case.status))
         THINK_FN(fn)(ctypes.addressof(state), self.dg.entity(state, case.slot))
         sounds = []
         for i in range(self.sound_count()):

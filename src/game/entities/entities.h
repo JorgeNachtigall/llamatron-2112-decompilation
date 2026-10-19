@@ -62,6 +62,13 @@ void think_1a(GameState *game, Entity *e);
 void think_1b(GameState *game, Entity *e);
 void think_1c(GameState *game, Entity *e);
 void think_2b(GameState *game, Entity *e);
+/* think_herders.c */
+void think_0e(GameState *game, Entity *e);
+void think_15(GameState *game, Entity *e);
+void think_16(GameState *game, Entity *e);
+/* think_chasers.c */
+void think_17(GameState *game, Entity *e);
+void think_18(GameState *game, Entity *e);
 /* think_chargers.c */
 void think_25(GameState *game, Entity *e);
 void think_29(GameState *game, Entity *e);
