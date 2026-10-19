@@ -88,37 +88,19 @@ def load_image(path: str | Path, load_seg: int = DEFAULT_LOAD_SEG,
                        entry_cs=cs, entry_ip=ip, stack_ss=ss, stack_sp=sp)
 
 
-def _num(v) -> int:
-    return int(v, 0) if isinstance(v, str) else int(v)
-
-
 def _read_layout(path: Path) -> dict:
-    """Metadata written by tools/extract next to <name>.unpacked as <name>.layout.json:
-    load_segment, min_alloc_paras, relocated entry cs/ip and ss/sp.  Key nesting is
-    read tolerantly; missing fields fall back to the defaults."""
+    """Metadata tools/extract writes next to <name>.unpacked as <name>.layout.json
+    (load_segment, min_alloc_paras, entry_ip/stack_sp with loaded_cs/loaded_ss)."""
     meta_path = path.with_suffix(".layout.json")
     if not meta_path.exists():
         return {}
     meta = json.loads(meta_path.read_text())
     out: dict = {}
-    if "load_segment" in meta:
-        out["load_segment"] = _num(meta["load_segment"])
-    if "min_alloc_paras" in meta:
-        out["min_alloc_paras"] = _num(meta["min_alloc_paras"])
-
-    def pair(name: str, a: str, b: str):
-        node = meta.get(name)
-        if isinstance(node, dict):
-            node = node.get("relocated", node)
-            if a in node and b in node:
-                return _num(node[a]), _num(node[b])
-        flat_a, flat_b = f"{name}_{a}_relocated", f"{name}_{b}_relocated"
-        if flat_a in meta and flat_b in meta:
-            return _num(meta[flat_a]), _num(meta[flat_b])
-        return None
-
-    for key, a, b in (("entry", "cs", "ip"), ("stack", "ss", "sp")):
-        p = pair(key, a, b)
-        if p:
-            out[key] = p
+    for key in ("load_segment", "min_alloc_paras"):
+        if key in meta:
+            out[key] = int(meta[key])
+    if "loaded_cs" in meta and "entry_ip" in meta:
+        out["entry"] = (int(meta["loaded_cs"]), int(meta["entry_ip"]))
+    if "loaded_ss" in meta and "stack_sp" in meta:
+        out["stack"] = (int(meta["loaded_ss"]), int(meta["stack_sp"]))
     return out
