@@ -31,18 +31,6 @@ static bool load_original(const char *original_dir, const char *name, ByteBuf *o
     return read_file(path, out);
 }
 
-static bool put_u16(ByteBuf *buf, uint16_t value)
-{
-    uint8_t bytes[2];
-    write_u16le(bytes, value);
-    return bytebuf_append(buf, bytes, 2);
-}
-
-static bool put_u32(ByteBuf *buf, uint32_t value)
-{
-    return put_u16(buf, (uint16_t)(value & 0xFFFF)) && put_u16(buf, (uint16_t)(value >> 16));
-}
-
 /* sblaster.bin 0x3ed (start), 0x10f (request) */
 bool extract_samples(ExtractContext *ctx)
 {
@@ -52,8 +40,8 @@ bool extract_samples(ExtractContext *ctx)
     if (ok && driver.size < SAMPLE_TABLE_OFFSET + SAMPLE_TABLE_ENTRIES * SAMPLE_ENTRY_SIZE)
         ok = fail("sblaster.bin too short for the sample table");
 
-    ok = ok && bytebuf_append(&index, (const uint8_t *)"LSMP", 4) && put_u16(&index, 1) &&
-         put_u16(&index, SAMPLE_COUNT) && put_u16(&index, RATE_COUNT) &&
+    ok = ok && bytebuf_append(&index, (const uint8_t *)"LSMP", 4) && bytebuf_put_u16(&index, FMT_LSMP_VERSION) &&
+         bytebuf_put_u16(&index, SAMPLE_COUNT) && bytebuf_put_u16(&index, RATE_COUNT) &&
          bytebuf_append(&index, driver.data + RATE_TABLE_OFFSET, RATE_COUNT) &&
          bytebuf_push(&index, 0); /* pad to even */
 
@@ -69,7 +57,7 @@ bool extract_samples(ExtractContext *ctx)
          * plays whatever DOS memory follows the bank. We pad with silence (deviation,
          * FORMATS.md). */
         size_t present = bank.size - offset < length ? bank.size - offset : length;
-        ok = put_u32(&index, (uint32_t)pcm.size) && put_u32(&index, length) &&
+        ok = bytebuf_put_u32(&index, (uint32_t)pcm.size) && bytebuf_put_u32(&index, length) &&
              bytebuf_append(&pcm, bank.data + offset, present);
         for (size_t i = present; ok && i < length; i++)
             ok = bytebuf_push(&pcm, PCM_SILENCE);
@@ -77,6 +65,7 @@ bool extract_samples(ExtractContext *ctx)
 
     ok = ok && output_write(ctx->outputs, "data/samples.bin", pcm.data, pcm.size) &&
          output_write(ctx->outputs, "data/samples.idx", index.data, index.size);
+    ok = ok && index_define(ctx, "SAMPLE_COUNT", SAMPLE_COUNT) && index_define(ctx, "SAMPLE_RATE_COUNT", RATE_COUNT);
     if (ok)
         printf("  %d samples, %zu bytes of PCM\n", SAMPLE_COUNT, pcm.size);
     bytebuf_free(&driver);

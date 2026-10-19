@@ -9,11 +9,36 @@
 /* Ghidra loads every program at segment 1000, so image offset + 0x10000 == Ghidra address. */
 #define LOAD_SEGMENT 0x1000
 
+/* Versions of our data formats (FORMATS.md); bump when a layout changes. Also emitted into
+ * generated/asset_index.h as LLAMA_FMT_<MAGIC>_VERSION. */
+#define FMT_LFNT_VERSION 1
+#define FMT_LSPR_VERSION 1
+#define FMT_LSRF_VERSION 1
+#define FMT_LSMP_VERSION 1
+#define FMT_LPAL_VERSION 1
+#define FMT_LSCO_VERSION 1
+#define FMT_LCFG_VERSION 1
+#define FMT_LTXT_VERSION 1
+#define FMT_LLVL_VERSION 1
+
+#define MAX_INDEX_DEFINES 32
+
+/* A key count for asset_index.h, e.g. {"LEVEL_COUNT", 100}. */
+typedef struct {
+    const char *name;
+    unsigned long value;
+} IndexDefine;
+
 typedef struct {
     const char *original_dir;
     OutputSet *outputs;
     ByteBuf game86_image; /* game86 load module, relocated for LOAD_SEGMENT */
+    IndexDefine defines[MAX_INDEX_DEFINES];
+    size_t define_count;
 } ExtractContext;
+
+/* Records a key count for asset_index.h (name without the LLAMA_ prefix). */
+bool index_define(ExtractContext *ctx, const char *name, unsigned long value);
 
 /* `size` bytes of game86 at Ghidra address seg:off, or NULL (with an error) if out of range. */
 const uint8_t *game86_at(const ExtractContext *ctx, uint16_t seg, uint16_t off, size_t size);
@@ -36,7 +61,9 @@ bool extract_dgroup_tables(ExtractContext *ctx);
 bool extract_texts(ExtractContext *ctx);
 /* data/levels.dat — levels.c */
 bool extract_levels(ExtractContext *ctx);
-/* assets_blob.c with every data/ file as a C array — blob.c. Runs last. */
+/* assets_blob.c with every data/ file as a C array — blob.c. Runs after the data steps. */
 bool write_assets_blob(ExtractContext *ctx);
+/* asset_index.h: per-file names and sizes, format versions, key counts — blob.c. Runs last. */
+bool write_asset_index(ExtractContext *ctx);
 
 #endif

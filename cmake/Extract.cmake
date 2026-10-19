@@ -7,7 +7,9 @@
 #
 # Provides: LLAMATRON_EXTRACT (host executable), LLAMATRON_GENERATED_DIR, LLAMATRON_MANIFEST,
 # LLAMATRON_ORIGINAL_FILES (resolved paths), LLAMATRON_GENERATED_DATA (files under generated/data),
-# LLAMATRON_ASSETS_BLOB_C (generated/assets_blob.c: every data file as a C array) and the target
+# LLAMATRON_ASSETS_BLOB_C (generated/assets_blob.c: every data file as a C array),
+# LLAMATRON_ASSET_INDEX_H (generated/asset_index.h: file names/sizes, format versions, counts;
+# include it as "asset_index.h" with ${LLAMATRON_GENERATED_DIR} on the include path) and the target
 # `llamatron_generated`.
 
 set(LLAMATRON_MANIFEST "${PROJECT_SOURCE_DIR}/tools/manifest/original-files.json")
@@ -111,7 +113,9 @@ foreach(_data title_vga.idx8 title_vga.pal title_ega.idx4 title_ega.pal font.bin
     list(APPEND LLAMATRON_GENERATED_DATA "${LLAMATRON_GENERATED_DIR}/data/${_data}")
 endforeach()
 set(LLAMATRON_ASSETS_BLOB_C "${LLAMATRON_GENERATED_DIR}/assets_blob.c")
-list(APPEND LLAMATRON_GENERATED_OUTPUTS ${LLAMATRON_GENERATED_DATA} "${LLAMATRON_ASSETS_BLOB_C}")
+set(LLAMATRON_ASSET_INDEX_H "${LLAMATRON_GENERATED_DIR}/asset_index.h")
+list(APPEND LLAMATRON_GENERATED_OUTPUTS ${LLAMATRON_GENERATED_DATA} "${LLAMATRON_ASSETS_BLOB_C}"
+    "${LLAMATRON_ASSET_INDEX_H}")
 
 file(GLOB _extract_sources CONFIGURE_DEPENDS "${_extract_src}/*.c" "${_extract_src}/*.h")
 add_custom_command(

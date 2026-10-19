@@ -35,13 +35,6 @@ bool load_cmp(const char *original_dir, const char *name, size_t expected_size, 
     return true;
 }
 
-static bool put_u16(ByteBuf *buf, uint16_t value)
-{
-    uint8_t bytes[2];
-    write_u16le(bytes, value);
-    return bytebuf_append(buf, bytes, 2);
-}
-
 /* Glyphs are drawn by game86 1000:559f: rows - 1 at +4, rows from +6, one u16 per row,
  * MSB = leftmost pixel; the pen advances by the word at +2 (1000:53a0, 552c, 555a). */
 static bool convert_font(const ByteBuf *raw, ByteBuf *out)
@@ -67,18 +60,18 @@ static bool convert_font(const ByteBuf *raw, ByteBuf *out)
 
     /* header */
     out->size = 0;
-    bool ok = bytebuf_append(out, (const uint8_t *)"LFNT", 4) && put_u16(out, 1) &&
-              put_u16(out, read_u16le(raw->data)) && put_u16(out, FONT_CHAR_COUNT) &&
-              put_u16(out, (uint16_t)glyph_count);
+    bool ok = bytebuf_append(out, (const uint8_t *)"LFNT", 4) && bytebuf_put_u16(out, FMT_LFNT_VERSION) &&
+              bytebuf_put_u16(out, read_u16le(raw->data)) && bytebuf_put_u16(out, FONT_CHAR_COUNT) &&
+              bytebuf_put_u16(out, (uint16_t)glyph_count);
     for (int ch = 0; ok && ch < FONT_CHAR_COUNT; ch++)
-        ok = put_u16(out, char_map[ch]);
+        ok = bytebuf_put_u16(out, char_map[ch]);
 
     /* glyph records, then all bitmap rows */
     uint16_t first_row = 0;
     for (size_t g = 0; ok && g < glyph_count; g++) {
         const uint8_t *glyph = raw->data + glyph_offsets[g];
         uint16_t rows = (uint16_t)(read_u16le(glyph + 4) + 1);
-        ok = put_u16(out, read_u16le(glyph + 2)) && put_u16(out, rows) && put_u16(out, first_row);
+        ok = bytebuf_put_u16(out, read_u16le(glyph + 2)) && bytebuf_put_u16(out, rows) && bytebuf_put_u16(out, first_row);
         first_row = (uint16_t)(first_row + rows);
     }
     for (size_t g = 0; ok && g < glyph_count; g++) {
@@ -91,7 +84,7 @@ static bool convert_font(const ByteBuf *raw, ByteBuf *out)
          * with the MSB as the leftmost pixel. */
         for (size_t i = 0; ok && i + 1 < present; i += 2) {
             const uint8_t *row = glyph + FONT_GLYPH_HEADER_SIZE + i;
-            ok = put_u16(out, (uint16_t)(row[0] << 8 | row[1]));
+            ok = bytebuf_put_u16(out, (uint16_t)(row[0] << 8 | row[1]));
         }
         /* The last glyph (used for ] ^ _ and 0x7d-0x7f) claims 7 rows but f.cmp ends after 2.
          * The original drawer reads on past the font into DGROUP 0x409c.., i.e. into the

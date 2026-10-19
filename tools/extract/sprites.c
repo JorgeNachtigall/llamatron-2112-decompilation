@@ -66,18 +66,6 @@ static size_t frame_end(const FrameHeader *frame)
     return frame->offset + SPRITE_HEADER_SIZE + (size_t)frame->rows * frame->columns * SPRITE_CELL_SIZE;
 }
 
-static bool put_u16(ByteBuf *buf, uint16_t value)
-{
-    uint8_t bytes[2];
-    write_u16le(bytes, value);
-    return bytebuf_append(buf, bytes, 2);
-}
-
-static bool put_u32(ByteBuf *buf, uint32_t value)
-{
-    return put_u16(buf, (uint16_t)(value & 0xFFFF)) && put_u16(buf, (uint16_t)(value >> 16));
-}
-
 /* Planar cells -> one byte per pixel (colour 0..15 or TRANSPARENT). */
 static bool append_pixels(const uint8_t *bank, const FrameHeader *frame, ByteBuf *pixels)
 {
@@ -108,17 +96,17 @@ static bool write_frames(OutputSet *outputs, const char *relative, const uint8_t
                          const FrameHeader *frames, size_t count)
 {
     ByteBuf file = {0}, pixels = {0};
-    bool ok = bytebuf_append(&file, (const uint8_t *)"LSPR", 4) && put_u16(&file, 1) &&
-              put_u16(&file, (uint16_t)count);
+    bool ok = bytebuf_append(&file, (const uint8_t *)"LSPR", 4) && bytebuf_put_u16(&file, FMT_LSPR_VERSION) &&
+              bytebuf_put_u16(&file, (uint16_t)count);
     for (size_t i = 0; ok && i < count; i++) {
         const FrameHeader *f = &frames[i];
         uint32_t pixel_offset = (uint32_t)pixels.size;
-        ok = put_u16(&file, f->offset) && put_u16(&file, f->kind) &&
-             put_u16(&file, (uint16_t)(f->columns * 16)) && put_u16(&file, f->rows) &&
-             put_u16(&file, f->nominal_width) &&
-             put_u16(&file, (uint16_t)(f->nominal_width >> 1)) &&
-             put_u16(&file, (uint16_t)((f->rows - 1) >> 1)) && put_u16(&file, 0) &&
-             put_u32(&file, pixel_offset) && append_pixels(bank, f, &pixels);
+        ok = bytebuf_put_u16(&file, f->offset) && bytebuf_put_u16(&file, f->kind) &&
+             bytebuf_put_u16(&file, (uint16_t)(f->columns * 16)) && bytebuf_put_u16(&file, f->rows) &&
+             bytebuf_put_u16(&file, f->nominal_width) &&
+             bytebuf_put_u16(&file, (uint16_t)(f->nominal_width >> 1)) &&
+             bytebuf_put_u16(&file, (uint16_t)((f->rows - 1) >> 1)) && bytebuf_put_u16(&file, 0) &&
+             bytebuf_put_u32(&file, pixel_offset) && append_pixels(bank, f, &pixels);
     }
     ok = ok && bytebuf_append(&file, pixels.data, pixels.size) &&
          output_write(outputs, relative, file.data, file.size);
@@ -167,23 +155,25 @@ static bool extract_sprite_bank(ExtractContext *ctx)
     }
 
     ByteBuf refs = {0};
-    bool ok = bytebuf_append(&refs, (const uint8_t *)"LSRF", 4) && put_u16(&refs, 1) &&
-              put_u16(&refs, (uint16_t)(table_end / 2));
+    bool ok = bytebuf_append(&refs, (const uint8_t *)"LSRF", 4) && bytebuf_put_u16(&refs, FMT_LSRF_VERSION) &&
+              bytebuf_put_u16(&refs, (uint16_t)(table_end / 2));
     for (size_t pos = 0; ok && pos < table_end; pos += 2) {
         uint16_t word = read_u16le(bank + pos);
         long frame = frame_index_at(frames, count, word);
         if (word == REF_END)
-            ok = put_u16(&refs, REF_END);
+            ok = bytebuf_put_u16(&refs, REF_END);
         else if (frame >= 0)
-            ok = put_u16(&refs, (uint16_t)frame);
+            ok = bytebuf_put_u16(&refs, (uint16_t)frame);
         else if (word < table_end && (word & 1) == 0)
-            ok = put_u16(&refs, (uint16_t)(REF_TABLE_LINK | word / 2));
+            ok = bytebuf_put_u16(&refs, (uint16_t)(REF_TABLE_LINK | word / 2));
         else
             ok = fail("sprite table entry 0x%x = 0x%04x is neither a frame nor a table link", (unsigned)pos, word);
     }
     ok = ok && output_write(ctx->outputs, "data/sprite_refs.bin", refs.data, refs.size) &&
          write_frames(ctx->outputs, "data/sprites.bin", bank, frames, count);
     bytebuf_free(&refs);
+    ok = ok && index_define(ctx, "SPRITE_FRAME_COUNT", count) &&
+         index_define(ctx, "SPRITE_REF_COUNT", table_end / 2);
     if (ok)
         printf("  sprite bank: %zu frames, %zu table words, %zu bytes outside frames\n", count,
                table_end / 2, skipped);
@@ -203,7 +193,8 @@ static bool extract_title_shapes(ExtractContext *ctx)
         if (!parse_header(raw.data, raw.size, offset, &frames[i]))
             ok = fail("g3.cmp shape %d at 0x%x has no valid header", i, offset);
     }
-    ok = ok && write_frames(ctx->outputs, "data/g3.bin", raw.data, frames, G3_SHAPE_COUNT);
+    ok = ok && write_frames(ctx->outputs, "data/g3.bin", raw.data, frames, G3_SHAPE_COUNT) &&
+         index_define(ctx, "G3_SHAPE_COUNT", G3_SHAPE_COUNT);
     bytebuf_free(&raw);
     return ok;
 }

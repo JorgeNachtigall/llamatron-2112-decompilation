@@ -179,6 +179,7 @@ static int run_all(const Options *opt)
         {"texts", extract_texts},
         {"level scripts", extract_levels},
         {"embedded asset blob", write_assets_blob},
+        {"asset index", write_asset_index},
     };
     for (size_t i = 0; status == 0 && i < sizeof steps / sizeof *steps; i++) {
         printf("Extracting %s\n", steps[i].label);

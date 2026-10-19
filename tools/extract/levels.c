@@ -35,13 +35,6 @@ static const uint8_t operand_counts[] = {
     1, /* 7  1000:0392  -> 0820 */
 };
 
-static bool put_u16(ByteBuf *buf, uint16_t value)
-{
-    uint8_t bytes[2];
-    write_u16le(bytes, value);
-    return bytebuf_append(buf, bytes, 2);
-}
-
 static const uint8_t *dgroup(const ExtractContext *ctx, uint16_t offset, size_t size)
 {
     return game86_at(ctx, DGROUP_SEGMENT, offset, size);
@@ -90,9 +83,9 @@ static bool convert_level(const ExtractContext *ctx, int level, uint16_t start, 
         if (++spawn_count > MAX_SPAWNS || !bytebuf_append(spawns, pair, 2))
             return spawn_count > MAX_SPAWNS ? fail("level %d: too many spawns", level) : false;
     }
-    return put_u16(levels, start) && put_u16(levels, first_op) && put_u16(levels, op_count) &&
+    return bytebuf_put_u16(levels, start) && bytebuf_put_u16(levels, first_op) && bytebuf_put_u16(levels, op_count) &&
            bytebuf_push(levels, wave_type) && bytebuf_push(levels, (uint8_t)spawn_count) &&
-           put_u16(levels, first_spawn);
+           bytebuf_put_u16(levels, first_spawn);
 }
 
 bool extract_levels(ExtractContext *ctx)
@@ -111,11 +104,12 @@ bool extract_levels(ExtractContext *ctx)
         if (!(ok = convert_level(ctx, count, read_u16le(entry), &levels, &ops, &spawns)))
             break;
     }
-    ok = ok && bytebuf_append(&out, (const uint8_t *)"LLVL", 4) && put_u16(&out, 1) &&
-         put_u16(&out, (uint16_t)count) && bytebuf_append(&out, levels.data, levels.size) &&
-         put_u16(&out, (uint16_t)(ops.size / OP_RECORD_SIZE)) && bytebuf_append(&out, ops.data, ops.size) &&
-         put_u16(&out, (uint16_t)(spawns.size / 2)) && bytebuf_append(&out, spawns.data, spawns.size) &&
+    ok = ok && bytebuf_append(&out, (const uint8_t *)"LLVL", 4) && bytebuf_put_u16(&out, FMT_LLVL_VERSION) &&
+         bytebuf_put_u16(&out, (uint16_t)count) && bytebuf_append(&out, levels.data, levels.size) &&
+         bytebuf_put_u16(&out, (uint16_t)(ops.size / OP_RECORD_SIZE)) && bytebuf_append(&out, ops.data, ops.size) &&
+         bytebuf_put_u16(&out, (uint16_t)(spawns.size / 2)) && bytebuf_append(&out, spawns.data, spawns.size) &&
          output_write(ctx->outputs, "data/levels.dat", out.data, out.size);
+    ok = ok && index_define(ctx, "LEVEL_COUNT", (unsigned long)count);
     if (ok)
         printf("  %d levels, %zu script ops, %zu spawn entries\n", count, ops.size / OP_RECORD_SIZE,
                spawns.size / 2);

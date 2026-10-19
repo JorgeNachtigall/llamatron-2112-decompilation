@@ -18,6 +18,8 @@ void bytebuf_free(ByteBuf *buf);
 bool bytebuf_reserve(ByteBuf *buf, size_t capacity);
 bool bytebuf_push(ByteBuf *buf, uint8_t byte);
 bool bytebuf_append(ByteBuf *buf, const uint8_t *bytes, size_t count);
+bool bytebuf_put_u16(ByteBuf *buf, uint16_t value); /* little-endian */
+bool bytebuf_put_u32(ByteBuf *buf, uint32_t value); /* little-endian */
 
 static inline uint16_t read_u16le(const uint8_t *p) { return (uint16_t)(p[0] | (p[1] << 8)); }
 

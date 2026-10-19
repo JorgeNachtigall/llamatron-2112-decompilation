@@ -44,18 +44,6 @@ static const uint16_t game_palettes[] = {0x2144, 0x2164, 0x2175};
  * word per frame into colour 0 (1e7b:01b0). */
 static const uint16_t flash_lists[] = {0x6C9, 0x6CD, 0x6FD, 0x707, 0x713, 0x721, 0x729, 0x72D};
 
-static bool put_u16(ByteBuf *buf, uint16_t value)
-{
-    uint8_t bytes[2];
-    write_u16le(bytes, value);
-    return bytebuf_append(buf, bytes, 2);
-}
-
-static bool put_u32(ByteBuf *buf, uint32_t value)
-{
-    return put_u16(buf, (uint16_t)(value & 0xFFFF)) && put_u16(buf, (uint16_t)(value >> 16));
-}
-
 static const uint8_t *dgroup(const ExtractContext *ctx, uint16_t offset, size_t size)
 {
     return game86_at(ctx, DGROUP_SEGMENT, offset, size);
@@ -71,7 +59,7 @@ static bool append_words(const ExtractContext *ctx, ByteBuf *out, uint16_t offse
 {
     const uint8_t *data = dgroup(ctx, offset, count * 2);
     for (size_t i = 0; data && i < count; i++)
-        if (!put_u16(out, read_u16le(data + i * 2)))
+        if (!bytebuf_put_u16(out, read_u16le(data + i * 2)))
             return false;
     return data != NULL;
 }
@@ -79,21 +67,21 @@ static bool append_words(const ExtractContext *ctx, ByteBuf *out, uint16_t offse
 static bool write_palettes(ExtractContext *ctx)
 {
     ByteBuf out = {0}, flash_words = {0};
-    bool ok = bytebuf_append(&out, (const uint8_t *)"LPAL", 4) && put_u16(&out, 1) &&
+    bool ok = bytebuf_append(&out, (const uint8_t *)"LPAL", 4) && bytebuf_put_u16(&out, FMT_LPAL_VERSION) &&
               append_dgroup(ctx, &out, VGA_ATTRIBUTE_TABLE, ATTRIBUTE_REGISTERS) &&
               append_dgroup(ctx, &out, NIBBLE_TO_DAC_TABLE, PALETTE_COLORS) && bytebuf_push(&out, 0) &&
               append_words(ctx, &out, PULSE_VGA_TABLE, PULSE_VGA_STEPS) &&
               append_dgroup(ctx, &out, PULSE_EGA_TABLE, PULSE_EGA_STEPS);
 
     size_t palette_count = sizeof game_palettes / sizeof *game_palettes;
-    ok = ok && put_u16(&out, (uint16_t)palette_count);
+    ok = ok && bytebuf_put_u16(&out, (uint16_t)palette_count);
     for (size_t i = 0; ok && i < palette_count; i++)
-        ok = put_u16(&out, game_palettes[i]) && append_words(ctx, &out, game_palettes[i], PALETTE_COLORS) &&
+        ok = bytebuf_put_u16(&out, game_palettes[i]) && append_words(ctx, &out, game_palettes[i], PALETTE_COLORS) &&
              append_dgroup(ctx, &out, (uint16_t)(game_palettes[i] + PALETTE_EGA_OFFSET), EGA_REGISTERS) &&
              bytebuf_push(&out, 0);
 
     size_t list_count = sizeof flash_lists / sizeof *flash_lists;
-    ok = ok && put_u16(&out, (uint16_t)list_count);
+    ok = ok && bytebuf_put_u16(&out, (uint16_t)list_count);
     for (size_t i = 0; ok && i < list_count; i++) {
         uint16_t first = (uint16_t)(flash_words.size / 2), count = 0;
         for (;; count++) {
@@ -104,11 +92,11 @@ static bool write_palettes(ExtractContext *ctx)
             }
             if (read_u16le(word) == 0)
                 break;
-            ok = put_u16(&flash_words, read_u16le(word));
+            ok = bytebuf_put_u16(&flash_words, read_u16le(word));
         }
-        ok = ok && put_u16(&out, flash_lists[i]) && put_u16(&out, first) && put_u16(&out, count);
+        ok = ok && bytebuf_put_u16(&out, flash_lists[i]) && bytebuf_put_u16(&out, first) && bytebuf_put_u16(&out, count);
     }
-    ok = ok && put_u16(&out, (uint16_t)(flash_words.size / 2)) &&
+    ok = ok && bytebuf_put_u16(&out, (uint16_t)(flash_words.size / 2)) &&
          bytebuf_append(&out, flash_words.data, flash_words.size) &&
          output_write(ctx->outputs, "data/palettes.dat", out.data, out.size);
     bytebuf_free(&out);
@@ -128,7 +116,7 @@ static bool append_score_table(const uint8_t *table, ByteBuf *out)
                 return false;
             score = score * 10 + (uint32_t)(entry[d] - '0');
         }
-        if (!put_u32(out, score) || !bytebuf_append(out, entry + SCORE_DIGITS, SCORE_NAME_SIZE))
+        if (!bytebuf_put_u32(out, score) || !bytebuf_append(out, entry + SCORE_DIGITS, SCORE_NAME_SIZE))
             return false;
     }
     return true;
@@ -138,8 +126,8 @@ static bool write_scores(ExtractContext *ctx)
 {
     ByteBuf out = {0}, user = {0};
     const uint8_t *defaults = dgroup(ctx, DEFAULT_SCORES, SCORE_TABLE_SIZE);
-    bool ok = defaults && bytebuf_append(&out, (const uint8_t *)"LSCO", 4) && put_u16(&out, 1) &&
-              put_u16(&out, SCORE_ENTRIES);
+    bool ok = defaults && bytebuf_append(&out, (const uint8_t *)"LSCO", 4) && bytebuf_put_u16(&out, FMT_LSCO_VERSION) &&
+              bytebuf_put_u16(&out, SCORE_ENTRIES);
     if (ok && !append_score_table(defaults, &out))
         ok = fail("default high-score table at DS:%04x is not in the expected format", DEFAULT_SCORES);
     ok = ok && output_write(ctx->outputs, "data/default_scores.dat", out.data, out.size);
@@ -150,13 +138,13 @@ static bool write_scores(ExtractContext *ctx)
     bool have_user = ok && find_original(ctx->original_dir, "scores.yak", path, sizeof path) &&
                      read_file(path, &user) && user.size == SCORE_TABLE_SIZE;
     out.size = 0;
-    ok = ok && bytebuf_append(&out, (const uint8_t *)"LSCO", 4) && put_u16(&out, 1);
+    ok = ok && bytebuf_append(&out, (const uint8_t *)"LSCO", 4) && bytebuf_put_u16(&out, FMT_LSCO_VERSION);
     size_t count_at = out.size;
-    ok = ok && put_u16(&out, have_user ? SCORE_ENTRIES : 0);
+    ok = ok && bytebuf_put_u16(&out, have_user ? SCORE_ENTRIES : 0);
     if (ok && have_user && !append_score_table(user.data, &out)) {
         printf("  scores.yak has non-digit scores; not imported\n");
         out.size = count_at;
-        ok = put_u16(&out, 0);
+        ok = bytebuf_put_u16(&out, 0);
     }
     ok = ok && output_write(ctx->outputs, "data/user_scores.dat", out.data, out.size);
     bytebuf_free(&out);
@@ -188,7 +176,7 @@ static bool write_config(ExtractContext *ctx)
     }
     bytebuf_free(&inf);
 
-    uint8_t record[12] = {'L', 'C', 'F', 'G', 1, 0, present, vga, joystick, sound, cpu, flash_mode};
+    uint8_t record[12] = {'L', 'C', 'F', 'G', FMT_LCFG_VERSION, 0, present, vga, joystick, sound, cpu, flash_mode};
     return output_write(ctx->outputs, "data/config.dat", record, sizeof record);
 }
 

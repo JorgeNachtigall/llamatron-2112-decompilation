@@ -41,13 +41,6 @@ static const uint16_t text_starts[] = {
     0x05A5, 0x05DB, 0x05F4, 0x094B, 0x09B5, 0x0AAE, 0x0B7A, 0x117A, 0x14E1, 0x1BC8,
 };
 
-static bool put_u16(ByteBuf *buf, uint16_t value)
-{
-    uint8_t bytes[2];
-    write_u16le(bytes, value);
-    return bytebuf_append(buf, bytes, 2);
-}
-
 static const uint8_t *dgroup(const ExtractContext *ctx, uint16_t offset, size_t size)
 {
     return game86_at(ctx, DGROUP_SEGMENT, offset, size);
@@ -58,7 +51,7 @@ static bool flush_text(ByteBuf *ops, ByteBuf *pending)
 {
     bool ok = true;
     if (pending->size)
-        ok = bytebuf_push(ops, OP_TEXT) && put_u16(ops, (uint16_t)pending->size) &&
+        ok = bytebuf_push(ops, OP_TEXT) && bytebuf_put_u16(ops, (uint16_t)pending->size) &&
              bytebuf_append(ops, pending->data, pending->size);
     pending->size = 0;
     return ok;
@@ -105,7 +98,7 @@ static bool convert_text(const ExtractContext *ctx, uint16_t start, ByteBuf *ops
                 ok = fail("centred line at DS:%04x has no NUL", start);
                 break;
             }
-            ok = bytebuf_push(ops, OP_CENTRED) && put_u16(ops, (uint16_t)(end - pos)) &&
+            ok = bytebuf_push(ops, OP_CENTRED) && bytebuf_put_u16(ops, (uint16_t)(end - pos)) &&
                  bytebuf_append(ops, text + pos, end - pos);
             pos = end + 1;
             break;
@@ -116,7 +109,7 @@ static bool convert_text(const ExtractContext *ctx, uint16_t start, ByteBuf *ops
         case 'l': ok = bytebuf_push(ops, OP_LEFT); break;
         case 'i': ok = bytebuf_push(ops, OP_RIGHT); break;
         case 's': /* big-endian sprite number, 1000:5439 XCHG DL,DH */
-            ok = bytebuf_push(ops, OP_SPRITE) && put_u16(ops, (uint16_t)(text[pos] << 8 | text[pos + 1]));
+            ok = bytebuf_push(ops, OP_SPRITE) && bytebuf_put_u16(ops, (uint16_t)(text[pos] << 8 | text[pos + 1]));
             pos += 2;
             break;
         case 'g':
@@ -163,16 +156,16 @@ bool extract_texts(ExtractContext *ctx)
     }
 
     ByteBuf out = {0}, ops = {0}, messages = {0};
-    bool ok = bytebuf_append(&out, (const uint8_t *)"LTXT", 4) && put_u16(&out, 1) &&
-              put_u16(&out, (uint16_t)text_count);
+    bool ok = bytebuf_append(&out, (const uint8_t *)"LTXT", 4) && bytebuf_put_u16(&out, FMT_LTXT_VERSION) &&
+              bytebuf_put_u16(&out, (uint16_t)text_count);
     for (size_t i = 0; ok && i < text_count; i++) {
         size_t first = ops.size;
-        ok = convert_text(ctx, starts[i], &ops) && put_u16(&out, starts[i]) &&
-             put_u16(&out, (uint16_t)first) && put_u16(&out, (uint16_t)(ops.size - first));
+        ok = convert_text(ctx, starts[i], &ops) && bytebuf_put_u16(&out, starts[i]) &&
+             bytebuf_put_u16(&out, (uint16_t)first) && bytebuf_put_u16(&out, (uint16_t)(ops.size - first));
     }
-    ok = ok && put_u16(&out, (uint16_t)title_count);
+    ok = ok && bytebuf_put_u16(&out, (uint16_t)title_count);
     for (size_t i = 0; ok && i < title_count; i++)
-        ok = put_u16(&out, (uint16_t)title_levels[i]) && put_u16(&out, title_texts[i]);
+        ok = bytebuf_put_u16(&out, (uint16_t)title_levels[i]) && bytebuf_put_u16(&out, title_texts[i]);
 
     /* DOS messages: split DS:0463..0585 at '$' */
     const uint8_t *area = dgroup(ctx, MESSAGES_START, MESSAGES_END - MESSAGES_START);
@@ -181,14 +174,16 @@ bool extract_texts(ExtractContext *ctx)
     for (size_t pos = 0, start = 0; ok && pos < MESSAGES_END - MESSAGES_START; pos++) {
         if (area[pos] != '$')
             continue;
-        ok = put_u16(&messages, (uint16_t)(MESSAGES_START + start)) && put_u16(&messages, (uint16_t)(pos - start)) &&
+        ok = bytebuf_put_u16(&messages, (uint16_t)(MESSAGES_START + start)) && bytebuf_put_u16(&messages, (uint16_t)(pos - start)) &&
              bytebuf_append(&messages, area + start, pos - start);
         message_count++;
         start = pos + 1;
     }
-    ok = ok && put_u16(&out, message_count) && bytebuf_append(&out, messages.data, messages.size) &&
-         put_u16(&out, (uint16_t)ops.size) && bytebuf_append(&out, ops.data, ops.size) &&
+    ok = ok && bytebuf_put_u16(&out, message_count) && bytebuf_append(&out, messages.data, messages.size) &&
+         bytebuf_put_u16(&out, (uint16_t)ops.size) && bytebuf_append(&out, ops.data, ops.size) &&
          output_write(ctx->outputs, "data/strings.dat", out.data, out.size);
+    ok = ok && index_define(ctx, "TEXT_COUNT", text_count) &&
+         index_define(ctx, "LEVEL_TITLE_COUNT", title_count) && index_define(ctx, "MESSAGE_COUNT", message_count);
     if (ok)
         printf("  %zu texts (%zu level titles), %u DOS messages\n", text_count, title_count, message_count);
     bytebuf_free(&out);

@@ -67,6 +67,18 @@ bool bytebuf_append(ByteBuf *buf, const uint8_t *bytes, size_t count)
     return true;
 }
 
+bool bytebuf_put_u16(ByteBuf *buf, uint16_t value)
+{
+    uint8_t bytes[2];
+    write_u16le(bytes, value);
+    return bytebuf_append(buf, bytes, 2);
+}
+
+bool bytebuf_put_u32(ByteBuf *buf, uint32_t value)
+{
+    return bytebuf_put_u16(buf, (uint16_t)(value & 0xFFFF)) && bytebuf_put_u16(buf, (uint16_t)(value >> 16));
+}
+
 bool read_file(const char *path, ByteBuf *out)
 {
     FILE *f = fopen(path, "rb");
