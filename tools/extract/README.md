@@ -23,6 +23,7 @@ llamatron-extract --sha256 FILE...
 | `data/title_ega.pal` | 17 EGA palette register values (rgbRGB), entry 16 = overscan = 0, built like fs.exe |
 | `data/font.bin`, `data/sine.bin` | from f.cmp / s.cmp (LZSS), see FORMATS.md |
 | `data/sprites.bin`, `data/sprite_refs.bin`, `data/g3.bin` | sprite frames (game86 bank 218C, g3.cmp) and the bank's reference table, see FORMATS.md |
+| `data/samples.bin`, `data/samples.idx` | the 32 samples of llatron.spl + driver rate table, see FORMATS.md |
 | `assets_blob.c` | every `data/` file as a C array + `llama_blob_entries[]` / `llama_blob_count` (type `LlamaBlobEntry` from `src/platform/asset_blob.h`), sorted by name |
 | `extract.stamp` | SHA-256 of every output, fixed order |
 

@@ -174,6 +174,7 @@ static int run_all(const Options *opt)
         {"title pictures", extract_title_pictures},
         {"font and sine tables", extract_cmp_data},
         {"sprites", extract_sprites},
+        {"samples", extract_samples},
         {"embedded asset blob", write_assets_blob},
     };
     for (size_t i = 0; status == 0 && i < sizeof steps / sizeof *steps; i++) {

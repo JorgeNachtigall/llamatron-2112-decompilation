@@ -70,3 +70,22 @@ u16   refs[count]      < 0x8000: frame index into sprites.bin
 ```
 The meaning of the individual lists (animations) is not decoded yet; the original code indexes
 this table, and ported code uses the same indices.
+
+## Samples: `samples.bin` + `samples.idx` (llatron.spl, directory in sblaster.bin 0x609)
+`samples.bin`: 8-bit unsigned mono PCM (0x80 = silence) of samples 1..32 back to back. Ranges that
+overlap in the original (23 contains 24-26, 31/32 lie inside 29) are copied, so every sample is
+self-contained.
+```
+samples.idx
+char  magic[4] = "LSMP"
+u16   version = 1
+u16   sample_count = 32       index i = the game's sample number i + 1 (AL = 1..32)
+u16   rate_count = 5
+u8    time_constants[5]       Sound Blaster DSP time constants for rate index (CL) 0..4,
+                              from sblaster.bin 0x3d2; Hz = 1000000 / (256 - tc)
+u8    pad = 0
+struct { u32 offset; u32 length; } samples[sample_count]   into samples.bin
+```
+**Deviation:** sample 30's entry runs 96 bytes past the end of llatron.spl (the original DMA plays
+whatever memory follows the bank); those bytes are silence here. Loop fields of the driver table
+are dead in the driver and not exported.
