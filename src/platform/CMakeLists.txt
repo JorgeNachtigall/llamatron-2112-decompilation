@@ -15,6 +15,7 @@ endif()
 
 add_library(llama_platform STATIC
     platform_sdl.c
+    scale.c
     keymap.c
     padmap.c
     settings.c
@@ -251,6 +252,19 @@ if(EMSCRIPTEN)
             set_tests_properties(web_llamatron_title web_llamatron_to_game web_llamatron_parity
                 web_llamatron_tap PROPERTIES
                 SKIP_RETURN_CODE 77 LABELS web TIMEOUT 300)
+            # Display: high-DPI (device pixel ratio 2: the backbuffer is 2000x1500 for the
+            # 1000x750 CSS canvas, which fills the 1000x900 page at 4:3) and the scale modes
+            # (integer: the VGA title at 5x3 = 1600x1200; sharp: 4x2 enlarged, then smoothed).
+            add_test(NAME web_display_hidpi COMMAND ${Python3_EXECUTABLE} ${_game} --scale-factor 2
+                --query frames=2&vga&mute --expect "title 320x400 hash=c7ab74c4 canvas 2000x1500 hash=4a321bc6")
+            add_test(NAME web_display_integer COMMAND ${Python3_EXECUTABLE} ${_game} --scale-factor 2
+                --query frames=2&vga&mute&scale=integer
+                --expect "title 320x400 hash=c7ab74c4 canvas 2000x1500 hash=8d444d14")
+            add_test(NAME web_display_sharp COMMAND ${Python3_EXECUTABLE} ${_game}
+                --query frames=2&vga&mute&scale=sharp
+                --expect "title 320x400 hash=c7ab74c4 canvas 1000x750 hash=0434b058")
+            set_tests_properties(web_display_hidpi web_display_integer web_display_sharp PROPERTIES
+                SKIP_RETURN_CODE 77 LABELS web TIMEOUT 180)
             # High scores through IDBFS, three page loads on one browser profile (as
             # llamatron_scores_*): store a low table; play to a saved hi-score (the tap reaches
             # the game a frame later than natively, hence another table); reload and read it.

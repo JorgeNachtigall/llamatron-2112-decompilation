@@ -28,6 +28,9 @@ typedef struct PlatConfig {
     bool vsync;                /* native: present with vsync; ignored on the web (rAF) */
     int web_timer_fps;         /* web only: > 0 drives frames by a timer instead of
                                   requestAnimationFrame (headless tests: rAF barely runs there) */
+    bool unpaced;              /* native only: run frames back to back, no vsync and no pacing,
+                                  and draw only frames read back (plat_set_frame_capture), so
+                                  test runs do not depend on the display or window server */
 } PlatConfig;
 
 /* One RGB colour, 8 bits per channel. */
@@ -41,10 +44,21 @@ void plat_shutdown(void);
 /* ---- Display ------------------------------------------------------------------------- */
 
 /* Show an indexed image: `pixels` is width*height bytes (row stride `pitch`), each byte an
- * index into `palette` (256 entries). The image is stretched to the largest 4:3 rectangle
- * that fits the window, with nearest-neighbour filtering. */
+ * index into `palette` (256 entries), scaled for a 4:3 display as plat_scale_mode() says. */
 void plat_present(const uint8_t *pixels, int width, int height, int pitch,
                   const PlatColor palette[256]);
+
+/* How the image is scaled to the window (the drawable in pixels, so Retina / high-DPI
+ * screens get their full resolution). F10 cycles through them. */
+typedef enum PlatScaleMode {
+    PLAT_SCALE_NEAREST,     /* largest 4:3 rectangle, nearest-neighbour (default) */
+    PLAT_SCALE_INTEGER,     /* whole multiples of each pixel, as close to 4:3 as they get */
+    PLAT_SCALE_SHARP,       /* largest 4:3 rectangle: nearest to a whole multiple, then smoothed */
+    PLAT_SCALE_MODE_COUNT
+} PlatScaleMode;
+
+void plat_set_scale_mode(PlatScaleMode mode);
+PlatScaleMode plat_scale_mode(void);
 
 void plat_toggle_fullscreen(void);
 

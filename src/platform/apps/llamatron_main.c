@@ -7,7 +7,10 @@
  *             [--frames N] [--start-after K] [--tap F:SC:N,...] [--seed BIOS_TICKS]
  *             [--record FILE | --replay FILE | --keys T:SC,...] [--page-hashes T1,T2,...]
  *             [--dump-pages DIR --dump-ticks T1,T2,...] [--tick-phase F] [--start-delay N]
- *             [--keep-scores] [--low-scores] [--speed N]
+ *             [--keep-scores] [--low-scores] [--speed N] [--scale nearest|integer|sharp]
+ *
+ * --scale picks how the picture is scaled to the window at start (platform.h PlatScaleMode; F10
+ * cycles through them while playing).
  *
  * Settings come from the saved llama.inf (settings.h); the options here override them for this
  * run only. The game gets them as game86 did, on its command tail (GameLaunch); the RNG seed is
@@ -37,7 +40,7 @@
  * --frames still count host frames. On the web the page URL stands in for the command
  * line:
  * ?ega&vga&joystick&keyboard&mute&frames=N&start=K&seed=T&flash=N|P|Y&keys=T:SC,...&hashes=T1,...
- * &phase=F&delay=N&taps=F:SC:N,...&keepscores&lowscores&speed=N
+ * &phase=F&delay=N&taps=F:SC:N,...&keepscores&lowscores&speed=N&scale=nearest|integer|sharp
  * --keys is an input script given inline (tick:scan byte pairs, as in PROBE.KEY), so the web
  * build can replay too. --page-hashes prints, right before each listed tick, the FNV-1a hash of
  * the three pages and the shown page ("pages tick=..."), to compare native and web runs.
@@ -282,6 +285,21 @@ static bool parse_taps(const char *text, App *app)
             return true;
         text++;
     }
+}
+
+/* --scale / ?scale=: a PlatScaleMode by name (stops at the first other character). */
+static bool parse_scale(const char *text, PlatScaleMode *mode)
+{
+    static const char *const names[PLAT_SCALE_MODE_COUNT] = { "nearest", "integer", "sharp" };
+    for (int i = 0; i < PLAT_SCALE_MODE_COUNT; i++) {
+        size_t n = strlen(names[i]);
+        if (strncmp(text, names[i], n) == 0 && (text[n] == '\0' || text[n] == '&')) {
+            *mode = (PlatScaleMode)i;
+            return true;
+        }
+    }
+    fprintf(stderr, "llamatron: bad scale mode \"%s\" (nearest, integer or sharp)\n", text);
+    return false;
 }
 
 /* A fraction 0..1 of a tick as timing_set_phase() takes it. */
@@ -531,6 +549,9 @@ static bool frame(void *user)
             test_key(app, app->taps[i].code, false);    /* after the press when N = 0: one batch */
     }
     uint32_t due = retraces_due(app);
+    /* --frames reports what the last frame shows; reading every frame back would wait on the
+     * GPU (and on the window server) each frame. */
+    plat_set_frame_capture(app->frames_left == 1);
 
     if (app->phase == PHASE_TITLE) {
         if (!window_open)
@@ -623,6 +644,7 @@ int main(int argc, char **argv)
     App *app = &g_app;
     app->settings = plat_settings_load();
     bool mute = false;
+    PlatScaleMode scale = PLAT_SCALE_NEAREST;
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--vga") == 0)
             app->settings.vga = true;
@@ -666,7 +688,10 @@ int main(int argc, char **argv)
             app->tick_phase = parse_phase(argv[++i]);
         else if (strcmp(argv[i], "--start-delay") == 0 && i + 1 < argc)
             app->start_delay = (uint32_t)strtoul(argv[++i], NULL, 10);
-        else if (strcmp(argv[i], "--speed") == 0 && i + 1 < argc)
+        else if (strcmp(argv[i], "--scale") == 0 && i + 1 < argc) {
+            if (!parse_scale(argv[++i], &scale))
+                return 1;
+        } else if (strcmp(argv[i], "--speed") == 0 && i + 1 < argc)
             app->speed = (uint32_t)strtoul(argv[++i], NULL, 10);
         else if (strcmp(argv[i], "--keep-scores") == 0)
             app->keep_scores = true;
@@ -721,6 +746,9 @@ int main(int argc, char **argv)
     const char *delay = strstr(query, "delay=");
     if (delay)
         app->start_delay = (uint32_t)strtoul(delay + 6, NULL, 10);
+    const char *scale_name = strstr(query, "scale=");
+    if (scale_name && !parse_scale(scale_name + 6, &scale))
+        return 1;
     const char *speed = strstr(query, "speed=");
     if (speed)
         app->speed = (uint32_t)strtoul(speed + 6, NULL, 10);
@@ -747,13 +775,16 @@ int main(int argc, char **argv)
 
     if (!app->replaying && !title_load(&app->title, app->adapter, app->device))
         return 1;
-    PlatConfig config = { "Llamatron 2112", 3, false, true, 0 };
+    PlatConfig config = { "Llamatron 2112", 3, false, true, 0, false };
     if (app->frames_left > 0)
         config.web_timer_fps = 70;   /* deterministic frame pacing for test runs */
+    /* Test runs and replays count frames, not time: natively they run flat out, so a covered
+     * or throttled test window (ctest -j) cannot stall them on vsync. */
+    config.unpaced = app->frames_left > 0 || app->replaying;
     if (!plat_init(&config))
         return 1;
+    plat_set_scale_mode(scale);
     input_init(app->device, true);
-    plat_set_frame_capture(app->frames_left > 0);
 
     /* Ticks are counted per emulated retrace of the adapter's monitor (VGA 70.086 Hz, EGA
      * 59.92 Hz). Test runs and replays take one retrace per host frame so they are exact;

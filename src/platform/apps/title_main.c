@@ -146,6 +146,7 @@ static bool frame(void *user)
     PlatColor pal[GFX_PALETTE_SIZE];
     for (int i = 0; i < GFX_PALETTE_SIZE; i++)
         pal[i] = (PlatColor){ app->title.palette[i].r, app->title.palette[i].g, app->title.palette[i].b };
+    plat_set_frame_capture(app->frames_left == 1);      /* --frames reports the last frame */
     plat_present(app->title.pixels, app->title.width, app->title.height, app->title.width, pal);
 
     if (title_finished(&app->title))
@@ -203,13 +204,13 @@ int main(int argc, char **argv)
 
     if (!title_load(&app->title, adapter, device))
         return 1;
-    PlatConfig config = { "Llamatron 2112", 3, false, true, 0 };
+    PlatConfig config = { "Llamatron 2112", 3, false, true, 0, false };
+    config.unpaced = app->frames_left > 0;      /* test runs: flat out (platform.h) */
     if (app->frames_left > 0)
         config.web_timer_fps = 70;   /* deterministic frame pacing for test runs */
     if (!plat_init(&config))
         return 1;
     input_init(device, true);
-    plat_set_frame_capture(app->frames_left > 0);
 
     /* Test runs (--frames) use a fixed 70.086 Hz display clock so ticks and audio are exact. */
     app->fixed_step = app->frames_left > 0;

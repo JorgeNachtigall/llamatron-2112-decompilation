@@ -34,9 +34,35 @@ sees no difference:
 | Start | P (pause) | P (pause) |
 | Back / Select | S (sound toggle while paused) | S |
 
-Host-only keys: F11 or Alt+Enter toggle full screen. Closing the window, Cmd-Q / Alt-F4 or
-losing focus are passed to the game as quit / pause requests; the game decides what they do.
-Replays (`--replay`, `--keys`) ignore the live keyboard and gamepads.
+Host-only keys (the game never sees them):
+
+| Key | Native (macOS) | Web |
+|-----|----------------|-----|
+| F11, Alt+Enter | full screen on / off | page full screen on / off (also a double click) |
+| Cmd+F, Ctrl+Cmd+F | full screen on / off | (the browser's own) |
+| F10, Cmd+I (macOS) | next scale mode | next scale mode (F10) |
+
+On a Mac keyboard F10 and F11 are media keys unless Fn is held, hence the Cmd shortcuts.
+Closing the window, Cmd-Q / Alt-F4 or losing focus are passed to the game as quit / pause
+requests; the game decides what they do. Replays (`--replay`, `--keys`) ignore the live
+keyboard and gamepads.
+
+## Display
+
+The 320x200 game picture (and the title's 320x400 / 640x350) is shown at 4:3, like on the
+1992 monitor, centred with black borders. Scale modes (`platform.h` `PlatScaleMode`, F10 cycles
+them, `--scale` / `?scale=` picks the first):
+
+| Mode | Picture |
+|------|---------|
+| `nearest` (default) | the largest 4:3 rectangle, nearest-neighbour |
+| `integer` | whole multiples of each pixel (320x200: 4x5 on 1080p, 5x6 = 1600x1200 is exact 4:3), as close to 4:3 as they get (within 10%; else as `nearest`) |
+| `sharp` | the largest 4:3 rectangle: nearest-neighbour to whole multiples, then smoothed down (even pixel sizes without blur at the pixel scale) |
+
+The window is high-DPI aware: on a Retina Mac the picture uses the screen's pixels, not the
+window's points (`SDL_WINDOW_ALLOW_HIGHDPI`, `NSHighResolutionCapable` in the app bundle). On
+the web the canvas fills the page at 4:3 and its backbuffer is the CSS size times the device
+pixel ratio (ctest `web_display_hidpi`).
 
 ## Personal-use packages: never distribute
 

@@ -5,9 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Llamatron 2112</title>
 <!--
-  Llamatron port web shell (Emscripten --shell-file). The canvas is fitted to the window at
-  4:3 with black letterboxing and nearest-neighbour scaling. SDL resizes its backbuffer from the
-  canvas CSS size (external size + high-DPI), so the engine itself scales crisply.
+  Llamatron port web shell (Emscripten --shell-file). The canvas fills the page at 4:3 with
+  black letterboxing. SDL sizes its backbuffer from the canvas CSS size times the device pixel
+  ratio (high-DPI), and the engine scales the image into it (F10: nearest / integer / sharp).
+  F11, Alt+Enter or a double click put the page in full screen (the canvas still at 4:3).
   The canvas id must be "canvas": SDL2's Emscripten backend addresses it by that selector.
   Program output goes to the hidden <pre id="output"> (read by src/platform/tools/web_smoke.py).
 -->
@@ -52,11 +53,27 @@
     document.addEventListener('click', focusGame);
     window.addEventListener('load', focusGame);
     var GAME_KEYS = { ArrowUp: 1, ArrowDown: 1, ArrowLeft: 1, ArrowRight: 1, ' ': 1,
-                      PageUp: 1, PageDown: 1, Home: 1, End: 1, Tab: 1, Backspace: 1 };
+                      PageUp: 1, PageDown: 1, Home: 1, End: 1, Tab: 1, Backspace: 1, F10: 1 };
+    /* Full screen: browsers allow it only from inside a key or click handler, so the page does
+       it here (SDL swallows the same keys, platform_sdl.c keymap_host_key). */
+    function toggleFullscreen() {
+      if (document.fullscreenElement) {
+        document.exitFullscreen().catch(function () {});
+      } else if (document.documentElement.requestFullscreen) {
+        document.documentElement.requestFullscreen().catch(function () {});
+      }
+    }
+    window.llamatronToggleFullscreen = toggleFullscreen;
     window.addEventListener('keydown', function (e) {
-      if (GAME_KEYS[e.key]) e.preventDefault();
+      if (e.key === 'F11' || (e.key === 'Enter' && e.altKey)) {
+        e.preventDefault();
+        if (!e.repeat) toggleFullscreen();
+      } else if (GAME_KEYS[e.key]) {
+        e.preventDefault();
+      }
       if (document.activeElement !== canvas) focusGame();
     }, true);
+    canvas.addEventListener('dblclick', toggleFullscreen);
 
     var output = document.getElementById('output');
     var status = document.getElementById('status');

@@ -66,9 +66,13 @@ def main() -> int:
            "--frames", str(int(last * FRAMES_PER_TICK) + 8),
            "--dump-pages", str(work), "--dump-ticks", ",".join(str(t) for t, _ in captures),
            "--tick-phase", str(cfg.get("tick_phase", 0)), "--start-delay", str(cfg.get("start_delay", 0))]
-    proc = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
+    try:
+        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
+    except subprocess.TimeoutExpired:
+        print(f"visual: llamatron did not finish within 600 s: {' '.join(cmd)}")
+        return 2
     if proc.returncode != 0:
-        print(f"visual: llamatron failed ({proc.returncode})\n{proc.stderr}")
+        print(f"visual: llamatron failed ({proc.returncode}): {' '.join(cmd)}\n{proc.stdout}\n{proc.stderr}")
         return 2
 
     first = None

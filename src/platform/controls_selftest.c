@@ -1,9 +1,11 @@
 /*
  * controls_selftest.c - host controls give the original's scan codes (ctest controls_selftest):
- * the keys game86 reads (keymap.c) and the gamepad mapping (padmap.c).
+ * the keys game86 reads (keymap.c) and the gamepad mapping (padmap.c); the host's own keys and
+ * the display's scale modes (scale.c).
  */
 #include "keymap.h"
 #include "padmap.h"
+#include "scale.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -99,8 +101,64 @@ static void test_pad_sticks(void)
     CHECK(s[0].x == 0 && !s[0].button_a && s[1].x == 0);
 }
 
+static void test_host_keys(void)
+{
+    CHECK(keymap_host_key(SDL_SCANCODE_F11, KMOD_NONE) == HOST_KEY_FULLSCREEN);
+    CHECK(keymap_host_key(SDL_SCANCODE_RETURN, KMOD_LALT) == HOST_KEY_FULLSCREEN);
+    CHECK(keymap_host_key(SDL_SCANCODE_RETURN, KMOD_NONE) == HOST_KEY_NONE);
+    CHECK(keymap_host_key(SDL_SCANCODE_F10, KMOD_NONE) == HOST_KEY_SCALE_MODE);
+    /* The game's own keys stay the game's, also with modifiers. */
+    CHECK(keymap_host_key(SDL_SCANCODE_SPACE, KMOD_LALT) == HOST_KEY_NONE);
+    CHECK(keymap_host_key(SDL_SCANCODE_P, KMOD_NONE) == HOST_KEY_NONE);
+    CHECK(keymap_host_key(SDL_SCANCODE_F, KMOD_NONE) == HOST_KEY_NONE);
+    CHECK(keymap_host_key(SDL_SCANCODE_I, KMOD_NONE) == HOST_KEY_NONE);
+#ifdef __APPLE__
+    CHECK(keymap_host_key(SDL_SCANCODE_F, KMOD_LGUI) == HOST_KEY_FULLSCREEN);
+    CHECK(keymap_host_key(SDL_SCANCODE_F, KMOD_LGUI | KMOD_LCTRL) == HOST_KEY_FULLSCREEN);
+    CHECK(keymap_host_key(SDL_SCANCODE_I, KMOD_RGUI) == HOST_KEY_SCALE_MODE);
+#endif
+}
+
+static bool rect_is(ScaleRect r, int x, int y, int w, int h)
+{
+    if (r.x == x && r.y == y && r.w == w && r.h == h)
+        return true;
+    fprintf(stderr, "  got %d,%d %dx%d, want %d,%d %dx%d\n", r.x, r.y, r.w, r.h, x, y, w, h);
+    return false;
+}
+
+static void test_scale(void)
+{
+    /* 4:3, centred: pillarbox, letterbox, exact. */
+    CHECK(rect_is(scale_fit(PLAT_SCALE_NEAREST, 320, 200, 1920, 1080), 240, 0, 1440, 1080));
+    CHECK(rect_is(scale_fit(PLAT_SCALE_NEAREST, 320, 200, 1000, 900), 0, 75, 1000, 750));
+    CHECK(rect_is(scale_fit(PLAT_SCALE_SHARP, 640, 350, 960, 720), 0, 0, 960, 720));
+    /* Integer: 320x200 at 5x6 is exactly 4:3 (1600x1200); a Retina 960x720 window (1920x1440
+     * pixels) takes 6x7, the largest within the tolerance; a 1080p screen 4x5. */
+    CHECK(rect_is(scale_fit(PLAT_SCALE_INTEGER, 320, 200, 1600, 1200), 0, 0, 1600, 1200));
+    CHECK(rect_is(scale_fit(PLAT_SCALE_INTEGER, 320, 200, 1920, 1440), 0, 20, 1920, 1400));
+    CHECK(rect_is(scale_fit(PLAT_SCALE_INTEGER, 320, 200, 1920, 1080), 320, 40, 1280, 1000));
+    /* The VGA title (320x400, pixels half as tall) and the EGA title (640x350). */
+    CHECK(rect_is(scale_fit(PLAT_SCALE_INTEGER, 320, 400, 1600, 1200), 0, 0, 1600, 1200));
+    CHECK(rect_is(scale_fit(PLAT_SCALE_INTEGER, 640, 350, 1920, 1440), 0, 20, 1920, 1400));
+    /* Too small for whole pixels near 4:3: the 4:3 fit. */
+    CHECK(rect_is(scale_fit(PLAT_SCALE_INTEGER, 320, 200, 300, 225), 0, 0, 300, 225));
+    CHECK(rect_is(scale_fit(PLAT_SCALE_INTEGER, 320, 200, 1000, 750), 0, 0, 1000, 750));
+    CHECK(rect_is(scale_fit(PLAT_SCALE_NEAREST, 320, 200, 0, 0), 0, 0, 0, 0));
+    /* Sharp: enlarge to whole multiples at least the size of the 4:3 rectangle. */
+    int kx, ky;
+    scale_sharp_factors(320, 200, (ScaleRect){ 0, 75, 1000, 750 }, &kx, &ky);
+    CHECK(kx == 4 && ky == 4);
+    scale_sharp_factors(320, 200, (ScaleRect){ 0, 0, 1600, 1200 }, &kx, &ky);
+    CHECK(kx == 5 && ky == 6);
+    scale_sharp_factors(320, 200, (ScaleRect){ 0, 0, 200, 150 }, &kx, &ky);
+    CHECK(kx == 1 && ky == 1);
+}
+
 int main(void)
 {
+    test_host_keys();
+    test_scale();
     test_keymap();
     test_pad_keys();
     test_pad_sticks();

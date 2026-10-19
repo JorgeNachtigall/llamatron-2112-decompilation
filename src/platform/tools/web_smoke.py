@@ -88,6 +88,8 @@ def main():
                     help="fixed server port (IndexedDB is per origin: runs sharing --profile need it)")
     ap.add_argument("--report", action="store_true", help="real time, output posted by the page")
     ap.add_argument("--timeout-s", type=float, default=30.0)
+    ap.add_argument("--scale-factor", type=float, default=0,
+                    help="device pixel ratio to emulate (high-DPI check); default: the browser's")
     args = ap.parse_args()
 
     chrome = find_chrome()
@@ -112,6 +114,8 @@ def main():
         profile = args.profile or temp_profile
         cmd = [chrome, "--headless=new", "--no-first-run", "--no-default-browser-check",
                f"--user-data-dir={profile}", "--window-size=1000,900"]
+        if args.scale_factor:
+            cmd.append(f"--force-device-scale-factor={args.scale_factor:g}")
         try:
             if args.report:
                 text = run_reported(cmd + [url], reports, args.expect, args.timeout_s)

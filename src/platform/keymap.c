@@ -104,3 +104,19 @@ uint8_t keymap_sdl_to_pc(SDL_Scancode sc)
     default: return 0;
     }
 }
+
+HostKey keymap_host_key(SDL_Scancode scancode, SDL_Keymod mod)
+{
+    if (scancode == SDL_SCANCODE_F11 || (scancode == SDL_SCANCODE_RETURN && (mod & KMOD_ALT)))
+        return HOST_KEY_FULLSCREEN;
+    if (scancode == SDL_SCANCODE_F10)
+        return HOST_KEY_SCALE_MODE;
+#ifdef __APPLE__
+    /* The Mac's own shortcuts: F10 and F11 are media keys there unless Fn is held. */
+    if ((mod & KMOD_GUI) && scancode == SDL_SCANCODE_F)
+        return HOST_KEY_FULLSCREEN;
+    if ((mod & KMOD_GUI) && scancode == SDL_SCANCODE_I)
+        return HOST_KEY_SCALE_MODE;
+#endif
+    return HOST_KEY_NONE;
+}

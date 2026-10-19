@@ -3,6 +3,7 @@
  */
 #include "platform.h"
 #include "keymap.h"
+#include "scale.h"
 #include "settings.h"
 
 #include <SDL.h>
@@ -14,8 +15,6 @@
 #endif
 
 enum {
-    DISPLAY_ASPECT_W = 4,
-    DISPLAY_ASPECT_H = 3,
     BASE_WINDOW_W = 320,
     BASE_WINDOW_H = 240,
     DEFAULT_WINDOW_SCALE = 3,
@@ -29,7 +28,11 @@ static struct {
     SDL_Renderer *renderer;
     SDL_Texture *texture;
     int texture_w, texture_h;
+    PlatScaleMode scale_mode;
+    SDL_Texture *sharp;             /* PLAT_SCALE_SHARP: the image at whole multiples */
+    int sharp_w, sharp_h;
     bool vsync;
+    bool unpaced;
     uint64_t start_counter;
     uint64_t counter_hz;
     SDL_GameController *pads[PLAT_MAX_GAMEPADS];
@@ -45,7 +48,7 @@ static struct {
 
 bool plat_init(const PlatConfig *config)
 {
-    PlatConfig defaults = { "Llamatron 2112", DEFAULT_WINDOW_SCALE, false, true, 0 };
+    PlatConfig defaults = { "Llamatron 2112", DEFAULT_WINDOW_SCALE, false, true, 0, false };
     if (!config)
         config = &defaults;
 
@@ -72,9 +75,10 @@ bool plat_init(const PlatConfig *config)
         return false;
     }
 
-    g_plat.vsync = config->vsync;
+    g_plat.unpaced = config->unpaced;
+    g_plat.vsync = config->vsync && !config->unpaced;
     g_plat.web_timer_fps = config->web_timer_fps;
-    Uint32 renderer_flags = SDL_RENDERER_ACCELERATED | (config->vsync ? SDL_RENDERER_PRESENTVSYNC : 0);
+    Uint32 renderer_flags = SDL_RENDERER_ACCELERATED | (g_plat.vsync ? SDL_RENDERER_PRESENTVSYNC : 0);
     g_plat.renderer = SDL_CreateRenderer(g_plat.window, -1, renderer_flags);
     if (!g_plat.renderer)
         g_plat.renderer = SDL_CreateRenderer(g_plat.window, -1, SDL_RENDERER_SOFTWARE);
@@ -103,11 +107,14 @@ void plat_shutdown(void)
     }
     if (g_plat.texture)
         SDL_DestroyTexture(g_plat.texture);
+    if (g_plat.sharp)
+        SDL_DestroyTexture(g_plat.sharp);
     if (g_plat.renderer)
         SDL_DestroyRenderer(g_plat.renderer);
     if (g_plat.window)
         SDL_DestroyWindow(g_plat.window);
     g_plat.texture = NULL;
+    g_plat.sharp = NULL;
     g_plat.renderer = NULL;
     g_plat.window = NULL;
     SDL_Quit();
@@ -132,22 +139,47 @@ static bool ensure_texture(int width, int height)
     return true;
 }
 
-/* Largest 4:3 rectangle centred in the drawable area. */
-static SDL_Rect display_rect(void)
+/* PLAT_SCALE_SHARP's render target: the image enlarged kx x ky with nearest filtering, then
+ * drawn to the window smoothed. NULL where the renderer has no render targets. */
+static SDL_Texture *sharp_target(int w, int h)
+{
+    if (g_plat.sharp && g_plat.sharp_w == w && g_plat.sharp_h == h)
+        return g_plat.sharp;
+    if (g_plat.sharp)
+        SDL_DestroyTexture(g_plat.sharp);
+    g_plat.sharp = NULL;
+    if (!SDL_RenderTargetSupported(g_plat.renderer))
+        return NULL;
+    g_plat.sharp = SDL_CreateTexture(g_plat.renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_TARGET, w, h);
+    if (!g_plat.sharp)
+        return NULL;
+    SDL_SetTextureScaleMode(g_plat.sharp, SDL_ScaleModeLinear);
+    g_plat.sharp_w = w;
+    g_plat.sharp_h = h;
+    return g_plat.sharp;
+}
+
+/* The image (in g_plat.texture) to the window, as the scale mode says. */
+static void draw_image(int width, int height)
 {
     int out_w = 0, out_h = 0;
-    SDL_GetRendererOutputSize(g_plat.renderer, &out_w, &out_h);
-    SDL_Rect r;
-    if (out_w * DISPLAY_ASPECT_H > out_h * DISPLAY_ASPECT_W) {
-        r.h = out_h;
-        r.w = out_h * DISPLAY_ASPECT_W / DISPLAY_ASPECT_H;
-    } else {
-        r.w = out_w;
-        r.h = out_w * DISPLAY_ASPECT_H / DISPLAY_ASPECT_W;
+    SDL_GetRendererOutputSize(g_plat.renderer, &out_w, &out_h);    /* pixels, also on Retina */
+    ScaleRect r = scale_fit(g_plat.scale_mode, width, height, out_w, out_h);
+    SDL_Rect dst = { r.x, r.y, r.w, r.h };
+    SDL_SetRenderDrawColor(g_plat.renderer, 0, 0, 0, 255);
+    SDL_RenderClear(g_plat.renderer);
+    if (g_plat.scale_mode == PLAT_SCALE_SHARP) {
+        int kx, ky;
+        scale_sharp_factors(width, height, r, &kx, &ky);
+        SDL_Texture *big = sharp_target(width * kx, height * ky);
+        if (big && SDL_SetRenderTarget(g_plat.renderer, big) == 0) {
+            SDL_RenderCopy(g_plat.renderer, g_plat.texture, NULL, NULL);
+            SDL_SetRenderTarget(g_plat.renderer, NULL);
+            SDL_RenderCopy(g_plat.renderer, big, NULL, &dst);
+            return;
+        }
     }
-    r.x = (out_w - r.w) / 2;
-    r.y = (out_h - r.h) / 2;
-    return r;
+    SDL_RenderCopy(g_plat.renderer, g_plat.texture, NULL, &dst);
 }
 
 /* Read back the frame being rendered (before present, so WebGL still has it) and hash the
@@ -178,6 +210,11 @@ void plat_present(const uint8_t *pixels, int width, int height, int pitch,
 {
     if (width <= 0 || height <= 0 || width > MAX_IMAGE_W || height > MAX_IMAGE_H)
         return;
+    /* Unpaced test runs draw only the frames they read back: a present waits on the window
+     * server (a covered or background window is throttled), which made runs slow and their
+     * timing depend on what else is on screen. */
+    if (g_plat.unpaced && !g_plat.capture)
+        return;
     if (!ensure_texture(width, height))
         return;
 
@@ -192,11 +229,7 @@ void plat_present(const uint8_t *pixels, int width, int height, int pitch,
             *out++ = argb[row[x]];
     }
     SDL_UpdateTexture(g_plat.texture, NULL, g_plat.rgb_buffer, width * (int)sizeof(uint32_t));
-
-    SDL_SetRenderDrawColor(g_plat.renderer, 0, 0, 0, 255);
-    SDL_RenderClear(g_plat.renderer);
-    SDL_Rect dst = display_rect();
-    SDL_RenderCopy(g_plat.renderer, g_plat.texture, NULL, &dst);
+    draw_image(width, height);
     if (g_plat.capture)
         capture_frame();
     SDL_RenderPresent(g_plat.renderer);
@@ -216,10 +249,27 @@ uint32_t plat_captured_frame_hash(int *width, int *height)
     return g_plat.capture_hash;
 }
 
+void plat_set_scale_mode(PlatScaleMode mode)
+{
+    if (mode >= 0 && mode < PLAT_SCALE_MODE_COUNT)
+        g_plat.scale_mode = mode;
+}
+
+PlatScaleMode plat_scale_mode(void)
+{
+    return g_plat.scale_mode;
+}
+
 void plat_toggle_fullscreen(void)
 {
+#ifdef __EMSCRIPTEN__
+    /* The page goes full screen from inside the key or click handler (web/shell.html): browsers
+     * allow it only there, and the canvas then fills the screen at 4:3. */
+    emscripten_run_script("if (typeof llamatronToggleFullscreen === 'function') llamatronToggleFullscreen();");
+#else
     Uint32 flags = SDL_GetWindowFlags(g_plat.window);
     SDL_SetWindowFullscreen(g_plat.window, (flags & SDL_WINDOW_FULLSCREEN_DESKTOP) ? 0 : SDL_WINDOW_FULLSCREEN_DESKTOP);
+#endif
 }
 
 /* ---- Input --------------------------------------------------------------------------- */
@@ -245,13 +295,6 @@ static void close_gamepad(SDL_JoystickID instance)
             g_plat.pads[i] = NULL;
         }
     }
-}
-
-static bool is_fullscreen_hotkey(const SDL_KeyboardEvent *key)
-{
-    if (key->keysym.scancode == SDL_SCANCODE_F11)
-        return true;
-    return key->keysym.scancode == SDL_SCANCODE_RETURN && (key->keysym.mod & KMOD_ALT);
 }
 
 unsigned plat_take_requests(void)
@@ -297,9 +340,15 @@ bool plat_poll_events(PlatKeyFn on_key, void *user)
             break;
         case SDL_KEYDOWN:
         case SDL_KEYUP: {
-            if (is_fullscreen_hotkey(&ev.key)) {
-                if (ev.type == SDL_KEYDOWN && !ev.key.repeat)
-                    plat_toggle_fullscreen();
+            HostKey host = keymap_host_key(ev.key.keysym.scancode, (SDL_Keymod)ev.key.keysym.mod);
+            if (host != HOST_KEY_NONE) {
+                bool act = ev.type == SDL_KEYDOWN && !ev.key.repeat;
+#ifndef __EMSCRIPTEN__
+                if (act && host == HOST_KEY_FULLSCREEN)
+                    plat_toggle_fullscreen();     /* web: the page's own key handler does it */
+#endif
+                if (act && host == HOST_KEY_SCALE_MODE)
+                    plat_set_scale_mode((PlatScaleMode)((g_plat.scale_mode + 1) % PLAT_SCALE_MODE_COUNT));
                 break;
             }
             /* Auto-repeat is forwarded as further make codes, like the PC keyboard's typematic
@@ -395,7 +444,7 @@ void plat_run_main_loop(PlatFrameFn frame, void *user)
     const uint64_t fallback_period_us = 16667;
     uint64_t next_us = plat_time_us();
     while (frame(user)) {
-        if (g_plat.vsync)
+        if (g_plat.vsync || g_plat.unpaced)
             continue;
         next_us += fallback_period_us;
         uint64_t now = plat_time_us();
