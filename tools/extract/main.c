@@ -2,6 +2,7 @@
  * copy of the game (docs/PLAN.md §2.2). Also usable as a CLI for RE/debugging. */
 #include "common.h"
 #include "extract.h"
+#include "lzss.h"
 #include "manifest.h"
 #include "mz.h"
 #include "outputs.h"
@@ -32,6 +33,7 @@ static void usage(void)
           "  llamatron-extract --unlzexe IN OUT     remove one LZEXE 0.91 layer\n"
           "  llamatron-extract --unexepack IN OUT   remove one EXEPACK layer\n"
           "  llamatron-extract --load-image IN OUT  flat MZ load module relocated to 1000h\n"
+          "  llamatron-extract --lzss IN OUT        decode one .cmp file\n"
           "  llamatron-extract --sha256 FILE...\n",
           stderr);
 }
@@ -150,6 +152,11 @@ static int run_all(const Options *opt)
         if (!extract_title_pictures(opt->original_dir, outputs))
             status = report_failure("title pictures");
     }
+    if (status == 0) {
+        printf("Decoding font and sine tables\n");
+        if (!extract_cmp_data(opt->original_dir, outputs))
+            status = report_failure("cmp data");
+    }
     if (status == 0 && !output_write_stamp(outputs))
         status = report_failure("extract.stamp");
     free(outputs);
@@ -178,6 +185,11 @@ static bool convert_exepack(const uint8_t *data, size_t size, ByteBuf *out)
 static bool convert_unpack(const uint8_t *data, size_t size, ByteBuf *out)
 {
     return unpack_all(data, size, out, NULL);
+}
+
+static bool convert_lzss(const uint8_t *data, size_t size, ByteBuf *out)
+{
+    return lzss_decode(data, size, out);
 }
 
 static bool convert_load_image(const uint8_t *data, size_t size, ByteBuf *out)
@@ -222,6 +234,7 @@ int main(int argc, char **argv)
         {"--unlzexe", convert_lzexe},
         {"--unexepack", convert_exepack},
         {"--load-image", convert_load_image},
+        {"--lzss", convert_lzss},
     };
     if (argc < 2) {
         usage();

@@ -6,7 +6,7 @@ CMake runs it via `cmake/Extract.cmake`; it can also be used by hand:
 ```
 llamatron-extract --verify --original DIR --manifest tools/manifest/original-files.json
 llamatron-extract --all    --original DIR --manifest ... --out build/generated
-llamatron-extract --unpack | --unlzexe | --unexepack | --load-image IN OUT
+llamatron-extract --unpack | --unlzexe | --unexepack | --load-image | --lzss IN OUT
 llamatron-extract --sha256 FILE...
 ```
 
@@ -21,6 +21,7 @@ llamatron-extract --sha256 FILE...
 | `data/title_vga.pal` | 256 x 3 bytes, 6-bit DAC levels = newtit.lbm CMAP >> 2 (newtit2's CMAP ignored, like fs.exe) |
 | `data/title_ega.idx4` | 640x350, 1 byte/pixel, values 0..15 (tronega.lbm) |
 | `data/title_ega.pal` | 17 EGA palette register values (rgbRGB), entry 16 = overscan = 0, built like fs.exe |
+| `data/font.bin`, `data/sine.bin` | from f.cmp / s.cmp (LZSS), see FORMATS.md |
 | `extract.stamp` | SHA-256 of every output, fixed order |
 
-`<n>` = `game86`, `fs`, `llama`, `install`. Original file names are matched as given or in upper case (DOS copies).
+`<n>` = `game86`, `fs`, `llama`, `install`. Data formats: [FORMATS.md](FORMATS.md). Original file names are matched as given or in upper case (DOS copies).
