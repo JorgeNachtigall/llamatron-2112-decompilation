@@ -21,8 +21,10 @@ Without a game image (`original/` not extracted), the oracle tests report *Skipp
 Start-up builds the gameplay random table (`DS:6AC9`, 512 bytes: two copies of 0..255)
 in `1000:007b..00ab` with 4000 swaps. Each swap calls the mixer `1000:e616` twice, and
 **every one of those 8000 calls re-reads the live BIOS tick word** at `0000:046C`
-(`[DS:0x44D]` = 0, so `ES:[0x46C]`). The mixer only uses that word when it equals the
-mixer word `s2`, and then it perturbs the state (`s3 += ticks + 0x2F; next = ticks ^ s3`).
+(`[DS:0x44D]` = 0, so `ES:[0x46C]`). The tick word becomes the mixer's new `s2` on every
+call; when it equals the old `s2` it is first perturbed (`s3 += ticks + 0x2F; s2 = ticks ^ s3`).
+Since the state is shifted (`s0 <- s1 <- s2 <- tick`), after the first two calls the
+output depends almost entirely on the tick values seen.
 
 Consequences:
 - The table depends on the initial tick value (via the seed `[0x453..0x459]` set by
