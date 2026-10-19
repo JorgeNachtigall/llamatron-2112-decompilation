@@ -55,3 +55,18 @@ if(TARGET llamatron_generated)           # generated headers must exist before c
 endif()
 
 set(LLAMATRON_TESTLIB_ENV "LLAMATRON_GAME_TESTLIB=$<TARGET_FILE:llamatron_game_testlib>")
+
+# Headless replay driver: the port on a PROBE.KEY script, state dumped as DGROUP images for
+# comparison with the DOSBox-X reference runs (tests/replay/).
+set(_replay_script_c "${LLAMATRON_REPO_DIR}/src/platform/apps/input_script.c")
+if(TARGET llamatron_assets AND TARGET llama_assets_files AND EXISTS "${_replay_script_c}")
+  add_executable(llamatron_replay
+    "${CMAKE_CURRENT_LIST_DIR}/../replay/replay_driver.c"
+    "${CMAKE_CURRENT_LIST_DIR}/../adapters/dgroup_map.c"
+    "${_replay_script_c}")
+  target_include_directories(llamatron_replay PRIVATE
+    "${CMAKE_CURRENT_LIST_DIR}/../adapters" "${LLAMATRON_REPO_DIR}/src/platform/apps"
+    "${LLAMATRON_REPO_DIR}/src/platform")
+  target_link_libraries(llamatron_replay PRIVATE llamatron_game llamatron_assets llama_assets_files)
+  set(LLAMATRON_REPLAY_ENV "LLAMATRON_REPLAY=$<TARGET_FILE:llamatron_replay>")
+endif()

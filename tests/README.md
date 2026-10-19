@@ -47,3 +47,20 @@ Consequences:
   IRQ0 and fixing 0040:006C until the mode-0Dh INT 10h that follows the shuffle.
   `dosbox.probe_rng` confirms that the DOSBox-X table equals the oracle's for the same
   constant schedule.
+
+## Whole-game replays against the reference runs
+
+- `tests/adapters/dgroup_map.{c,h}` converts `GameState` to and from the original's DGROUP
+  bytes (test-only). `tests/adapters/gamestate.py` (`DgroupMap`) wraps it for the oracle
+  tests: `from_dgroup` → C call → `to_dgroup` → `mismatches` against the original.
+- `llamatron_replay` (`tests/replay/replay_driver.c`, built with the testlib) runs the port
+  headless on a PROBE.KEY script, sequenced like `llamatron --replay`. It writes the state
+  as DGROUP images every K ticks (LRPL file, with the adapter's mask).
+- `tests/replay/compare.py PORT.lrpl PROBE.SNP` lists, per snapshot tick, the mapped
+  fields that differ from the DOSBox-X reference run.
+- `tests/dosbox/test_reference_golden.py` (label `dosbox`, opt-in) does both steps:
+  - It checks the reference run against `tests/golden/reference_runs.json`, which holds
+    only hashes. `LLAMATRON_GOLDEN_UPDATE=1` rewrites the file after a deliberate change.
+  - It writes the port's divergence report to `<build>/tests/dosbox/replay-report-*.txt`.
+  - `LLAMATRON_REPLAY_STRICT=1` makes any divergence fail. Leave it off until the game
+    loop is complete.

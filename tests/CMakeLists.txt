@@ -30,6 +30,9 @@ include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/TestLib.cmake")
 if(LLAMATRON_TESTLIB_ENV)
   list(APPEND _harness_env "${LLAMATRON_TESTLIB_ENV}")
 endif()
+if(LLAMATRON_REPLAY_ENV)
+  list(APPEND _harness_env "${LLAMATRON_REPLAY_ENV}")
+endif()
 
 # DOSBox-X reference runs (PLAN §3.3) are slow (25-50 s each) and therefore opt-in:
 # configure with -DLLAMATRON_DOSBOX_TESTS=ON. They carry the label "dosbox", so
