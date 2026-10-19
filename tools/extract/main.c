@@ -32,6 +32,7 @@ static void usage(void)
           "  llamatron-extract --unexepack IN OUT   remove one EXEPACK layer\n"
           "  llamatron-extract --load-image IN OUT  flat MZ load module relocated to 1000h\n"
           "  llamatron-extract --lzss IN OUT        decode one .cmp file\n"
+          "  llamatron-extract --llama-inf IN OUT   config.dat record for one llama.inf\n"
           "  llamatron-extract --sha256 FILE...\n",
           stderr);
 }
@@ -222,6 +223,14 @@ static bool convert_lzss(const uint8_t *data, size_t size, ByteBuf *out)
     return lzss_decode(data, size, out);
 }
 
+static bool convert_llama_inf(const uint8_t *data, size_t size, ByteBuf *out)
+{
+    uint8_t record[LLAMA_INF_RECORD_SIZE];
+    llama_inf_record(data, size, record);
+    out->size = 0;
+    return bytebuf_append(out, record, sizeof record);
+}
+
 static bool convert_load_image(const uint8_t *data, size_t size, ByteBuf *out)
 {
     MzHeader header;
@@ -265,6 +274,7 @@ int main(int argc, char **argv)
         {"--unexepack", convert_exepack},
         {"--load-image", convert_load_image},
         {"--lzss", convert_lzss},
+        {"--llama-inf", convert_llama_inf},
     };
     if (argc < 2) {
         usage();

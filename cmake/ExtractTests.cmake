@@ -52,6 +52,27 @@ if(EXISTS "${_harness_python}")
             "${LLAMATRON_EXTRACT}" "${LLAMATRON_GENERATED_DIR}/exe/game86.unpacked"
             "${LLAMATRON_ORIGINAL_DIR}" "${LLAMATRON_MANIFEST}" "${CMAKE_BINARY_DIR}/tests/lzss")
     set_tests_properties(extract_lzss_oracle PROPERTIES SKIP_RETURN_CODE 77 LABELS "oracle" TIMEOUT 300)
+    # llama.inf as llama.exe inf_read (1000:01e7) reads it and install.exe write_config
+    # (1000:050f) writes it: the extractor's config.dat import, and the platform's
+    # settings_parse_inf / settings_format_inf through a small probe.
+    add_test(NAME extract_launcher_oracle
+        COMMAND "${_harness_python}" -I "${PROJECT_SOURCE_DIR}/cmake/tests/launcher_oracle.py"
+            "${LLAMATRON_EXTRACT}" "${LLAMATRON_GENERATED_DIR}/exe" "${CMAKE_BINARY_DIR}/tests/launcher")
+    set_tests_properties(extract_launcher_oracle PROPERTIES SKIP_RETURN_CODE 77 LABELS "oracle" TIMEOUT 300)
+    if(NOT EMSCRIPTEN)
+        add_executable(settings_inf_probe "${PROJECT_SOURCE_DIR}/cmake/tests/settings_inf_probe.c"
+            "${PROJECT_SOURCE_DIR}/src/platform/settings.c")
+        target_include_directories(settings_inf_probe PRIVATE "${PROJECT_SOURCE_DIR}/src/platform")
+        foreach(_check format parse)
+            add_test(NAME settings_${_check}_oracle
+                COMMAND "${_harness_python}" -I "${PROJECT_SOURCE_DIR}/cmake/tests/launcher_oracle.py"
+                    "${LLAMATRON_EXTRACT}" "${LLAMATRON_GENERATED_DIR}/exe" "${CMAKE_BINARY_DIR}/tests/launcher-${_check}"
+                    --probe $<TARGET_FILE:settings_inf_probe> --check ${_check})
+            set_tests_properties(settings_${_check}_oracle PROPERTIES SKIP_RETURN_CODE 77 LABELS "oracle" TIMEOUT 300)
+        endforeach()
+        # Disabled until settings_parse_inf upper-cases and rejects as llama.exe does (W2).
+        set_tests_properties(settings_parse_oracle PROPERTIES DISABLED TRUE)
+    endif()
 else()
     message(STATUS "no harness venv: skipping extract_lzss_oracle")
 endif()

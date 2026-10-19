@@ -403,33 +403,33 @@ fs,1000:239d,5,chunky_to_modex_lower,title_load,src/engine/title.c,diff-tested,W
 fs,1000:23a2,91,chunky_to_modex,title_load,src/engine/title.c,diff-tested,W2,fs,"mode X upper half: the port keeps 320x400 chunky; test_fs_title.py runs fs.exe show_title 01bf on the original pictures (VGA mode X + EGA): pixels, DAC/EGA registers = extractor files and title_load hash"
 fs,1000:23fd,91,vga_set_320x400,title_load,src/engine/title.c,diff-tested,W2,fs,"320x400 picture, presented by the platform at that size; test_fs_title.py runs fs.exe show_title 01bf on the original pictures (VGA mode X + EGA): pixels, DAC/EGA registers = extractor files and title_load hash"
 fs,1000:2458,34,mem_shrink,,src/platform/,ported,W2,fs,no counterpart: DOS memory shrink
-llama,1000:0010,54,entry,entry,,todo,W0,llama,launcher/installer: llama.inf semantics become port options
-llama,1000:0103,147,launch_children,launch_children,,todo,W0,llama,launcher/installer: llama.inf semantics become port options
-llama,1000:01a6,48,FUN_1000_01a6,,,todo,W0,llama,launcher/installer: llama.inf semantics become port options
-llama,1000:01e7,609,inf_read,inf_read,,todo,W0,llama,launcher/installer: llama.inf semantics become port options
-llama,1000:0437,18,FUN_1000_0437,,,todo,W0,llama,launcher/installer: llama.inf semantics become port options
-llama,1000:0449,31,detect_adlib,detect_adlib,,todo,W0,llama,launcher/installer: llama.inf semantics become port options
-llama,1000:0468,69,FUN_1000_0468,,,todo,W0,llama,launcher/installer: llama.inf semantics become port options
-llama,1000:04ad,26,FUN_1000_04ad,,,todo,W0,llama,launcher/installer: llama.inf semantics become port options
-llama,1000:04cf,48,FUN_1000_04cf,,,todo,W0,llama,launcher/installer: llama.inf semantics become port options
-llama,1000:04ff,23,detect_mpu401,detect_mpu401,,todo,W0,llama,launcher/installer: llama.inf semantics become port options
-llama,1000:0516,35,FUN_1000_0516,,,todo,W0,llama,launcher/installer: llama.inf semantics become port options
-llama,1000:0539,43,FUN_1000_0539,,,todo,W0,llama,launcher/installer: llama.inf semantics become port options
-llama,1000:0564,15,FUN_1000_0564,,,todo,W0,llama,launcher/installer: llama.inf semantics become port options
-llama,1000:05b5,35,FUN_1000_05b5,,,todo,W0,llama,launcher/installer: llama.inf semantics become port options
-llama,1000:05db,47,mem_setup,mem_setup,,todo,W0,llama,launcher/installer: llama.inf semantics become port options
-install,1000:0010,368,entry,entry,,todo,W0,install,launcher/installer: llama.inf semantics become port options
-install,1000:01a9,41,FUN_1000_01a9,,,todo,W0,install,launcher/installer: llama.inf semantics become port options
-install,1000:01d2,121,FUN_1000_01d2,,,todo,W0,install,launcher/installer: llama.inf semantics become port options
-install,1000:024b,38,FUN_1000_024b,,,todo,W0,install,launcher/installer: llama.inf semantics become port options
-install,1000:0271,44,FUN_1000_0271,,,todo,W0,install,launcher/installer: llama.inf semantics become port options
-install,1000:029d,62,FUN_1000_029d,,,todo,W0,install,launcher/installer: llama.inf semantics become port options
-install,1000:02db,61,FUN_1000_02db,,,todo,W0,install,launcher/installer: llama.inf semantics become port options
-install,1000:0318,128,menu_draw,menu_draw,,todo,W0,install,launcher/installer: llama.inf semantics become port options
-install,1000:0398,54,fill_background,fill_background,,todo,W0,install,launcher/installer: llama.inf semantics become port options
-install,1000:03ce,43,FUN_1000_03ce,,,todo,W0,install,launcher/installer: llama.inf semantics become port options
-install,1000:03f9,48,FUN_1000_03f9,,,todo,W0,install,launcher/installer: llama.inf semantics become port options
-install,1000:0429,85,FUN_1000_0429,,,todo,W0,install,launcher/installer: llama.inf semantics become port options
-install,1000:047e,145,copy_file,copy_file,,todo,W0,install,launcher/installer: llama.inf semantics become port options
-install,1000:050f,382,write_config,write_config,,todo,W0,install,launcher/installer: llama.inf semantics become port options
-install,1000:068d,31,FUN_1000_068d,,,todo,W0,install,launcher/installer: llama.inf semantics become port options
+llama,1000:0010,54,entry,main,src/platform/apps/llamatron_main.c,ported,W1,llama,"launcher start: mem_setup, inf_read, keyboard_flush, launch_children, launcher_exit; the port: main loads the saved settings (plat_settings_load) and runs the title then the game in one process"
+llama,1000:0103,147,launch_children,start_game,src/platform/apps/llamatron_main.c,ported,W1,llama,"EXEC fs.exe, keyboard_flush, then game86.exe (game386.exe if llama.inf[6] != 0, not shipped) with the settings on the command tail (CS:0081 -> PSP:80h: cpu 84, flash 85, vga 86, joystick 88, sound 89, driver far ptr 8A); an EXEC failure or exit code 0FDh -> 01c3 ""Try running Install again"" and exit. Port: title phase then start_game/make_launch (GameLaunch); no EXEC, no 0FDh path"
+llama,1000:01a6,48,launcher_exit,,,todo,W1,llama,"not ported: DOS exit: two retrace waits, text mode 3 if needed, INT 21h/4Ch; 01c3 prints 1060:007D and waits a key first. aka FUN_1000_01a6"
+llama,1000:01e7,609,inf_read,settings_parse_inf,src/platform/settings.c,ported,W1,llama,"parse 0219..02c8: [0]/[2]/[4]/[8] AND 0DFh; V/E, J/K, A/S/R/N else 1060:0110 and exit. The extractor's import llama_inf_record (tools/extract/dgroup.c, config.dat) is diff-tested: cmake/tests/launcher_oracle.py (ctest extract_launcher_oracle, 405 cases). settings_parse_inf differs (no upper-casing, never rejects): ctest settings_parse_oracle disabled until W2 fixes it. driver_load 030a (adlib/roland/sblaster.bin + llatron.spl into the 158,720-byte block, AH=0 init): the port's sound engine (src/engine/snd.c) and extracted samples; DEVIATIONS #22"
+llama,1000:0437,18,wait_retrace,,,todo,W1,llama,not ported: only used by launcher_exit before the mode switch (3DAh bit 3 end then start). aka FUN_1000_0437
+llama,1000:0449,31,detect_adlib,,,todo,W1,llama,"not ported: sound card detection (OPL at 388h, MPU-401, OPL at 228h = Sound Blaster); a selected card that is missing -> 1060:00ED ""Selected Sound Card not found"" and exit. The port has no hardware detection (DEVIATIONS #22)"
+llama,1000:0468,69,opl_detect,,,todo,W1,llama,not ported: AdLib timer test at port [1060:0011] (status & 0E0h: 00 then C0h). aka FUN_1000_0468
+llama,1000:04ad,26,opl_write,,,todo,W1,llama,not ported: OPL register AL = AH with PIT delays. aka FUN_1000_04ad
+llama,1000:04cf,48,pit_delay,,,todo,W1,llama,not ported: busy wait on PIT channel 2 until the count drops to BX. aka FUN_1000_04cf
+llama,1000:04ff,23,detect_mpu401,,,todo,W1,llama,not ported: MPU-401 at 330h/331h: up to 27 resets waiting for ACK 0FEh
+llama,1000:0516,35,mpu401_reset,,,todo,W1,llama,"not ported: send 0FFh to 331h, return the data byte. aka FUN_1000_0516"
+llama,1000:0539,43,mpu401_command,,,todo,W1,llama,not ported: send command AL to 331h and read the ACK. aka FUN_1000_0539
+llama,1000:0564,15,keyboard_flush,,,todo,W1,llama,"not ported: empties the DOS keyboard buffer (INT 21h/0Bh, 07h) before each EXEC; the port starts each phase with no pending keys. aka FUN_1000_0564"
+llama,1000:05b5,35,unused_int_handler,,,todo,W1,llama,"not ported: unreferenced: an interrupt handler that skips 3 (BX != 0) or 9 bytes after the faulting instruction when called from this CS, else chains to [1060:006B]; nothing installs it. aka FUN_1000_05b5"
+llama,1000:05db,47,mem_setup,,,todo,W1,llama,"not ported: DOS memory: shrinks the launcher's block and allocates 26C0h paragraphs for the sound driver and samples; failure -> 1060:00BF ""Not enough memory"" and exit"
+install,1000:0010,368,entry,,,todo,W1,install,"not ported: the installer (install_main 0052: drive menu, copy to \LLAMA, option menus, write_config). The port has no installer or options screen: settings come from the saved llama.inf (plat_settings_load) and command-line options (llamatron_main.c --vga/--ega/--joystick/--keyboard/--flash)"
+install,1000:01a9,41,text_print_at,,,todo,W1,install,"not ported: installer text UI: ASCIIZ at row DX, column BX, attribute AH into B800h (the listing shows MOV AX,ES; the bytes are 8E C0 = MOV ES,AX). aka FUN_1000_01a9"
+install,1000:01d2,121,box_draw_frame,,,todo,W1,install,not ported: installer text UI: double-line frame from the menu struct at BP. aka FUN_1000_01d2
+install,1000:024b,38,box_draw_title,,,todo,W1,install,not ported: installer text UI: title line (BP+0Ah) on the top edge. aka FUN_1000_024b
+install,1000:0271,44,box_draw_footer,,,todo,W1,install,not ported: installer text UI: footer line (BP+0Ch) on the bottom edge. aka FUN_1000_0271
+install,1000:029d,62,menu_draw_items,,,todo,W1,install,not ported: installer text UI: menu lines with 2-row spacing. aka FUN_1000_029d
+install,1000:02db,61,box_draw_lines,,,todo,W1,install,not ported: installer text UI: message lines with 1-row spacing. aka FUN_1000_02db
+install,1000:0318,128,menu_draw,,,todo,W1,install,"not ported: installer text UI: menu with cursor-key selection, Enter -> index at BP+8, Esc -> exit"
+install,1000:0398,54,fill_background,,,todo,W1,install,not ported: installer text UI: rows 2-22 of E8h/E9h characters
+install,1000:03ce,43,message_box_exit,,,todo,W1,install,"not ported: installer text UI: message box, waits for Esc, then exits. aka FUN_1000_03ce"
+install,1000:03f9,48,message_box_confirm,,,todo,W1,install,"not ported: installer text UI: message box, Enter continues, Esc exits. aka FUN_1000_03f9"
+install,1000:0429,85,box_draw_shadow,,,todo,W1,install,not ported: installer text UI: shadow (attribute 07h) right of and below a box. aka FUN_1000_0429
+install,1000:047e,145,copy_file,,,todo,W1,install,not ported: installing to a hard disk: copies one file in 8000h-byte chunks; the port reads the user's original folder at build time (tools/extract)
+install,1000:050f,382,write_config,settings_format_inf,src/platform/settings.c,diff-tested,W1,install,"LLAMA.INF bytes from the video/control/sound menu results (106A:04EF/0648/0726): cmake/tests/launcher_oracle.py --check format (ctest settings_format_oracle) runs it for all 24 menu combinations in both modes, 48/48 equal. Not ported: LLAMA.BAT/INSTALL.BAT in install mode and the ""Installation complete"" box"
+install,1000:068d,31,clear_screen,,,todo,W1,install,"not ported: installer text UI: 2000 blank cells, attribute 07h. aka FUN_1000_068d"

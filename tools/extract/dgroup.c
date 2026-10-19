@@ -229,31 +229,51 @@ static bool write_scores(ExtractContext *ctx)
     return ok;
 }
 
-/* llama.inf as the launcher reads it (llama.exe 1000:0219..02c8; re-notes-game86 §1). */
+/* llama.inf as the launcher reads it (llama.exe inf_read 1000:01e7): 9 bytes; [0], [2], [4] and
+ * [8] are upper-cased (AND 0DFh); [0] must be V/E, [2] J/K, [4] A/S/R/N, else the launcher prints
+ * "No or Invalid Game Configuration found" (1060:0110) and exits: record "absent" (the port then
+ * uses the shipped settings). [6] - '0' and [8] are not checked. A shorter file leaves the rest
+ * of the launcher's buffer (zeros); we require all 9 bytes. */
+void llama_inf_record(const uint8_t *inf, size_t size, uint8_t record[LLAMA_INF_RECORD_SIZE])
+{
+    enum { SOUND_ADLIB = 0x00, SOUND_SBLASTER = 0x0C, SOUND_ROLAND = 0x18, SOUND_NONE = 0xFF, UPPER = 0xDF };
+    uint8_t video = 0, control = 0, sound_letter = 0, flash = 0;
+    if (size >= 9) {
+        video = inf[0] & UPPER;
+        control = inf[2] & UPPER;
+        sound_letter = inf[4] & UPPER;
+        flash = inf[8] & UPPER;
+    }
+    uint8_t sound = SOUND_NONE;
+    bool sound_ok = true;
+    switch (sound_letter) {                       /* 1000:0292..02c5 */
+    case 'A': sound = SOUND_ADLIB; break;
+    case 'S': sound = SOUND_SBLASTER; break;
+    case 'R': sound = SOUND_ROLAND; break;
+    case 'N': sound = SOUND_NONE; break;
+    default: sound_ok = false; break;
+    }
+    bool present = size >= 9 && (video == 'V' || video == 'E') && (control == 'J' || control == 'K') && sound_ok;
+    uint8_t fields[LLAMA_INF_RECORD_SIZE] = {'L', 'C', 'F', 'G', FMT_LCFG_VERSION, 0, 0, 0, 0, SOUND_NONE, 0, 0};
+    if (present) {
+        fields[6] = 1;
+        fields[7] = video == 'V';                         /* 1000:023e */
+        fields[8] = control == 'J';                       /* 1000:025d */
+        fields[9] = sound;
+        fields[10] = (uint8_t)(inf[6] - '0');             /* 1000:0219 */
+        fields[11] = flash == 'P' ? 1 : flash == 'Y' ? 2 : 0; /* 1000:0225 */
+    }
+    memcpy(record, fields, sizeof fields);
+}
+
 static bool write_config(ExtractContext *ctx)
 {
-    enum { SOUND_ADLIB = 0x00, SOUND_SBLASTER = 0x0C, SOUND_ROLAND = 0x18, SOUND_NONE = 0xFF };
     ByteBuf inf = {0};
     char path[4096];
-    bool present = find_original(ctx->original_dir, "llama.inf", path, sizeof path) &&
-                   read_file(path, &inf) && inf.size >= 9 &&
-                   (inf.data[0] == 'V' || inf.data[0] == 'E');
-    uint8_t vga = 0, joystick = 0, sound = SOUND_NONE, cpu = 0, flash_mode = 0;
-    if (present) {
-        vga = inf.data[0] == 'V';
-        joystick = inf.data[2] == 'J';
-        switch (inf.data[4]) {
-        case 'A': sound = SOUND_ADLIB; break;
-        case 'S': sound = SOUND_SBLASTER; break;
-        case 'R': sound = SOUND_ROLAND; break;
-        default: sound = SOUND_NONE; break;
-        }
-        cpu = (uint8_t)(inf.data[6] - '0');
-        flash_mode = inf.data[8] == 'P' ? 1 : inf.data[8] == 'Y' ? 2 : 0;
-    }
+    uint8_t record[LLAMA_INF_RECORD_SIZE];
+    bool found = find_original(ctx->original_dir, "llama.inf", path, sizeof path) && read_file(path, &inf);
+    llama_inf_record(inf.data, found ? inf.size : 0, record);
     bytebuf_free(&inf);
-
-    uint8_t record[12] = {'L', 'C', 'F', 'G', FMT_LCFG_VERSION, 0, present, vga, joystick, sound, cpu, flash_mode};
     return output_write(ctx->outputs, "data/config.dat", record, sizeof record);
 }
 

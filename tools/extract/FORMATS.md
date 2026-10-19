@@ -133,12 +133,13 @@ scores.yak itself is 10 x {8 ASCII digits, 8 name bytes}; the port writes that f
 ```
 char  magic[4] = "LCFG"
 u16   version = 1
-u8    present      0 = no valid llama.inf (the remaining fields are defaults)
+u8    present      0 = no valid llama.inf: missing, under 9 bytes, or [0]/[2]/[4] (upper-cased with
+                   AND 0DFh, as llama.exe 1000:01e7) not V/E, J/K, A/S/R/N (the launcher exits)
 u8    vga          1 = 'V', 0 = 'E'
 u8    joystick     1 = 'J', 0 = 'K'
 u8    sound        0x00 AdLib, 0x0C Sound Blaster, 0x18 Roland, 0xFF none
 u8    cpu          inf[6] - '0' (0 = game86)
-u8    flash_mode   'P' -> 1, 'Y' -> 2, else 0 (game86 [0x589])
+u8    flash_mode   [8] upper-cased: 'P' -> 1, 'Y' -> 2, else 0 (game86 [0x589])
 ```
 
 ## `strings.dat` (texts from DGROUP; text_print game86 1000:536f)

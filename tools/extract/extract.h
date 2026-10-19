@@ -63,6 +63,10 @@ bool extract_sprites(ExtractContext *ctx);
 bool extract_samples(ExtractContext *ctx);
 /* data/palettes.dat, data/default_scores.dat, data/user_scores.dat, data/config.dat — dgroup.c */
 bool extract_dgroup_tables(ExtractContext *ctx);
+/* data/config.dat's record for one llama.inf (FORMATS.md LCFG), parsed as llama.exe inf_read
+ * 1000:01e7 does. */
+enum { LLAMA_INF_RECORD_SIZE = 12 };
+void llama_inf_record(const uint8_t *inf, size_t size, uint8_t record[LLAMA_INF_RECORD_SIZE]);
 /* data/strings.dat — texts.c */
 bool extract_texts(ExtractContext *ctx);
 /* data/levels.dat — levels.c */
