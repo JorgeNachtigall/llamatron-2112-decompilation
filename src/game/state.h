@@ -128,6 +128,18 @@ typedef struct Point16 {
     int16_t x, y;
 } Point16;
 
+/* Per-ship steering and aim, written by the play tick (1000:16c1..1a00) and player_fire. */
+typedef struct ShipControl {
+    Point16 move;               /* 06BE/06C0 P1, 06B0/06B2 P2: this tick's ship velocity */
+    Point16 shot_velocity;      /* 069C/069E P1, 06A0/06A2 P2 */
+    int16_t shot_direction;     /* 06AC P1, 06AE P2 */
+    int16_t aim;                /* 06B6 P1, 06B8 P2: direction nibble of the last aim; indexes
+                                   player_fire's spread tables */
+    int16_t facing;             /* 06C2 P1, 07F9 P2: ship sprite (drawn at 1b5d) */
+    int16_t trail_flag;         /* 06B4 P2; for P1 the original uses a local (1933..198a), so
+                                   ship_control[0].trail_flag is port-only scratch, not mapped */
+} ShipControl;
+
 /* Ship position limits (clamped by the play tick): x in [0x0F, 0x130), y in [0x12, 0xBC). */
 enum { SHIP_X_MIN = 0x0F, SHIP_X_END = 0x130, SHIP_Y_MIN = 0x12, SHIP_Y_END = 0xBC };
 
@@ -252,6 +264,23 @@ typedef struct GameState {
     bool rescue_marker_pending;         /* 091F last llama rescued (4cfe), cleared at 4da1 */
     int16_t rescue_marker_y[PLAYER_COUNT]; /* 0921/0923 marker above the ship (1aed/1bbc), -1 per
                                               tick while >= 0 (15ea) */
+    /* The controller bytes 07FC/07FB are the engine's input_state()->controls[0]/[1]. */
+    ShipControl ship_control[PLAYER_COUNT];
+    uint8_t fire_delay;                 /* 0631 ticks until the next volley (reload 8) */
+    int16_t fire_turn;                  /* 0632 XOR 1 per volley in two-player mode: which ship
+                                           fires the spread */
+    bool started_with_stick_b;          /* 09D3 the second stick's fire started the game
+                                           (title 1000:015b/016a); P1 then moves with
+                                           controls[0] and aims with controls[1] (188d), and
+                                           input_frame_read reads both sticks (1e7b:0065) */
+    /* The droid: P2 in two-player single-controller mode, flown by companion_update (480e). */
+    int16_t droid_aim_timer;            /* 0682 0x14-tick period of enemy_aim_update */
+    uint8_t droid_aim_votes[4];         /* 409C..409F solid enemies per quadrant around P2 */
+    int16_t droid_quarry;               /* 0919 slot of the llama it flies to; -1 search, -2 none
+                                           (fly to the companion) */
+    Point16 chain_tail;                 /* 06A4/06A6 P1 trail entry at head + follower_lag[0] */
+    Point16 demo_wander;                /* 06A8/06AA random spot, re-rolled every 64 ticks in
+                                           demo mode */
 
     WaveResult wave_result;             /* 0810 */
     int16_t wave_intro_timer;           /* 08FC 0x32 ticks of freeze at wave start */
