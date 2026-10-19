@@ -76,6 +76,7 @@ unsigned asset_sample_rate_hz(unsigned rate_index);
 const HighScoreTable *asset_default_scores(void);
 const HighScoreTable *asset_user_scores(void);   /* count 0: no usable scores.yak */
 const GameConfig *asset_config(void);
+const HudGlyphs *asset_hud_glyphs(void);
 
 #ifdef __cplusplus
 }

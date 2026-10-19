@@ -16,6 +16,7 @@ _Static_assert(LLAMA_FMT_LSCO_VERSION == FORMAT_LSCO_VERSION, "scores version");
 _Static_assert(LLAMA_FMT_LCFG_VERSION == FORMAT_LCFG_VERSION, "config.dat version");
 _Static_assert(LLAMA_FMT_LTXT_VERSION == FORMAT_LTXT_VERSION, "strings.dat version");
 _Static_assert(LLAMA_FMT_LLVL_VERSION == FORMAT_LLVL_VERSION, "levels.dat version");
+_Static_assert(LLAMA_FMT_LHUD_VERSION == FORMAT_LHUD_VERSION, "hud_glyphs.dat version");
 
 static struct {
     bool loaded;
@@ -29,6 +30,7 @@ static struct {
     SampleSet samples;
     HighScoreTable default_scores, user_scores;
     GameConfig config;
+    HudGlyphs hud_glyphs;
 } data;
 
 static bool report(const char *name)
@@ -56,6 +58,7 @@ bool game_data_load(void)
               LOAD(LLAMA_ASSET_DEFAULT_SCORES_DAT, scores_parse(bytes, size, &data.default_scores)) &&
               LOAD(LLAMA_ASSET_USER_SCORES_DAT, scores_parse(bytes, size, &data.user_scores)) &&
               LOAD(LLAMA_ASSET_CONFIG_DAT, config_parse(bytes, size, &data.config)) &&
+              LOAD(LLAMA_ASSET_HUD_GLYPHS_DAT, hud_glyphs_parse(bytes, size, &data.hud_glyphs)) &&
               (pcm = asset_get(LLAMA_ASSET_SAMPLES_BIN, &pcm_size)) != NULL &&
               LOAD(LLAMA_ASSET_SAMPLES_IDX, samples_parse(bytes, size, pcm, pcm_size, &data.samples));
 #undef LOAD
@@ -211,4 +214,9 @@ const HighScoreTable *asset_user_scores(void)
 const GameConfig *asset_config(void)
 {
     return data.loaded ? &data.config : NULL;
+}
+
+const HudGlyphs *asset_hud_glyphs(void)
+{
+    return data.loaded ? &data.hud_glyphs : NULL;
 }

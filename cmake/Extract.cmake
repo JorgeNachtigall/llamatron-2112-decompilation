@@ -109,7 +109,7 @@ endforeach()
 set(LLAMATRON_GENERATED_DATA "")
 foreach(_data title_vga.idx8 title_vga.pal title_ega.idx4 title_ega.pal font.bin sine.bin
         sprites.bin sprite_refs.bin g3.bin samples.bin samples.idx
-        palettes.dat default_scores.dat user_scores.dat config.dat strings.dat levels.dat)
+        palettes.dat default_scores.dat user_scores.dat config.dat strings.dat levels.dat hud_glyphs.dat)
     list(APPEND LLAMATRON_GENERATED_DATA "${LLAMATRON_GENERATED_DIR}/data/${_data}")
 endforeach()
 set(LLAMATRON_ASSETS_BLOB_C "${LLAMATRON_GENERATED_DIR}/assets_blob.c")

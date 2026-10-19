@@ -155,6 +155,14 @@ static void check_samples_scores_config(void)
         CHECK(defaults->entries[i].score <= defaults->entries[i - 1].score);
     CHECK(user && (user->count == 0 || user->count == HIGH_SCORE_ENTRIES));
     CHECK(asset_config() != NULL);
+    const HudGlyphs *hud = asset_hud_glyphs();
+    CHECK(hud != NULL);
+    for (int d = 0; hud && d < HUD_DIGIT_COUNT; d++) { /* every glyph draws something */
+        unsigned bits = 0;
+        for (int row = 0; row < HUD_GLYPH_ROWS; row++)
+            bits |= hud->digits[d][row];
+        CHECK(bits != 0);
+    }
 }
 
 int main(int argc, char **argv)

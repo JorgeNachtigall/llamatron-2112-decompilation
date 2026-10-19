@@ -1,4 +1,4 @@
-/* scores.c - default_scores.dat / user_scores.dat (LSCO) and config.dat (LCFG). */
+/* scores.c - default_scores.dat / user_scores.dat (LSCO), config.dat (LCFG), hud_glyphs.dat (LHUD). */
 #include "formats.h"
 #include "reader.h"
 
@@ -47,4 +47,18 @@ bool config_parse(const uint8_t *data, size_t size, GameConfig *out)
     default:
         return format_fail("LCFG: unknown sound device 0x%02x", (unsigned)sound);
     }
+}
+
+bool hud_glyphs_parse(const uint8_t *data, size_t size, HudGlyphs *out)
+{
+    Reader r = reader_open(data, size);
+    if (!reader_header(&r, "LHUD", FORMAT_LHUD_VERSION))
+        return false;
+    const uint8_t *digits = reader_bytes(&r, sizeof out->digits);
+    const uint8_t *labels = reader_bytes(&r, sizeof out->player_label);
+    if (!r.ok || r.pos != size)
+        return format_fail("LHUD: %s", r.ok ? "trailing bytes" : "truncated");
+    memcpy(out->digits, digits, sizeof out->digits);
+    memcpy(out->player_label, labels, sizeof out->player_label);
+    return true;
 }

@@ -56,6 +56,7 @@ static const uint8_t test_pcm[8] = {0x80, 1, 2, 3, 4, 5, 6, 7};
 static bool parse_samples(const uint8_t *d, size_t n) { SampleSet s; bool ok = samples_parse(d, n, test_pcm, sizeof test_pcm, &s); if (ok) samples_free(&s); return ok; }
 static bool parse_scores(const uint8_t *d, size_t n) { HighScoreTable t; return scores_parse(d, n, &t); }
 static bool parse_config(const uint8_t *d, size_t n) { GameConfig c; return config_parse(d, n, &c); }
+static bool parse_hud(const uint8_t *d, size_t n) { HudGlyphs h; return hud_glyphs_parse(d, n, &h); }
 
 static void test_sprites(void)
 {
@@ -259,6 +260,17 @@ static void test_samples_scores_config(void)
     check_rejects_damage(&c, parse_config, "LCFG");
     c.bytes[9] = 0x42;
     CHECK(!config_parse(c.bytes, c.size, &config));
+
+    Buf h = {0};
+    header(&h, "LHUD", FORMAT_LHUD_VERSION);
+    for (int i = 0; i < (HUD_DIGIT_COUNT + HUD_PLAYER_LABEL_COUNT) * HUD_GLYPH_ROWS; i++)
+        put8(&h, (unsigned)i);
+    HudGlyphs hud;
+    CHECK(hud_glyphs_parse(h.bytes, h.size, &hud));
+    CHECK(hud.digits[1][0] == 8 && hud.digits[9][7] == 79 && hud.player_label[1][7] == 95);
+    check_rejects_damage(&h, parse_hud, "LHUD");
+    put8(&h, 0);
+    CHECK(!parse_hud(h.bytes, h.size));
 }
 
 int main(void)

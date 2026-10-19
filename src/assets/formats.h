@@ -34,6 +34,7 @@ enum {
     FORMAT_LCFG_VERSION = 1,
     FORMAT_LTXT_VERSION = 2,
     FORMAT_LLVL_VERSION = 1,
+    FORMAT_LHUD_VERSION = 1,
 };
 
 const char *format_error(void);
@@ -281,6 +282,22 @@ typedef struct HighScoreTable {
 } HighScoreTable;
 
 bool scores_parse(const uint8_t *data, size_t size, HighScoreTable *out);
+
+/* ---- hud_glyphs.dat (LHUD): DS:09EE digits, DS:0A8E / 0A9E player-life labels ----------- */
+
+enum {
+    HUD_DIGIT_COUNT = 10,
+    HUD_PLAYER_LABEL_COUNT = 2,
+    HUD_GLYPH_ROWS = 8,
+};
+
+/* One byte per row, 8 pixels, bit 7 = leftmost, 1 = drawn (game86 1000:519a). */
+typedef struct HudGlyphs {
+    uint8_t digits[HUD_DIGIT_COUNT][HUD_GLYPH_ROWS];
+    uint8_t player_label[HUD_PLAYER_LABEL_COUNT][HUD_GLYPH_ROWS]; /* [0] P1, [1] P2 */
+} HudGlyphs;
+
+bool hud_glyphs_parse(const uint8_t *data, size_t size, HudGlyphs *out);
 
 /* ---- config.dat (LCFG): llama.inf as llama.exe parses it ------------------------------- */
 

@@ -6,6 +6,7 @@
  *   data/default_scores.dat  built-in high-score table (DS:0AD2)
  *   data/user_scores.dat     the user's scores.yak, if the game would accept it (else empty)
  *   data/config.dat          the user's llama.inf as llama.exe parses it (else "absent")
+ *   data/hud_glyphs.dat      HUD digit glyphs (DS:09EE) and player-life labels (DS:0A8E/0A9E)
  *
  * The only relocation inside DGROUP is DS:0406 (the stub driver's segment), so the relocated
  * image holds the original values everywhere these tables are read. */
@@ -34,6 +35,13 @@ enum {
     SCORE_DIGITS = 8,
     SCORE_NAME_SIZE = 8,
     SCORE_TABLE_SIZE = SCORE_ENTRIES * (SCORE_DIGITS + SCORE_NAME_SIZE),
+
+    HUD_DIGITS = 0x09EE,         /* 10 glyphs */
+    HUD_DIGIT_COUNT = 10,
+    HUD_PLAYER_LABELS = 0x0A8E,  /* P1, then P2 at 0A9E */
+    HUD_PLAYER_LABEL_COUNT = 2,
+    HUD_GLYPH_STRIDE = 16,       /* 8 words per glyph */
+    HUD_GLYPH_ROWS = 8,
 };
 
 /* Every palette pointer passed to palette_set (1000:1be6): 2144 everywhere in play, 2175 at
@@ -180,7 +188,29 @@ static bool write_config(ExtractContext *ctx)
     return output_write(ctx->outputs, "data/config.dat", record, sizeof record);
 }
 
+/* HUD glyphs: 8 rows, one word per row, of which the drawer (game86 1000:519a) uses only the low
+ * (even) byte: 8 pixels, bit 7 = left. We keep those bytes. */
+static bool append_hud_glyphs(const ExtractContext *ctx, ByteBuf *out, uint16_t offset, int count)
+{
+    const uint8_t *glyphs = dgroup(ctx, offset, (size_t)count * HUD_GLYPH_STRIDE);
+    for (int i = 0; glyphs && i < count * HUD_GLYPH_ROWS; i++)
+        if (!bytebuf_push(out, glyphs[i * 2]))
+            return false;
+    return glyphs != NULL;
+}
+
+static bool write_hud_glyphs(ExtractContext *ctx)
+{
+    ByteBuf out = {0};
+    bool ok = bytebuf_append(&out, (const uint8_t *)"LHUD", 4) && bytebuf_put_u16(&out, FMT_LHUD_VERSION) &&
+              append_hud_glyphs(ctx, &out, HUD_DIGITS, HUD_DIGIT_COUNT) &&
+              append_hud_glyphs(ctx, &out, HUD_PLAYER_LABELS, HUD_PLAYER_LABEL_COUNT) &&
+              output_write(ctx->outputs, "data/hud_glyphs.dat", out.data, out.size);
+    bytebuf_free(&out);
+    return ok;
+}
+
 bool extract_dgroup_tables(ExtractContext *ctx)
 {
-    return write_palettes(ctx) && write_scores(ctx) && write_config(ctx);
+    return write_palettes(ctx) && write_scores(ctx) && write_config(ctx) && write_hud_glyphs(ctx);
 }

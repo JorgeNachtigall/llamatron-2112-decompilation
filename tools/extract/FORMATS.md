@@ -178,6 +178,16 @@ Ops (one byte, then operands):
 `ctest -R strings_roundtrip` rebuilds the original byte strings from these ops, compares them
 with game86 and checks the raw bytes against them.
 
+## `hud_glyphs.dat` (DS:09EE digits, DS:0A8E / 0A9E player-life labels; drawer game86 1000:519a)
+```
+char  magic[4] = "LHUD"
+u16   version = 1
+u8    digits[10][8]           digit 0..9, 8 rows each
+u8    player_labels[2][8]     P1 (DS:0A8E), P2 (DS:0A9E)
+```
+A row is 8 pixels, bit 7 = leftmost, 1 = drawn. The original stores one word per row; the drawer
+uses only the low (even) byte, so the high bytes are not exported.
+
 ## `levels.dat` (tbl_level_scripts DS:2BDA; interpreter game86 1000:020b)
 The table has **100** entries (up to the 0 word at DS:2CA2), not 40. A 0 entry makes the game wrap
 to level 0 and increment the loop count.
