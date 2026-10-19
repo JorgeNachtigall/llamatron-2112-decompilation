@@ -1687,6 +1687,18 @@
  },
  "two_player": {
   "config": {
+   "input_shift": [
+    [
+     1100,
+     1,
+     1200
+    ],
+    [
+     1250,
+     1,
+     null
+    ]
+   ],
    "interval": 50,
    "keys": [
     [
@@ -2446,6 +2458,13 @@
  },
  "warp": {
   "config": {
+   "input_shift": [
+    [
+     375,
+     1,
+     null
+    ]
+   ],
    "interval": 25,
    "keys": [
     [

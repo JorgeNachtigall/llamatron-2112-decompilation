@@ -369,13 +369,34 @@ def _type(image: bytes, slot: int) -> int:
     return struct.unpack_from("<h", image, ENTITIES + ENTITY_SIZE * slot)[0]
 
 
-def first_divergence(diffs: list[TickDiff]) -> int | None:
-    """First tick with a real (non-timing) difference."""
-    return next((d.tick for d in diffs if d.offsets), None)
+def input_shift_check(diffs: list[TickDiff], segment) -> str | None:
+    """Why the port's keys from tick `start` on may come `ticks` later (test_reference_golden
+    port_script): a timing shift of the same size holding at the last snapshot at or before
+    `start`. None when it is explained, else the reason."""
+    start, ticks = segment[:2]
+    at = [d for d in diffs if d.tick <= start]
+    if not at or at[-1].shift != ticks:
+        return f"no timing shift of {ticks:+d} at the snapshot at or before tick {start}"
+    return None
 
 
-def report(diffs: list[TickDiff]) -> str:
+def first_divergence(diffs: list[TickDiff], input_shift=()) -> int | None:
+    """First tick with a real (non-timing) difference; an unexplained input shift is real
+    from its start."""
+    ticks = [d.tick for d in diffs if d.offsets]
+    ticks += [seg[0] for seg in input_shift if input_shift_check(diffs, seg)]
+    return min(ticks, default=None)
+
+
+def report(diffs: list[TickDiff], input_shift=()) -> str:
     lines = []
+    for seg in input_shift:
+        start, ticks, end = (*seg, None)[:3]
+        why = input_shift_check(diffs, seg)
+        span = f"from tick {start}" + (f" to {end - 1}" if end is not None else " on")
+        lines.append(f"input shift: the port's keys {span} come {ticks:+d} tick later, "
+                     + (f"NOT explained ({why}): real" if why else
+                        "explained by the timing shift there"))
     if any("title llama bytes left" in name for d in diffs for _, name in d.ignored):
         lines.append(f"ignored: {LEFTOVER_REASON}")
     for d in diffs:
@@ -397,7 +418,7 @@ def report(diffs: list[TickDiff]) -> str:
     if timing:
         lines.append(f"timing shifts (one tick, at hook switches / tick counter jumps): ticks "
                      + ", ".join(map(str, timing)))
-    first = first_divergence(diffs)
+    first = first_divergence(diffs, input_shift)
     lines.append("identical on every common tick (apart from timing)" if first is None
                  else f"first divergence at tick {first}")
     return "\n".join(lines)

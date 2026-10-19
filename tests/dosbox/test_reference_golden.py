@@ -82,13 +82,17 @@ RUNS = {
         ticks=SEED, machine="vga", interval=50, max_snapshots=38,
         keys=[(1150, RIGHT), (1156, RIGHT_UP), (1170, RIGHT), (1176, RIGHT_UP),
               (1200, SPACE), (1210, SPACE_UP), (1400, RIGHT), (1480, RIGHT_UP)],
-        quit_after=1900, tick_phase=0.3, start_delay=5, time_limit=150),  # delay 5: 0.1..0.5
+        quit_after=1900, tick_phase=0.3, start_delay=5, time_limit=150,  # delay 5: 0.1..0.5
+        # the port is a tick behind in the title menu (from 1100) and in play (from the start
+        # switch after the fire at 1200, which stays put: it causes that switch)
+        input_shift=[(1100, 1, 1200), (1250, 1, None)]),
     "warp": dict(
         summary="walk_vga with wave_result poked to 4 (warp) at 300: banner, level 0 -> 5, "
                 "next wave from ~375",
         ticks=SEED, machine="vga", interval=25, max_snapshots=40, keys=START + WALK,
         pokes=[(300, WAVE_RESULT, WAVE_WARP)], quit_after=1000,
-        tick_phase=0.55, start_delay=0),                        # 0.425..0.7
+        tick_phase=0.55, start_delay=0,                         # 0.425..0.7
+        input_shift=[(375, 1, None)]),          # behind from the next wave's switch on
     "death_continue": dict(
         summary="lives poked to 1 at 250, idle death ~560, continue prompt (0816), fire at "
                 "700 continues with 5 lives",
@@ -106,19 +110,23 @@ RUNS = {
 }
 
 
-# Resolved: two_player 1300 entities[8]+1e was a follower's trail as address vs player index
+# input_shift [(start, ticks, end)]: the port replay's keys from `start` to `end` (exclusive,
+# None = the end) come `ticks` later, where the port is a tick behind after a timing-classed
+# switch (port_script; the report checks each segment against the timing shift at its start).
+#
+# Resolved: two_player 1150 (title menu) and warp 400 (walk keys) were input reaching both runs
+# at one IRQ while the port was a tick behind, and so was two_player 1450 (shots, entities[21]):
+# input_shift. two_player 1300 entities[8]+1e was a follower's trail as address vs player index
 # (compare.py TRAIL_ADDRESS).
 # Triage of the real divergences (compare.py's first ones per run and those after them that are
 # not consequences): (run, tick, field, owner, status). Printed under each run's report; update
 # when a re-run after a fix moves them.
 TRIAGE = [
-    ("two_player", 1150, "options_default, title_key_latch, options (title menu key)",
-     "Claude Code #2", "open: input reaches both runs at one IRQ while the port is a tick behind "
-     "(shifted compare); harness question, not a port bug"),
-    ("two_player", 1450, "shots[4..9]+00 (x 2 px apart), entities[21]+02", "Keel", "sent"),
-    ("warp", 400, "ship_control[0].aim/move, ship x (walk keys)", "Claude Code #2",
-     "open: same input-phase question as two_player 1150"),
-    ("warp", 450, "entities[8..11] x/y +-1, shots[0..1]", "Keel", "sent"),
+    ("two_player", 1200, "loop_count (port's tick 1201 has 1): the fire key that starts the "
+     "game is not shifted (it causes the switch), so at its own tick the port is ahead of its "
+     "shifted state", "Sentinel", "open: the one snapshot on an input-caused switch"),
+    ("warp", 425, "entities[8,10] x, [12,13] sprite; then [8..11] x/y +-1 (450..600)", "Keel",
+     "sent"),
     ("death_continue", 800, "entities[8]+02 x (15 vs 13), +0c sprite (2A vs 29), llama think_05: "
      "the first play tick after the continue runs at IRQ 741 in the original, 742 in the port, "
      "with tick_count equal, so think_05's even-tick moves fall on the other parity (Moss)",
@@ -186,7 +194,7 @@ def summary(result) -> dict:
     }
 
 
-CALIBRATION = ("tick_phase", "start_delay")    # the port replay's, not the probe's
+CALIBRATION = ("tick_phase", "start_delay", "input_shift")  # the port replay's, not the probe's
 
 
 def probe_args(run: dict) -> dict:
@@ -199,16 +207,28 @@ def golden_config(run: dict) -> dict:
     return {k: v for k, v in run.items() if k not in ("summary", "time_limit")}
 
 
-def port_script(drive: Path, out: Path) -> list[str]:
+def port_script(drive: Path, out: Path, input_shift=()) -> list[str]:
     """llamatron_replay --keys/--pokes for a reference run's drive. The keys leave out the q
     presses refrun appends to end the run (no scenario uses q): the port would quit on the
-    last snapshot's tick and have no tick after it to check a timing shift against."""
+    last snapshot's tick and have no tick after it to check a timing shift against.
+
+    input_shift [(start, ticks, end), ...]: the port's key events from tick `start` up to `end`
+    (exclusive; None = the end) come `ticks` later, so that while the port is behind after a
+    timing-classed switch (DEVIATIONS #20) input lands at the same game phase as in the
+    original. Test side only; compare.input_shift_check holds each segment to a timing shift
+    established by its start. A key that itself causes a switch (fire starting a game) is
+    left out of the segments: the switch re-establishes the shift from there."""
     import refrun
     size = struct.calcsize(refrun.KEY_FMT)
     data = (drive / "PROBE.KEY").read_bytes()
-    records = [data[i:i + size] for i in range(0, len(data), size)]
-    out.write_bytes(b"".join(r for r in records
-                             if struct.unpack(refrun.KEY_FMT, r)[1] & 0x7F != refrun.SCAN_Q))
+    records = []
+    for i in range(0, len(data), size):
+        irq, code, pad = struct.unpack(refrun.KEY_FMT, data[i:i + size])
+        if code & 0x7F != refrun.SCAN_Q:
+            later = next((t for start, t, end in input_shift
+                          if irq >= start and (end is None or irq < end)), 0)
+            records.append(struct.pack(refrun.KEY_FMT, irq + later, code, pad))
+    out.write_bytes(b"".join(records))
     script = ["--keys", str(out)]
     if (drive / "PROBE.POK").exists():
         script += ["--pokes", str(drive / "PROBE.POK")]
@@ -311,7 +331,8 @@ def test_port_replay_report(reference, tmp_path):
     last = max(s.irq for s in result.snapshots)
     out = tmp_path / f"{name}.lrpl"
     machine = "--vga" if cfg["machine"] == "vga" else "--ega"
-    script = port_script(drive, tmp_path / f"{name}.key")
+    shift = RUNS[name].get("input_shift", ())
+    script = port_script(drive, tmp_path / f"{name}.key", shift)
     proc = subprocess.run([driver, "--ticks", str(last + 1), "--every", str(cfg["interval"]),
                            "--around", "1", machine, "--seed", str(cfg["ticks"]),
                            *replay_args(RUNS[name]), *script,
@@ -323,11 +344,11 @@ def test_port_replay_report(reference, tmp_path):
     diffs = compare.compare(port, reference_snaps)
     # the port ran every tick the reference snapshot: one comparison per reference snapshot
     assert [d.tick for d in diffs] == sorted(reference_snaps)
-    text = f"{name}: {RUNS[name]['summary']}\n" + compare.report(diffs)
+    text = f"{name}: {RUNS[name]['summary']}\n" + compare.report(diffs, shift)
     if triage(name):
         text += "\n" + triage(name)
     report_path = WORKDIR / f"replay-report-{name}.txt"
     report_path.write_text(text + "\n")
     print(f"\n{name}: {proc.stdout.strip()}\n{text}\n(report: {report_path})")
     if os.environ.get("LLAMATRON_REPLAY_STRICT") == "1":
-        assert compare.first_divergence(diffs) is None, text
+        assert compare.first_divergence(diffs, shift) is None, text

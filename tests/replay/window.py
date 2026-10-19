@@ -65,7 +65,7 @@ def main(argv=None) -> int:
         return 1
 
     drive = workdir / "c"
-    script = port_script(drive, workdir / "port.key")
+    script = port_script(drive, workdir / "port.key", run.get("input_shift", ()))
     out = workdir / "port.lrpl"
     frames = ["--frames", str(workdir / "port.lrpf")] if args.frames else []
     machine = "--vga" if cfg["machine"] == "vga" else "--ega"
@@ -80,8 +80,10 @@ def main(argv=None) -> int:
         return 1
     port = compare.read_port(out)
     diffs = compare.compare(port, reference)
+    # segments that start before the window have no snapshot to check them against
+    shift = [seg for seg in run.get("input_shift", ()) if seg[0] >= args.first]
     print(f"{args.scenario} ticks {args.first}..{last}: {run['summary']}")
-    print(compare.report(diffs))
+    print(compare.report(diffs, shift))
     first = next((d for d in diffs if d.offsets), None)
     if first:
         a, b = reference[first.tick], port.snapshots[first.tick]

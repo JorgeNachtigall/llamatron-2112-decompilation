@@ -337,3 +337,33 @@ def test_compare_follower_trail_address_is_the_player_index():
         port = compare.PortRun(10, bytes(mask), {10: img(think, mine)})
         diffs = compare.compare(port, {10: img(think, ref)})
         assert bool(diffs[0].offsets) == real, (think, ref, mine)
+
+
+def test_port_script_shifts_keys_in_segments(tmp_path):
+    """input_shift segments move the port's key events (not the reference's) by their ticks;
+    refrun's q presses are left out."""
+    root = Path(__file__).resolve().parents[2]
+    sys.path[:0] = [str(root / "tests" / "dosbox"), str(root / "tools" / "harness" / "dosbox")]
+    import refrun
+    from test_reference_golden import port_script
+    events = [(150, 0x39), (160, 0xB9), (1150, 0x4D), (1200, 0x39), (1400, 0x4D),
+              (1500, refrun.SCAN_Q)]
+    (tmp_path / "PROBE.KEY").write_bytes(b"".join(struct.pack(refrun.KEY_FMT, irq, sc, 0)
+                                                  for irq, sc in events))
+    port_script(tmp_path, tmp_path / "port.key", [(1100, 1, 1200), (1250, 1, None)])
+    data = (tmp_path / "port.key").read_bytes()
+    size = struct.calcsize(refrun.KEY_FMT)
+    got = [struct.unpack(refrun.KEY_FMT, data[i:i + size])[:2] for i in range(0, len(data), size)]
+    assert got == [(150, 0x39), (160, 0xB9), (1151, 0x4D), (1200, 0x39), (1401, 0x4D)]
+
+
+def test_input_shift_needs_a_timing_shift_at_its_start():
+    diffs = [compare.TickDiff(t, [], shift=s) for t, s in ((50, 0), (100, 1), (150, 1), (200, 0))]
+    assert compare.input_shift_check(diffs, (100, 1, None)) is None
+    assert compare.input_shift_check(diffs, (120, 1, None)) is None     # holds at 100
+    assert compare.input_shift_check(diffs, (60, 1, None))               # none at 50
+    assert compare.first_divergence(diffs, [(60, 1, 90)]) == 60          # unexplained: real
+    text = compare.report(diffs, [(100, 1, 200), (60, 1, None)])
+    assert "keys from tick 100 to 199 come +1 tick later, explained" in text
+    assert "keys from tick 60 on come +1 tick later, NOT explained" in text
+    assert "first divergence at tick 60" in text
