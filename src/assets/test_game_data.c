@@ -220,6 +220,14 @@ static void check_samples_scores_config(void)
         CHECK(controls->spread_a[i] < INPUT_NIBBLES && controls->spread_b[i] < INPUT_NIBBLES);
     for (int i = 0; controls && i < DROID_QUADRANTS; i++)
         CHECK(controls->droid_aim[i] < INPUT_NIBBLES);
+    for (int i = 0; controls && i < INPUT_NIBBLES; i++) { /* a bounce mirrors vx or vy, 0 = none */
+        uint8_t x = controls->shot_bounce_x[i], y = controls->shot_bounce_y[i];
+        CHECK(x < INPUT_NIBBLES && y < INPUT_NIBBLES);
+        if (x && x < INPUT_NIBBLES)
+            CHECK(controls->shot_vx[x] == -controls->shot_vx[i] && controls->shot_vy[x] == controls->shot_vy[i]);
+        if (y && y < INPUT_NIBBLES)
+            CHECK(controls->shot_vy[y] == -controls->shot_vy[i] && controls->shot_vx[y] == controls->shot_vx[i]);
+    }
     const TitleTables *title = asset_title_tables();
     CHECK(title && title->tune_length >= 3 && title->tune[title->tune_length - 1] == 0);
     for (int i = 0; title && i + 1 < title->tune_length; i += 2) /* rates and sample numbers */

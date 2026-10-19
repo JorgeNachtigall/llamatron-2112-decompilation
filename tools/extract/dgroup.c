@@ -82,13 +82,15 @@ enum {
 };
 
 /* Player control tables, 16 bytes each by input nibble (player_fire 1000:0981.., players_tick
- * 1000:16c1..), in file order. DS:0793 and DS:07A3 have no reader and are not exported. */
+ * 1000:16c1.., shots_update 1000:0c84..), in file order. */
 static const uint16_t control_tables[] = {
     0x0743, /* shot vx      1000:0a2a, 16ef */
     0x0753, /* shot vy      1000:0a41, 16f7 */
     0x0763, /* shot dir     1000:0a58, 16e3 */
     0x0773, /* spread a     1000:0a0b */
     0x0783, /* spread b     1000:0a72 */
+    0x0793, /* bounce x     1000:0cae, BX = 0x50 */
+    0x07A3, /* bounce y     1000:0cae, BX = 0x60 */
     0x07B3, /* move vx      1000:1703 */
     0x07C3, /* move vy      1000:1716 */
     0x07D3, /* ship facing  1000:1727 */

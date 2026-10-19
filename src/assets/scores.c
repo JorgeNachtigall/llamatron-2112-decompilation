@@ -140,6 +140,7 @@ bool control_tables_parse(const uint8_t *data, size_t size, ControlTables *out)
     if (!reader_header(&r, "LCTL", FORMAT_LCTL_VERSION))
         return false;
     void *nibble_tables[] = {out->shot_vx, out->shot_vy, out->shot_direction, out->spread_a, out->spread_b,
+                             out->shot_bounce_x, out->shot_bounce_y,
                              out->move_vx, out->move_vy, out->ship_facing, out->trail_flag};
     void *quadrant_tables[] = {out->droid_shot_vx, out->droid_shot_vy, out->droid_shot_direction, out->droid_aim};
     for (size_t i = 0; i < sizeof nibble_tables / sizeof *nibble_tables; i++) {

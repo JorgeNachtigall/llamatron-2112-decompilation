@@ -228,13 +228,18 @@ s16   wander_sprite[8]        DS:1FBA, sprite offset (1000:4e21); in the origina
 ## `controls.dat` (player and droid control tables, DGROUP 068C..07F2)
 ```
 char  magic[4] = "LCTL"
-u16   version = 1
+u16   version = 2
                          16 bytes each, by input nibble (bit 0 up, 1 down, 2 left, 3 right):
 s8    shot_vx[16]        DS:0743   player_fire 1000:0a2a, players_tick 16ef
 s8    shot_vy[16]        DS:0753   1000:0a41, 16f7
 u8    shot_direction[16] DS:0763   0 = no direction (keep the old aim)    1000:0a58, 16e3
 u8    spread_a[16]       DS:0773   nibble of a spread volley's 2nd shot, 0 = none   1000:0a0b
 u8    spread_b[16]       DS:0783   3rd shot   1000:0a72
+u8    shot_bounce_x[16]  DS:0793   (version 2) new nibble of a bouncing shot leaving through the
+                                   left/right edge, 0 = none; shots_update 1000:0c84..0cae finds
+                                   the nibble i whose 0763/0743/0753 entries match the shot, then
+                                   reads [0x743 + DX + i] with DX = 0x50
+u8    shot_bounce_y[16]  DS:07A3   (version 2) top/bottom edge, DX = 0x60
 s8    move_vx[16]        DS:07B3   1000:1703
 s8    move_vy[16]        DS:07C3   1000:1716
 u8    ship_facing[16]    DS:07D3   0 = keep   1000:1727
@@ -245,7 +250,8 @@ s8    droid_shot_vy[4]   DS:0690   1000:17fe
 u8    droid_shot_direction[4]  DS:0694   1000:1806
 u8    droid_aim[4]       DS:0698   input nibble   1000:1810
 ```
-DS:0793 and DS:07A3 (between spread_b and move_vx) have no reader in game86 and are not exported.
+A non-zero bounce entry b mirrors the shot: shot_vx[b] = -shot_vx[i] (x) or shot_vy[b] = -shot_vy[i]
+(y), the other component unchanged (checked by assets_game_data).
 
 ## `title.dat` (attract mode / title screen)
 ```

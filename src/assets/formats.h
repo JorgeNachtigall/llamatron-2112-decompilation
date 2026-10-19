@@ -37,7 +37,7 @@ enum {
     FORMAT_LHUD_VERSION = 1,
     FORMAT_LHSC_VERSION = 1,
     FORMAT_LENM_VERSION = 2,
-    FORMAT_LCTL_VERSION = 1,
+    FORMAT_LCTL_VERSION = 2,
     FORMAT_LTTL_VERSION = 1,
     FORMAT_LNSP_VERSION = 1,
 };
@@ -472,6 +472,10 @@ typedef struct ControlTables {
     uint8_t shot_direction[INPUT_NIBBLES];  /* DS:0763, 0 = no direction: keep the old aim */
     uint8_t spread_a[INPUT_NIBBLES];        /* DS:0773, nibble of a volley's 2nd shot, 0 = none */
     uint8_t spread_b[INPUT_NIBBLES];        /* DS:0783, 3rd shot */
+    /* A bouncing shot leaving the screen: shots_update (1000:0c84..0ccc) finds the nibble whose
+     * shot_direction/shot_vx/shot_vy match the shot and takes its new nibble from here. */
+    uint8_t shot_bounce_x[INPUT_NIBBLES];   /* DS:0793, left/right edge (DX = 0x50) */
+    uint8_t shot_bounce_y[INPUT_NIBBLES];   /* DS:07A3, top/bottom edge (DX = 0x60) */
     int8_t move_vx[INPUT_NIBBLES];          /* DS:07B3 */
     int8_t move_vy[INPUT_NIBBLES];          /* DS:07C3 */
     uint8_t ship_facing[INPUT_NIBBLES];     /* DS:07D3, 0 = keep */

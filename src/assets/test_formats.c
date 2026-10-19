@@ -323,12 +323,13 @@ static void test_samples_scores_config(void)
 
     Buf k = {0};
     header(&k, "LCTL", FORMAT_LCTL_VERSION);
-    for (int i = 0; i < 9 * INPUT_NIBBLES + 4 * DROID_QUADRANTS; i++)
+    for (int i = 0; i < 11 * INPUT_NIBBLES + 4 * DROID_QUADRANTS; i++)
         put8(&k, (unsigned)(i & 0xFF));
     ControlTables controls;
     CHECK(control_tables_parse(k.bytes, k.size, &controls));
-    CHECK(controls.shot_vx[1] == 1 && controls.shot_direction[0] == 32 && controls.trail_flag[15] == 143);
-    CHECK(controls.droid_shot_vx[0] == -112 && controls.droid_aim[3] == 159);
+    CHECK(controls.shot_vx[1] == 1 && controls.shot_direction[0] == 32 && controls.trail_flag[15] == 175);
+    CHECK(controls.shot_bounce_x[0] == 80 && controls.shot_bounce_y[15] == 111 && controls.move_vx[0] == 112);
+    CHECK(controls.droid_shot_vx[0] == -80 && controls.droid_aim[3] == 191);
     check_rejects_damage(&k, parse_controls, "LCTL");
 
     Buf t = {0};
