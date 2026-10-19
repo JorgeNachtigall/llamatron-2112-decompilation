@@ -3,6 +3,7 @@
 #include "reader.h"
 
 #include <stdlib.h>
+#include <string.h>
 
 enum { LEVEL_RECORD_SIZE = 10, OP_RECORD_SIZE = 6 };
 
@@ -22,6 +23,11 @@ bool levels_parse(const uint8_t *data, size_t size, LevelSet *out)
     clobber.level = reader_u16(&r);
     clobber.first_spawn = reader_u16(&r);
     clobber.spawn_count = reader_u16(&r);
+    uint16_t spawn_sprites[LEVEL_VARIANTS], warp_sprites[LEVEL_VARIANTS];
+    for (int i = 0; i < LEVEL_VARIANTS; i++)
+        spawn_sprites[i] = reader_u16(&r);
+    for (int i = 0; i < LEVEL_VARIANTS; i++)
+        warp_sprites[i] = reader_u16(&r);
     if (!r.ok || r.pos != size)
         return format_fail("LLVL: %s", r.ok ? "trailing bytes" : "truncated");
 
@@ -67,6 +73,8 @@ bool levels_parse(const uint8_t *data, size_t size, LevelSet *out)
          clobber.spawn_count > out->levels[clobber.level].spawn_count - clobber.first_spawn))
         ok = format_fail("LLVL: spawn clobber outside level %u's spawns", (unsigned)clobber.level);
     out->clobber_10b0 = clobber;
+    memcpy(out->spawn_sprites, spawn_sprites, sizeof spawn_sprites);
+    memcpy(out->warp_sprites, warp_sprites, sizeof warp_sprites);
     if (!ok)
         levels_free(out);
     return ok;

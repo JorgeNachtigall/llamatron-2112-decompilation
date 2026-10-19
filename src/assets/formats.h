@@ -33,7 +33,7 @@ enum {
     FORMAT_LSCO_VERSION = 1,
     FORMAT_LCFG_VERSION = 1,
     FORMAT_LTXT_VERSION = 2,
-    FORMAT_LLVL_VERSION = 2,
+    FORMAT_LLVL_VERSION = 3,
     FORMAT_LHUD_VERSION = 1,
     FORMAT_LHSC_VERSION = 1,
     FORMAT_LENM_VERSION = 2,
@@ -322,8 +322,16 @@ typedef struct LevelSpawnClobber {
     uint16_t spawn_count;
 } LevelSpawnClobber;
 
+enum { LEVEL_VARIANTS = 4 };
+
 typedef struct LevelSet {
     LevelSpawnClobber clobber_10b0;
+    /* Sprite number of each spawned enemy (entity +0C via spawn_sprite DS:0806), by level & 3,
+     * or by rng_next & 3 when DS:21B0 is non-zero (wave_spawn_next 1000:1d97..1dae). DS:0808. */
+    uint16_t spawn_sprites[LEVEL_VARIANTS];
+    /* Warp-in sprite number of each spawn effect (1000:1d60, entity +0C), picked by level & 3 at
+     * wave start into g_level_variant DS:0941 (level_select_variant 1000:5350). DS:0939. */
+    uint16_t warp_sprites[LEVEL_VARIANTS];
     uint16_t level_count;
     LevelScript *levels;
     LevelOp *ops;            /* storage behind levels[].ops */

@@ -32,6 +32,10 @@ enum {
     CLOBBER_OFFSET = 8,    /* [SI+8], [SI+0A] */
     CLOBBER_SIZE = 4,
     NO_LEVEL = 0xFFFF,
+
+    SPAWN_SPRITES = 0x0808,  /* dw[4] -> spawn_sprite DS:0806 (wave_spawn_next 1000:1daa) */
+    WARP_SPRITES = 0x0939,   /* dw[4] -> g_level_variant DS:0941 (level_select_variant 1000:5359) */
+    LEVEL_VARIANTS = 4,      /* both indexed by & 3 */
 };
 
 /* Where each level's spawn pairs lie in DGROUP. */
@@ -139,6 +143,13 @@ static bool find_spawn_clobber(const ExtractContext *ctx, const SpawnArea *areas
     return true;
 }
 
+/* Appends the 4 words at DS:offset. */
+static bool put_variant_words(const ExtractContext *ctx, uint16_t offset, ByteBuf *out)
+{
+    const uint8_t *words = dgroup(ctx, offset, LEVEL_VARIANTS * 2);
+    return words && bytebuf_append(out, words, LEVEL_VARIANTS * 2);
+}
+
 bool extract_levels(ExtractContext *ctx)
 {
     static SpawnArea areas[MAX_LEVELS];
@@ -162,7 +173,8 @@ bool extract_levels(ExtractContext *ctx)
          bytebuf_put_u16(&out, (uint16_t)(ops.size / OP_RECORD_SIZE)) && bytebuf_append(&out, ops.data, ops.size) &&
          bytebuf_put_u16(&out, (uint16_t)(spawns.size / 2)) && bytebuf_append(&out, spawns.data, spawns.size) &&
          find_spawn_clobber(ctx, areas, count, clobber) && bytebuf_put_u16(&out, clobber[0]) &&
-         bytebuf_put_u16(&out, clobber[1]) && bytebuf_put_u16(&out, clobber[2]) && output_write(ctx->outputs, "data/levels.dat", out.data, out.size);
+         bytebuf_put_u16(&out, clobber[1]) && bytebuf_put_u16(&out, clobber[2]) &&
+         put_variant_words(ctx, SPAWN_SPRITES, &out) && put_variant_words(ctx, WARP_SPRITES, &out) && output_write(ctx->outputs, "data/levels.dat", out.data, out.size);
     ok = ok && index_define(ctx, "LEVEL_COUNT", (unsigned long)count);
     if (ok)
         printf("  %d levels, %zu script ops, %zu spawn entries\n", count, ops.size / OP_RECORD_SIZE,
