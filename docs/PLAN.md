@@ -108,7 +108,7 @@ Status tags: **[C]** confirmed by reading code, **[H]** hypothesis. Addresses ar
 - **Data**: `g3.cmp` -> segment 30EB (pictures), `f.cmp` -> `DS:39EE` (font), `s.cmp` -> `DS:4141`
   (sine table); all three are **LZSS** (4 KB window, 12-bit offsets, 4-bit length, decoder at
   `1000:e6bb`). Sprite bank (60 KB) is **embedded in game86.exe at segment 218C**, level scripts
-  (40 levels, byte-code with 7 opcodes, enemy (type,count) pairs, 41 enemy init handlers via
+  (100 level scripts via table `DS:2BDA..2CA1`, byte-code with 8 opcodes 0xFF..0xF8 (W1 finding), enemy (type,count) pairs, 41 enemy init handlers via
   `DS:2CA4`), palettes, text and the default hi-score table are in DGROUP (3559). High scores:
   `scores.yak` = 10 x (8 ASCII digits + 8 chars), 160 bytes, defaults from `DS:0AD2`.
 - **Entities**: 70 x 64-byte records at `DS:48C1`; think handlers by type (`DS:1FD2`), animation /
@@ -328,7 +328,7 @@ A function is "done" only when diff-tested; a milestone is done when its run-ver
 | M1 | Extractor completes (LZSS, sprites, DGROUP, pictures, font, sine, samples, ILBM); SDL window shows the decoded title LBMs (fs.exe behaviour, both VGA 320x400 and EGA 640x350 variants); **same page running in the browser** | ~1.5 kLOC, 2–3 days |
 | M2 | `engine/gfx.c` renderer API + palette, tick scheduler, input mapping; unicorn harness (with its Python EGA-plane model, test-only); blitters/text/rect/restore routines ported and diff-tested; attract/title screen reproduced from reimplemented init + attract hooks (`3ee0`, `402c`, `3f6f`, `44d7`) | ~3 kLOC, 1 week |
 | M3 | Native bring-up: state machine, level-script interpreter, tick/frame logic, player, bullets and the enemy types of the first waves ported (pure C); levels whose enemies are not yet ported are skipped; first playable waves | ~3 kLOC, 1–2 weeks |
-| M4 | All 41 enemy init + think/animation/hit handlers ported and diff-tested; all 40 levels playable; game over, hi-score entry, scores persistence | ~4 kLOC, 2 weeks |
+| M4 | All 41 enemy init + think/animation/hit handlers ported and diff-tested; all 100 level scripts playable; game over, hi-score entry, scores persistence | ~4 kLOC, 2 weeks |
 | M5 | Sound: driver behaviour + sample mixer; title tune/samples on native and web | ~1 kLOC, 1 week |
 | M6 | DOSBox-X reference runs: recorded inputs, frame-hash and DGROUP comparisons for EGA and VGA configs, fixes for every divergence; web build parity (gamepad, IDBFS) | 1–2 weeks |
 | M7 | Polish: options UI mapping llama.inf semantics, window scaling/aspect (320x200 -> 4:3), pause/quit, app bundle; documentation of every deliberate deviation | 1 week |
