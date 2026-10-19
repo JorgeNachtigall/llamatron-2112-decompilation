@@ -5,6 +5,7 @@ add_library(llama_engine STATIC
     timing.c
     title.c
     snd.c
+    snd_bank.c
 )
 # The ctypes test library (tests/cmake/TestLib.cmake) links this into a shared object.
 set_target_properties(llama_engine PROPERTIES POSITION_INDEPENDENT_CODE ON)

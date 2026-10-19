@@ -3,6 +3,7 @@
  * no original data). Run via ctest (snd_selftest).
  */
 #include "snd.h"
+#include "timing.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -175,6 +176,30 @@ static void test_output(void)
     CHECK(snd_output_pending() == 0);
 }
 
+/* timing_run_timer_ticks: driver tick (AH=2) first, then the game's part of the handler. */
+static uint8_t g_seen_in_timer[4];
+static int g_timer_calls;
+
+static void timer_cb(void *user)
+{
+    (void)user;
+    if (g_timer_calls < 4)
+        g_seen_in_timer[g_timer_calls] = snd_status().playing;
+    g_timer_calls++;
+}
+
+static void test_timer_order(void)
+{
+    snd_init(&g_bank, 0);
+    snd_play(5, 1, 3);
+    TickScheduler s;
+    timing_init(&s, 1000000u, 0);
+    timing_advance(&s, 2 * 19937);                 /* two ticks (19936.6 us each) due */
+    CHECK(timing_run_timer_ticks(&s, timer_cb, NULL) == 2);
+    CHECK(g_timer_calls == 2);
+    CHECK(g_seen_in_timer[0] == 5);                /* the game hook already sees the new sample */
+}
+
 int main(void)
 {
     make_bank();
@@ -183,6 +208,7 @@ int main(void)
     test_stops();
     test_disabled();
     test_output();
+    test_timer_order();
     if (g_failures) {
         fprintf(stderr, "snd_selftest: %d failure(s)\n", g_failures);
         return 1;

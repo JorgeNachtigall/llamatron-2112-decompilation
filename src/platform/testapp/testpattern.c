@@ -176,6 +176,11 @@ static void game_tick(App *app)
     }
 }
 
+static void game_tick_cb(void *user)
+{
+    game_tick(user);
+}
+
 /* One display frame (what the original's frame loop does). */
 static void game_frame(App *app)
 {
@@ -243,8 +248,7 @@ static bool frame(void *user)
         timing_advance(&app->scheduler, now - app->last_us);
         app->last_us = now;
     }
-    while (timing_take_tick(&app->scheduler))
-        game_tick(app);
+    timing_run_timer_ticks(&app->scheduler, game_tick_cb, app);
     game_frame(app);
     present(app);
     app->frames++;

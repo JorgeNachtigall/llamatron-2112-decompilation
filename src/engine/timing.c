@@ -3,6 +3,8 @@
  */
 #include "timing.h"
 
+#include "snd.h"
+
 const DisplayTiming DISPLAY_VGA_MODE_0D = { 25175000u, 800u * 449u };
 /* Dot clock 315,000,000/22 Hz is not an integer, so scale both terms by 22. */
 const DisplayTiming DISPLAY_EGA_MODE_0D = { 315000000u, 912u * 262u * 22u };
@@ -87,6 +89,19 @@ bool timing_take_tick(TickScheduler *s)
     if (s->bios_accumulator < before)
         s->bios_ticks++;
     return true;
+}
+
+/* game86 1000:3de4 */
+uint32_t timing_run_timer_ticks(TickScheduler *s, TimerTickFn timer, void *user)
+{
+    uint32_t n = 0;
+    while (timing_take_tick(s)) {
+        snd_tick();                 /* 1000:3e02: driver AH=2 */
+        if (timer)
+            timer(user);            /* 1000:3e08..: counter, fire, flash, game hook */
+        n++;
+    }
+    return n;
 }
 
 uint16_t timing_tick_phase(const TickScheduler *s)

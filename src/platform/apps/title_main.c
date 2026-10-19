@@ -98,9 +98,8 @@ static void run_ticks(App *app)
         timing_advance(&app->scheduler, now - app->last_us);
         app->last_us = now;
     }
-    while (timing_take_tick(&app->scheduler))
-        if (app->sound)
-            snd_tick();
+    /* fs.exe's handler ticks only the driver (snd is disabled when muted). */
+    timing_run_timer_ticks(&app->scheduler, NULL, NULL);
 
     uint8_t buffer[4096];
     size_t n;

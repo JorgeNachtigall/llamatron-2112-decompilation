@@ -89,6 +89,16 @@ uint32_t timing_advance_frame(TickScheduler *s, const DisplayTiming *display);
  */
 bool timing_take_tick(TickScheduler *s);
 
+/* The rest of the original timer handler after the sound driver tick: game86 1000:3e08..3ec0
+ * (tick counter, fire refresh via input_tick_fire(), palette flash, per-tick game hook). */
+typedef void (*TimerTickFn)(void *user);
+
+/* Run every due tick the way the original INT 08 handler (game86 1000:3de4) does: first the
+ * sound driver tick (AH=2 at 1000:3e02 -> snd_tick()), then `timer` (may be NULL, e.g. fs.exe
+ * whose handler only ticks the driver). Returns the number of ticks run. Use this rather
+ * than timing_take_tick() so sound and game stay in the original order. */
+uint32_t timing_run_timer_ticks(TickScheduler *s, TimerTickFn timer, void *user);
+
 /* Fraction (0..65535) of the next tick already elapsed, e.g. for audio scheduling. */
 uint16_t timing_tick_phase(const TickScheduler *s);
 
