@@ -69,6 +69,12 @@ void think_16(GameState *game, Entity *e);
 /* think_chasers.c */
 void think_17(GameState *game, Entity *e);
 void think_18(GameState *game, Entity *e);
+/* think_orbiters.c */
+void think_20(GameState *game, Entity *e);
+void think_21(GameState *game, Entity *e);
+void think_22(GameState *game, Entity *e);
+void think_2c(GameState *game, Entity *e);
+void think_2d(GameState *game, Entity *e);
 /* think_chargers.c */
 void think_25(GameState *game, Entity *e);
 void think_29(GameState *game, Entity *e);

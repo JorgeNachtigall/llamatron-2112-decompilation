@@ -44,6 +44,7 @@ OPTIONS = 0x2CF6
 SHIPS = 0x2CFB            # P1 x, y, P2 x, y
 TARGET = 0x2D03
 TICKS = 0x39E6
+SINE8 = 0x4141            # filled by the data loader at start-up, not in the EXE image
 
 STUB_SEG = 0x9800
 OPT_DOUBLE = 0x02
@@ -78,6 +79,12 @@ class ThinkOracle:
     def __init__(self, cgame):
         self.dg = DgroupMap(cgame)
         self.table = (ctypes.c_void_p * THINK_COUNT).in_dll(cgame, "entity_think_handlers")
+        sine = bind(cgame, "asset_sine", ctypes.c_void_p)()
+        assert sine, "extracted data not loaded"
+        self.sine8 = ctypes.string_at(sine, 256)
+        bank = bind(cgame, "asset_sprite_bank", ctypes.c_void_p, ctypes.c_int)(0)
+        find = bind(cgame, "sprite_bank_find", ctypes.c_int, ctypes.c_void_p, ctypes.c_uint16)
+        self.frame_of_offset = lambda off: find(bank, off)
         self.sound_count = bind(cgame, "game_sound_log_count", ctypes.c_uint)
         self.sound_clear = bind(cgame, "game_sound_log_clear", None)
 
@@ -100,6 +107,7 @@ class ThinkOracle:
         tightens the record's handler-specific fields; `table(rnd, records, slot)` may edit
         the other records and returns extra {DS offset: word}; `extra` = {DS offset: word}."""
         image = bytearray(machine.read_dgroup(0, 0x10000))
+        image[SINE8:SINE8 + 256] = self.sine8
         records = entity_table(rnd, n_think=THINK_COUNT)
         slot = rnd.randrange(ENTITY_COUNT)
         rec = records[slot]
@@ -178,14 +186,29 @@ class ThinkOracle:
         self.sound_clear()
         self.override_status(True, self.SoundStatus(*case.status))
         THINK_FN(fn)(ctypes.addressof(state), self.dg.entity(state, case.slot))
+        self.override_status(False, self.SoundStatus(0, 0))
         sounds = []
         for i in range(self.sound_count()):
             s = self.sound_at(i)
             sounds.append((s.sample, s.rate_index, s.priority))
         return self.dg.to_dgroup(state, case.image), sounds
 
+    def with_sprite_frames(self, before: bytes, after: bytes) -> bytes:
+        """`after` with +2c (Entity.sprite_ref, read when sprite < 0) converted from the
+        original's sprite bank offset to the port's frame index wherever the handler set it."""
+        out = bytearray(after)
+        for slot in range(ENTITY_COUNT):
+            base = ENTITY_TABLE + ENTITY_SIZE * slot
+            ref, sprite = base + 0x2C, base + 0x0C
+            if after[ref:ref + 2] != before[ref:ref + 2] and after[sprite + 1] & 0x80:
+                frame = self.frame_of_offset(struct.unpack_from("<H", after, ref)[0])
+                if frame >= 0:
+                    out[ref:ref + 2] = w16(frame)
+        return bytes(out)
+
     def check(self, machine, case: ThinkCase, think: int):
         want, want_sounds = self.run_original(machine, case, think)
+        want = self.with_sprite_frames(case.image, want)
         got, got_sounds = self.run_port(case, think)
         bad = self.dg.mismatches(want, got)
         detail = [(hex(o), want[o], got[o]) for o in bad[:16]]

@@ -31,6 +31,7 @@ add_library(llamatron_game STATIC
     entities/think_chargers.c
     entities/think_herders.c
     entities/think_chasers.c
+    entities/think_orbiters.c
     entities/think_table.c
 )
 target_include_directories(llamatron_game PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
