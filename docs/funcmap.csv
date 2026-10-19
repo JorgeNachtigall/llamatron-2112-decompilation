@@ -16,7 +16,7 @@ game86,1000:0816,37,continue_tick_hook,continue_tick_hook,src/game/continue.c,di
 game86,1000:083b,19,title_tune_start,title_tune_start,src/game/attract.c,diff-tested,W5,A,tests/oracle/test_attract.py::test_tune
 game86,1000:084e,70,title_tune_tick,title_tune_tick,src/game/attract.c,diff-tested,W5,A,tests/oracle/test_attract.py::test_tune
 game86,1000:0894,90,continue_draw_hook,continue_draw_hook,src/game/continue.c,diff-tested,W5,A,tests/oracle/test_continue.py::test_continue_draw_hook (pages + dirty-list restore)
-game86,1000:08ee,146,game_over,game_over,src/game/main_sm.c,todo,W4,A,
+game86,1000:08ee,146,game_over,game_over (main_sm.c states),src/game/main_sm.c,diff-tested,W4,A,"tests/oracle/test_game_over.py (08ee..094f / 5e47; drawing in test_wave_screens.py)"
 game86,1000:0981,644,player_fire,player_fire,src/game/player.c,diff-tested,W5,B,
 game86,1000:0c28,386,shots_update,shots_update,src/game/bullets.c,diff-tested,W5a,B,tests/oracle/test_shots.py::test_shots_update (real hit handlers; DEVIATIONS 19)
 game86,1000:0dbf,267,ent_hit_02,ent_hit_02,src/game/entities/hit.c,diff-tested,W5a,B,
