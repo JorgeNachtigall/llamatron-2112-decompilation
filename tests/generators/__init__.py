@@ -71,23 +71,24 @@ PLAYFIELD_X = (0x0F, 0x130)   # player clamp range from 1000:0981.. (re-notes §
 PLAYFIELD_Y = (0x12, 0xBC)
 
 
-def entity(rnd: random.Random, active: bool = True, n_types: int = 41,
+def entity(rnd: random.Random, active: bool = True, n_think: int = 13, n_hatch: int = 41,
            n_states: int = 19, n_hit: int = 18) -> EntityRecord:
-    """One record. Free slots: type = -1, rest zero. Active slots:
-    [H] type in [0, n_types) (41 enemy init handlers), state < n_states (DS:202E),
-    hit indices < n_hit (CS:0C04), position inside the player clamp box, other
-    bytes random (unknown fields: tighten once mapped)."""
+    """One record (layout: docs/re-notes-game86.md §8.3). Free slots: type = -1,
+    rest zero. Active slots: think index < n_think (tbl_think_handlers), hatch type
+    < n_hatch [H], state < n_states (0x12 = idle), hit handler < n_hit, death sound
+    = sample 1..32 at rate 0..4, position inside the player clamp box. Other
+    (handler-specific) bytes are random; tighten per handler when testing it."""
     rec = EntityRecord()
     if not active:
         rec.set("type", -1)
         return rec
     rec.raw[:] = bytes(rnd.randrange(256) for _ in range(ENTITY_SIZE))
-    rec.set("type", rnd.randrange(n_types))
+    rec.set("type", rnd.randrange(n_hatch) << 8 | rnd.randrange(n_think))
     rec.set("x", rnd.randrange(*PLAYFIELD_X))
     rec.set("y", rnd.randrange(*PLAYFIELD_Y))
     rec.set("state", rnd.randrange(n_states))
-    rec.set("hit_a", rnd.randrange(n_hit))
-    rec.set("hit_b", rnd.randrange(n_hit))
+    rec.set("hit_handler", rnd.randrange(n_hit))
+    rec.set("death_sound", rnd.randrange(5) << 8 | rnd.randrange(1, 33))
     return rec
 
 

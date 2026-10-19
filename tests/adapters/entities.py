@@ -1,7 +1,7 @@
 """Entity table <-> game86 DGROUP layout (docs/re-notes-game86.md §4).
 
-70 records x 64 bytes at DS:48C1. Only fields the notes confirm are named; the
-rest of each record stays opaque bytes until W8 (Quill) maps it. Extend FIELDS as
+70 records x 64 bytes at DS:48C1 (the same layout is used by g_companion at 4881).
+Fields follow W8's map; unnamed bytes stay opaque (handler-specific). Extend FIELDS as
 the layout is understood, and keep this file in sync with tests/adapters/dgroup_map.c.
 """
 
@@ -14,17 +14,28 @@ ENTITY_TABLE = 0x48C1
 ENTITY_COUNT = 70
 ENTITY_SIZE = 0x40
 
-# name: (offset in record, struct format)
+# name: (offset in record, struct format) -- docs/re-notes-game86.md §8.3
 FIELDS = {
-    "type": (0x00, "<h"),       # negative = free slot
-    "x": (0x02, "<h"),
+    "type": (0x00, "<h"),          # < 0 free; low byte think index, high byte hatch type
+    "x": (0x02, "<h"),             # sprite centre, screen pixels
     "y": (0x04, "<h"),
-    "state": (0x06, "<H"),      # -> animate/draw handler table DS:202E (19 entries)
-    "sprite": (0x32, "<H"),     # sprite pointer
+    "state": (0x06, "<H"),         # animate/draw handler (tbl_anim_handlers), 0x12 = idle
+    "vx": (0x08, "<h"),
+    "vy": (0x0A, "<h"),
+    "sprite": (0x0C, "<h"),        # sprite bank index; negative = use sprite_ptr
+    "scale": (0x0E, "<H"),         # draw scale / hatch countdown
+    "solid": (0x10, "<H"),         # shots and players collide only when non-zero
+    "timer": (0x14, "<H"),
+    "hp": (0x18, "<h"),
+    "kill_action": (0x1E, "<H"),   # tbl_hit_kill_actions
+    "sub_mode": (0x20, "<H"),
+    "anim_toggle": (0x28, "<H"),
+    "sprite_ptr": (0x2C, "<H"),
+    "extra_sprite": (0x32, "<H"),  # drawn after the anim handler, 0 = none
     "frame": (0x36, "<H"),
-    "kind": (0x3A, "<H"),       # "counts" list DS:220A
-    "hit_a": (0x3C, "<H"),      # collision / hit handler index -> CS:0C04 (18 entries)
-    "hit_b": (0x3E, "<H"),
+    "kind": (0x3A, "<H"),          # index into g_type_counts
+    "death_sound": (0x3C, "<H"),   # low byte sample, high byte rate index
+    "hit_handler": (0x3E, "<H"),   # tbl_hit_handlers (CS:0C04)
 }
 
 
