@@ -112,10 +112,11 @@ class CallResult:
     entry: tuple[int, int]
     regs_in: dict[str, int]
     regs: dict[str, int]                     # registers at the sentinel
-    memory_diff: list[DiffRange]             # whole 1 MB
+    memory_diff: list[DiffRange]             # whole 1 MB, minus free stack below SP
     dgroup_diff: dict[int, tuple[int, int]]  # DGROUP offset -> (old byte, new byte)
     interrupts: list[IntEvent] = field(default_factory=list)
     ports: list[PortEvent] = field(default_factory=list)
+    stack_scratch: list[DiffRange] = field(default_factory=list)  # writes below SP
 
     def changed_dgroup_offsets(self) -> list[int]:
         return sorted(self.dgroup_diff)
@@ -124,10 +125,19 @@ class CallResult:
 IntHandler = Callable[["Machine", int], None]   # (machine, intno); edits regs/memory in place
 
 
-def _default_io_read(port: int, size: int) -> int:
-    if port == 0x3DA:          # input status 1: report retrace so vsync waits end
-        return 0x09
-    return 0xFF if size == 1 else 0xFFFF
+class DefaultPorts:
+    """Port reads when a test supplies nothing better.  3DAh (input status 1)
+    alternates display/retrace on every read so both halves of the vsync wait
+    (game86 1000:e5f3) terminate; everything else floats high."""
+
+    def __init__(self):
+        self._retrace = False
+
+    def __call__(self, port: int, size: int) -> int:
+        if port == 0x3DA:
+            self._retrace = not self._retrace
+            return 0x09 if self._retrace else 0x00
+        return 0xFF if size == 1 else 0xFFFF
 
 
 class Machine:
@@ -140,7 +150,7 @@ class Machine:
         self.dgroup = dgroup if dgroup is not None else self._detect_dgroup()
         self.psp_seg = image.load_seg - 0x10
         self.interrupts: dict[int, IntHandler] = {}
-        self.io_read: Callable[[int, int], int] = _default_io_read
+        self.io_read: Callable[[int, int], int] = DefaultPorts()
         self._int_log: list[IntEvent] = []
         self._port_log: list[PortEvent] = []
         self._fault: Exception | None = None
@@ -244,7 +254,7 @@ class Machine:
 
     def _on_sentinel(self, uc: Uc, address: int, size: int, _user) -> None:
         sp = (uc.reg_read(X.UC_X86_REG_SS), uc.reg_read(X.UC_X86_REG_SP))
-        if address == self._stop_lin and sp == self._stop_sp:
+        if address == self._stop_lin and self._stop_sp in (None, sp):
             uc.emu_stop()
 
     # ---- running a routine --------------------------------------------------
@@ -259,24 +269,46 @@ class Machine:
         with write*/set_bios_ticks first).
         """
         seg, off = parse_addr(entry)
+        full = self._initial_regs(seg, off, regs)
+        ss, sp = full["ss"], full["sp"]
+        if far:
+            sp = (sp - 4) & 0xFFFF
+            self.write(ss, sp, struct.pack("<HH", FAR_SENTINEL[1], FAR_SENTINEL[0]))
+            stop_lin = linear(*FAR_SENTINEL)
+        else:
+            sp = (sp - 2) & 0xFFFF
+            self.write_u16(ss, sp, NEAR_SENTINEL_IP)
+            stop_lin = linear(seg, NEAR_SENTINEL_IP)
+        stop_sp = (ss, full["sp"])
+        full["sp"] = sp
+        return self._execute(full, stop_lin, stop_sp, max_insns, interrupts)
+
+    def run_until(self, start: str | tuple[int, int], stop: str | tuple[int, int],
+                  regs: dict[str, int] | None = None, max_insns: int = DEFAULT_MAX_INSNS,
+                  interrupts: dict[int, IntHandler] | None = None) -> CallResult:
+        """Run straight-line code from `start` until execution first reaches `stop`
+        (for inline sequences that are not separate routines, e.g. init loops)."""
+        seg, off = parse_addr(start)
+        full = self._initial_regs(seg, off, regs)
+        return self._execute(full, linear(*parse_addr(stop)), None, max_insns, interrupts)
+
+    def _initial_regs(self, seg: int, off: int, regs: dict[str, int] | None) -> dict[str, int]:
         full = {"ax": 0, "bx": 0, "cx": 0, "dx": 0, "si": 0, "di": 0, "bp": 0,
                 "ds": self.dgroup, "es": self.dgroup, "ss": self.image.stack_ss,
                 "sp": self.image.stack_sp, "flags": 0x0202}
         full.update(regs or {})
         full["cs"], full["ip"] = seg, off
+        return full
 
-        ss, sp = full["ss"], full["sp"]
-        if far:
-            sp = (sp - 4) & 0xFFFF
-            self.write(ss, sp, struct.pack("<HH", FAR_SENTINEL[1], FAR_SENTINEL[0]))
-            self._stop_lin = linear(*FAR_SENTINEL)
-        else:
-            sp = (sp - 2) & 0xFFFF
-            self.write_u16(ss, sp, NEAR_SENTINEL_IP)
-            self._stop_lin = linear(seg, NEAR_SENTINEL_IP)
-        self._stop_sp = (ss, full["sp"])
-        full["sp"] = sp
-
+    def _execute(self, full: dict[str, int], stop_lin: int, stop_sp: tuple[int, int] | None,
+                 max_insns: int, interrupts: dict[int, IntHandler] | None) -> CallResult:
+        seg, off = full["cs"], full["ip"]
+        # Everything below the caller's SP is free stack: the routine's pushes and
+        # locals (and our sentinel) land there and are not state.  game86's stack
+        # (SS 3CA6) lies inside the DGROUP window, so this must be filtered out.
+        top_sp = stop_sp[1] if stop_sp else full["sp"]
+        scratch = (linear(full["ss"], 0), top_sp)
+        self._stop_lin, self._stop_sp = stop_lin, stop_sp
         saved_ints = self.interrupts
         if interrupts is not None:
             self.interrupts = {**self.interrupts, **interrupts}
@@ -302,12 +334,11 @@ class Machine:
             raise HarnessError(f"routine {seg:04x}:{off:04x} did not return within "
                                f"{max_insns} instructions (at {regs['cs']:04x}:{regs['ip']:04x})")
         after = self.snapshot()
-        diff = diff_memory(before, after)
-        # The sentinel return address we pushed is not the routine's doing.
-        sentinel_lin = linear(ss, sp)
-        diff = _drop_range(diff, sentinel_lin, 4 if far else 2)
+        full_diff = diff_memory(before, after)
+        diff = _drop_range(full_diff, *scratch)
         return CallResult(entry=(seg, off), regs_in=regs_in, regs=regs, memory_diff=diff,
                           dgroup_diff=dgroup_view(diff, self.dgroup),
+                          stack_scratch=_keep_range(full_diff, *scratch),
                           interrupts=self._int_log, ports=self._port_log)
 
 
@@ -335,13 +366,25 @@ def diff_memory(before: bytes, after: bytes, chunk: int = 256) -> list[DiffRange
     return out
 
 
-def _drop_range(diff: Iterable[DiffRange], start: int, length: int) -> list[DiffRange]:
+def _filter_range(diff: Iterable[DiffRange], start: int, length: int,
+                  inside: bool) -> list[DiffRange]:
     out = []
     for d in diff:
-        for i, (o, n) in enumerate(zip(d.old, d.new)):
-            if not (start <= d.start + i < start + length):
-                out.append((d.start + i, o, n))
+        if inside or d.start < start + length and d.start + len(d.new) > start:
+            for i, (o, n) in enumerate(zip(d.old, d.new)):
+                if (start <= d.start + i < start + length) == inside:
+                    out.append((d.start + i, o, n))
+        else:
+            out.extend((d.start + i, o, n) for i, (o, n) in enumerate(zip(d.old, d.new)))
     return _bytes_to_ranges(out)
+
+
+def _drop_range(diff: Iterable[DiffRange], start: int, length: int) -> list[DiffRange]:
+    return _filter_range(diff, start, length, inside=False)
+
+
+def _keep_range(diff: Iterable[DiffRange], start: int, length: int) -> list[DiffRange]:
+    return _filter_range(diff, start, length, inside=True)
 
 
 def _bytes_to_ranges(items: list[tuple[int, int, int]]) -> list[DiffRange]:
