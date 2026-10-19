@@ -19,6 +19,32 @@ if(CMAKE_CROSSCOMPILING OR EMSCRIPTEN)
   return()
 endif()
 
+# The test builds pick the asset store themselves (llama_assets_files, the generated data
+# directory). If llamatron_game, or anything it links, already brings a store, the testlib
+# and llamatron_replay would hold two copies of the asset_* symbols and the static linker
+# would silently take whichever comes first: stop at configure time instead.
+function(_llama_collect_links target out)
+  set(_seen ${${out}})
+  get_target_property(_libs ${target} LINK_LIBRARIES)
+  get_target_property(_ilibs ${target} INTERFACE_LINK_LIBRARIES)
+  foreach(_lib IN LISTS _libs _ilibs)
+    if(_lib AND TARGET "${_lib}" AND NOT _lib IN_LIST _seen)
+      list(APPEND _seen "${_lib}")
+      _llama_collect_links("${_lib}" _seen)
+    endif()
+  endforeach()
+  set(${out} ${_seen} PARENT_SCOPE)
+endfunction()
+set(_game_links "")
+_llama_collect_links(llamatron_game _game_links)
+foreach(_store llama_assets_files llama_assets_embedded)
+  if(_store IN_LIST _game_links)
+    message(FATAL_ERROR "llamatron_game links the asset store ${_store}; the game library must "
+      "leave the store to the executable (src/game/CMakeLists.txt), otherwise "
+      "llamatron_game_testlib and llamatron_replay link two stores")
+  endif()
+endforeach()
+
 get_target_property(_game_srcs llamatron_game SOURCES)
 get_target_property(_game_dir llamatron_game SOURCE_DIR)
 set(_testlib_srcs "")
