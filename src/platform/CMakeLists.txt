@@ -63,6 +63,12 @@ if(NOT EMSCRIPTEN)
     add_test(NAME controls_selftest COMMAND controls_selftest)
 endif()
 
+# The host's scores.yak storage for the 5e89 diff test (tests/oracle/test_hiscore_save.py).
+if(NOT EMSCRIPTEN)
+    add_executable(scores_store testapp/scores_store.c)
+    target_link_libraries(scores_store PRIVATE llama_platform llamatron_assets llama_assets_files)
+endif()
+
 # Test app: window + generated test pattern and palette (no original data needed).
 add_executable(platform_testpattern testapp/testpattern.c)
 target_link_libraries(platform_testpattern PRIVATE llama_platform llama_engine llama_assets_files)

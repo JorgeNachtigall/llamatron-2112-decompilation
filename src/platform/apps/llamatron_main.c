@@ -104,6 +104,7 @@ typedef struct App {
     size_t dump_tick_count;
     uint32_t hash_ticks[256];       /* --page-hashes */
     size_t hash_tick_count;
+    uint8_t saved_scores[PLAT_SCORES_SIZE];  /* scores.yak as stored (GameLaunch.saved_scores) */
     uint16_t tick_phase;            /* --tick-phase, 0..65535 of a tick (replays only) */
     uint32_t start_delay;           /* --start-delay, retraces (replays only) */
 } App;
@@ -379,6 +380,15 @@ static void update_pads(App *app)
 
 static void run_retrace_ticks(App *app);
 
+/* game86 1000:5e89: store the table after a name entry. A failed write only loses the scores,
+ * like the original, which ignores the DOS error. */
+static void save_scores(const uint8_t *yak, size_t size, void *user)
+{
+    (void)user;
+    if (size != PLAT_SCORES_SIZE || !plat_scores_save(yak))
+        fprintf(stderr, "llamatron: could not save the high scores (scores.yak)\n");
+}
+
 /* fs.exe ends and llama.exe starts game86 with a freshly loaded sound driver and keyboard
  * handler; the game gets the llama.inf settings. */
 static bool start_game(App *app)
@@ -398,6 +408,14 @@ static bool start_game(App *app)
     gfx_set_adapter(app->adapter, asset_palettes()->nibble_to_dac);
     memset(&app->game, 0, sizeof app->game);
     GameLaunch launch = make_launch(app);
+    if (!app->fixed_step) {
+        /* Played games keep their high scores; test runs and replays neither read nor write
+         * them, so they stay deterministic. */
+        if (plat_scores_load(app->saved_scores))
+            launch.saved_scores = app->saved_scores;
+        launch.save_scores = save_scores;
+        launch.host_user = app;
+    }
     if (!game_init(&app->game, &launch)) {
         fprintf(stderr, "llamatron: the game could not start\n");
         return false;

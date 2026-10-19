@@ -414,61 +414,93 @@ void plat_run_main_loop(PlatFrameFn frame, void *user)
 #define SETTINGS_DIR "/persist/"
 #endif
 #define SETTINGS_FILE "llama.inf"
+#define SCORES_FILE "scores.yak"
 
-static bool settings_path(char *out, size_t size)
+/* Where the saved file `name` lives: the user's preference directory. */
+static bool data_path(const char *name, char *out, size_t size)
 {
 #ifdef __EMSCRIPTEN__
-    snprintf(out, size, "%s%s", SETTINGS_DIR, SETTINGS_FILE);
+    snprintf(out, size, "%s%s", SETTINGS_DIR, name);
     return true;
 #else
     /* Tests (and portable installs) redirect storage with LLAMATRON_PREF_DIR. */
     const char *override = SDL_getenv("LLAMATRON_PREF_DIR");
     if (override && *override) {
-        snprintf(out, size, "%s/%s", override, SETTINGS_FILE);
+        snprintf(out, size, "%s/%s", override, name);
         return true;
     }
     char *dir = SDL_GetPrefPath("llamatron-port", "llamatron");
     if (!dir)
         return false;
-    snprintf(out, size, "%s%s", dir, SETTINGS_FILE);
+    snprintf(out, size, "%s%s", dir, name);
     SDL_free(dir);
     return true;
 #endif
 }
 
-Settings plat_settings_load(void)
+/* Reads at most `size` bytes of the saved file `name`; -1 if there is none. */
+static long data_read(const char *name, uint8_t *out, size_t size)
 {
-    Settings s = settings_defaults();
     char path[1024];
-    if (!settings_path(path, sizeof path))
-        return s;
+    if (!data_path(name, path, sizeof path))
+        return -1;
     FILE *f = fopen(path, "rb");
     if (!f)
-        return s;
-    uint8_t inf[SETTINGS_INF_SIZE];
-    size_t n = fread(inf, 1, sizeof inf, f);
+        return -1;
+    size_t n = fread(out, 1, size, f);
     fclose(f);
-    settings_parse_inf(inf, n, &s);
-    return s;
+    return (long)n;
 }
 
-bool plat_settings_save(const Settings *settings)
+/* Replaces the saved file `name` with `size` bytes. */
+static bool data_write(const char *name, const uint8_t *data, size_t size)
 {
     char path[1024];
-    if (!settings_path(path, sizeof path))
+    if (!data_path(name, path, sizeof path))
         return false;
-    uint8_t inf[SETTINGS_INF_SIZE];
-    settings_format_inf(settings, inf);
     FILE *f = fopen(path, "wb");
     if (!f)
         return false;
-    bool ok = fwrite(inf, 1, sizeof inf, f) == sizeof inf;
+    bool ok = fwrite(data, 1, size, f) == size;
     ok = fclose(f) == 0 && ok;
 #ifdef __EMSCRIPTEN__
     /* Push the in-memory IDBFS state to the browser's IndexedDB. */
     emscripten_run_script("if (typeof llamatronPersistSync === 'function') llamatronPersistSync();");
 #endif
     return ok;
+}
+
+Settings plat_settings_load(void)
+{
+    Settings s = settings_defaults();
+    uint8_t inf[SETTINGS_INF_SIZE];
+    long n = data_read(SETTINGS_FILE, inf, sizeof inf);
+    if (n >= 0)
+        settings_parse_inf(inf, (size_t)n, &s);
+    return s;
+}
+
+bool plat_settings_save(const Settings *settings)
+{
+    uint8_t inf[SETTINGS_INF_SIZE];
+    settings_format_inf(settings, inf);
+    return data_write(SETTINGS_FILE, inf, sizeof inf);
+}
+
+/* game86 1000:60aa: read up to 0xA1 bytes, keep them only if exactly 0xA0 came. */
+bool plat_scores_load(uint8_t out[PLAT_SCORES_SIZE])
+{
+    uint8_t yak[PLAT_SCORES_SIZE + 1];
+    if (data_read(SCORES_FILE, yak, sizeof yak) != PLAT_SCORES_SIZE)
+        return false;
+    memcpy(out, yak, PLAT_SCORES_SIZE);
+    return true;
+}
+
+/* game86 1000:5e89 */
+bool plat_scores_save(const uint8_t yak[PLAT_SCORES_SIZE])
+{
+    return data_write(SCORES_FILE, yak, PLAT_SCORES_SIZE);
 }
 
 /* ---- Audio --------------------------------------------------------------------------- */

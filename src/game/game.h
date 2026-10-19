@@ -12,6 +12,7 @@
 #define LLAMATRON_GAME_GAME_H
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
 #include "rng.h"
@@ -32,6 +33,15 @@ typedef struct GameLaunch {
     /* BIOS tick seen by each mixer call of the start-up shuffle; NULL read = constant
      * bios_ticks (a fast machine, and what the DOSBox-X reference runs pin). */
     RngTickSource shuffle_ticks;
+    /* The high-score file the host keeps (scores.yak, SCORES_YAK_SIZE = 160 bytes: 10 x {8 ASCII
+     * digits, 8 name bytes}), or NULL: game86 1000:60aa reads it over the built-in table. Without
+     * one the game uses the user's original scores.yak if extracted (asset_user_scores). */
+    const uint8_t *saved_scores;
+    /* game86 1000:5e89: after a name entry, hand the table's SCORES_YAK_SIZE bytes (DS:40A0, as
+     * scores_format_yak gives them) to the host to store. NULL = nothing is saved (replays,
+     * tests). The host logs a failed write and carries on, as the original ignores DOS errors. */
+    void (*save_scores)(const uint8_t *yak, size_t size, void *user);
+    void *host_user;            /* passed to save_scores */
 } GameLaunch;
 
 enum GameHostRequest {

@@ -60,6 +60,15 @@ Settings settings_defaults(void);
 Settings plat_settings_load(void);
 bool plat_settings_save(const Settings *settings);
 
+/* scores.yak, stored next to llama.inf, as game86 reads it at start-up (1000:60aa: asks for
+ * 0xA1 bytes and takes the file only if exactly 0xA0 came) and writes it after a name entry
+ * (1000:5e89: create, write the 0xA0 bytes of the table at DS:40A0, close). */
+enum { PLAT_SCORES_SIZE = 0xA0 };
+/* true and the saved bytes if a saved scores.yak is exactly PLAT_SCORES_SIZE bytes long. */
+bool plat_scores_load(uint8_t out[PLAT_SCORES_SIZE]);
+/* Replaces the saved file (on the web, then flushes IDBFS like plat_settings_save). */
+bool plat_scores_save(const uint8_t yak[PLAT_SCORES_SIZE]);
+
 #ifdef __cplusplus
 }
 #endif
