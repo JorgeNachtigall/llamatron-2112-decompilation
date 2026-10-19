@@ -16,7 +16,9 @@ program back into the headless project, so stop any other headless run first (Gh
 | `ApplySymbols.java` | `re/symbols.csv [dry] [types]` | names functions/labels, sets plate/EOL/pre comments, applies `dtype` with `types`; idempotent (`dry` prints every pending change). A `func` row inside another function's body (shared tail) is applied as a label. Rows removed from the CSV are not removed from the project |
 | `Disasm.java` | `<targets.txt>` | disassembles entry points / word tables (`table seg:off count [cs]`) and creates functions |
 | `DumpTable.java` | `<seg:off> <count> [cs]` | prints a word table, optionally resolving `cs:<word>` targets |
-| `Export.java` | `re/listings` | regenerates `<program>.lst` with symbolic operands and comments |
+| `Export.java` | `re/listings` | regenerates `<program>.lst` with symbolic operands and comments; prints register-form `8E` (`MOV Sreg,reg`) in the real operand order (Ghidra 12.1.4 shows it swapped) |
+| `FixSegWrap.java` | `<code_seg> <data_seg> [dry]` | game86: `1e7b 218c`. Re-points near branches that Ghidra did not wrap at 64 KB and clears the bogus code they created in the data segment; idempotent |
+| `TypeSpriteBank.java` | `[seg] [dry]` | types the game86 sprite bank (default `218c`): pointer tables, `SpriteHeader` structs, pixel rows, `spr_<index>` labels; idempotent |
 | `ExportFunctions.java` | `re/functions` | `<program>.functions.csv` (entry, name, size, instructions, callers, callees) |
 
 Helpers (Python 3, stdlib only):
@@ -40,6 +42,8 @@ Typical pass after editing the CSV:
 ```sh
 python3 tools/ghidra/check_symbols.py re/symbols.csv
 tools/ghidra/run_headless.sh all ApplySymbols.java re/symbols.csv types
+tools/ghidra/run_headless.sh game86.exe FixSegWrap.java 1e7b 218c
+tools/ghidra/run_headless.sh game86.exe TypeSpriteBank.java
 tools/ghidra/run_headless.sh all Export.java re/listings
 tools/ghidra/run_headless.sh all ExportFunctions.java re/functions
 python3 tools/ghidra/gen_funcmap.py

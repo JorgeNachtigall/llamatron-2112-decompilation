@@ -161,9 +161,17 @@ Two independent clocks:
   background copy** used to erase sprites (`62e8/62f6/6304` copy whole pages plane by plane with
   read-map 3CEh/4 and map-mask 3C4h/2).
 - Rect fill `6112` uses GC set/reset (3CEh regs 0,1,3,5,8), map mask 0x0F.
-- Sprites: segment **218C** (`CS:[0x25f]`, 60 KB) is a sprite bank embedded in the EXE: pointer table
-  at `218C:0000`, each sprite header `{+0 ?, +2 flags(0=masked), +4 height-1, +6 width px, ...}` then
-  rows of 10 bytes = 2 mask bytes + 4 planes x 2 bytes (16 px wide cells). `8cbb` draws centred at
+- Sprites: segment **218C** (`CS:[0x25f]`, 0xF5F0 bytes, used up to `F5E6`) is a sprite bank
+  embedded in the EXE [C, W8; typed in Ghidra by `tools/ghidra/TypeSpriteBank.java`, labels
+  `spr_<index>`]. Sprite index `i` reads the pointer at `218C:001C + 2*i`:
+  - `0000` word[14]: indices -14..-1.
+  - `001C` word[473]: indices 0..472. Entries 414..417 point to four 8-entry frame groups at
+    `0318..0357`, which lie inside this same table, and entry 418 is `FFFF`.
+  - From `03CE`: 387 distinct sprites. 12-byte header `{+0 always 3, +2 cells-1 (16-px cells;
+    0 -> sprite_draw_core, else sprite_draw_wide 63d2), +4 height-1, +6 width used for centring,
+    +8 0, +A 0}`, then height rows of 10 bytes per cell (2 mask bytes + 4 planes x 2 bytes).
+    374 sprites are one cell and 13 are two. A few gaps between referenced sprites are not
+    pointed to by any table entry. `8cbb` draws centred at
   (AX,BX) with bit-mask register writes (3CEh/8) per plane, clips to 320x200, records dirty entries;
   dispatch by height (`CS:8E71`, 25 entries) or by shifted position (`CS:ABD1`, 25 entries, used when
   x%8!=0 -> `aa29/ac03` shifted blitters). `42f0/42da/42cb` are wrappers (scale/mirror flags in
@@ -222,9 +230,13 @@ routine (address, name, proposed C symbol, owner, range, status).
   `3aff`, `8e71`, `abd1`, `1e7b:031c`), CS variables (`6194`, `e783`), the two dirty-rect lists
   (`673f`, `79f9`) and `e68c` (47 bytes inside the LZSS loader, [H] data). 356 functions, plus 13
   shared tails kept as labels inside other bodies (e.g. `entity_move_bounce` inside `think_03`).
-- Still to do: CODE_2 (218C sprite bank) still has ~1080 mis-disassembled "instructions" from the
-  first auto-analysis (`SUB_218c_*` call targets in the listing are bogus); clear them and type the
-  sprite headers. 9 game86 routines are still `unk_*` (see funcmap).
+- CODE_2 (218C sprite bank) is clean [W8]. Ghidra does not wrap 1e7b near branches at 64 KB, so
+  22 CALL/JMP in `restore_w2_h12..` (`1e7b:1ad0..1b67`) pointed at `218c:dbc2..e6b7` instead of
+  `restore_w2_h06..h11` (`1e7b:0cd2/0e73/105c/128d/1506/17c7`), and the first auto-analysis
+  disassembled 1080 bogus "instructions" there. `tools/ghidra/FixSegWrap.java 1e7b 218c`
+  re-points the references and clears the bogus code; `TypeSpriteBank.java` types the bank (§5).
+  In older listings, any `SUB_218c_*`/`LAB_218c_*` target is the 1e7b routine at
+  `offset - 0x10000 + 0x3110`.
 
 ## 8. DGROUP (segment 3559, 0x74D0 bytes) layout map
 For `tests/adapters/dgroup_map.c` and the meaning of `game/state.h` fields. Offsets are DS
