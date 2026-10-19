@@ -78,11 +78,15 @@ enum PlatGamepadButton {
     PLAT_PAD_BUTTON_A = 1u << 0,   /* fire 1 */
     PLAT_PAD_BUTTON_B = 1u << 1,   /* fire 2 */
     PLAT_PAD_BUTTON_START = 1u << 2,
+    PLAT_PAD_BUTTON_X = 1u << 3,
+    PLAT_PAD_BUTTON_Y = 1u << 4,
+    PLAT_PAD_BUTTON_BACK = 1u << 5,
 };
 
 typedef struct PlatGamepad {
     bool connected;
-    float x, y;                    /* -1 .. +1, +x = right, +y = down (d-pad gives +-1) */
+    float x, y;                    /* left stick, -1 .. +1, +x = right, +y = down (d-pad gives +-1) */
+    float rx, ry;                  /* right stick, same convention */
     unsigned buttons;              /* PlatGamepadButton bits */
 } PlatGamepad;
 

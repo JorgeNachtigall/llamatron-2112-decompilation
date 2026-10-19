@@ -3,6 +3,41 @@
 SDL2 window, audio, input, main loop, asset store and persistent settings for the native
 (macOS) and web (Emscripten) builds. The game talks to these APIs only.
 
+## Controls
+
+The game reads the PC keyboard exactly as the original did: every host key is turned into its
+PC scan code (set 1, `keymap.c`) and handed to the game's keyboard handler (game86 `1000:e567`).
+Both cursor blocks act the same, as on a real keyboard.
+
+| Key | Original meaning |
+|-----|------------------|
+| Cursor keys / keypad 8 2 4 6 | move (keyboard control, llama.inf `K`) |
+| Space | fire |
+| P | pause (a random pause picture) |
+| while paused: G or O | resume |
+| while paused: S | sound on / off |
+| while paused: any other key | plays a sample |
+| X | abort the wave |
+| Q | quit the game |
+
+Joystick control (llama.inf `J`) uses the original's two analogue joysticks; host gamepads stand
+in for them (`padmap.c`). Gamepads produce the same scan codes or joystick readings, so the game
+sees no difference:
+
+| Gamepad | Keyboard control (`K`) | Joystick control (`J`) |
+|---------|------------------------|------------------------|
+| left stick / d-pad | cursor keys | joystick 1 |
+| A, B | Space (fire) | joystick 1 buttons |
+| X, Y | Space (fire) | joystick 2 buttons (one pad only) |
+| right stick | Space while pushed | joystick 2 (one pad only: twin-stick aim) |
+| second pad, left stick + A/B | (unused) | joystick 2 |
+| Start | P (pause) | P (pause) |
+| Back / Select | S (sound toggle while paused) | S |
+
+Host-only keys: F11 or Alt+Enter toggle full screen. Closing the window, Cmd-Q / Alt-F4 or
+losing focus are passed to the game as quit / pause requests; the game decides what they do.
+Replays (`--replay`, `--keys`) ignore the live keyboard and gamepads.
+
 ## Personal-use packages: never distribute
 
 > **Everything below contains assets extracted from your own original Llamatron 2112 files.

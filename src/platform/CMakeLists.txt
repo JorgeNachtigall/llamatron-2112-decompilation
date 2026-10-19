@@ -16,6 +16,7 @@ endif()
 add_library(llama_platform STATIC
     platform_sdl.c
     keymap.c
+    padmap.c
     settings.c
 )
 target_include_directories(llama_platform PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
@@ -53,6 +54,13 @@ if(TARGET llama_assets_embedded AND LLAMATRON_EMBED_ASSETS)
     set(LLAMA_ASSETS llama_assets_embedded)
 else()
     set(LLAMA_ASSETS llama_assets_files)
+endif()
+
+# Host controls: keys and gamepads give the original's scan codes / joysticks.
+if(NOT EMSCRIPTEN)
+    add_executable(controls_selftest controls_selftest.c)
+    target_link_libraries(controls_selftest PRIVATE llama_platform)
+    add_test(NAME controls_selftest COMMAND controls_selftest)
 endif()
 
 # Test app: window + generated test pattern and palette (no original data needed).

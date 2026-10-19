@@ -39,6 +39,7 @@
 #include "gfx.h"
 #include "input.h"
 #include "input_script.h"
+#include "padmap.h"
 #include "platform.h"
 #include "settings.h"
 #include "snd.h"
@@ -84,6 +85,7 @@ typedef struct App {
     const char *record_path;        /* --record */
     InputScript record;
     bool replaying;                 /* --replay */
+    PadMap padmap;                  /* gamepad -> keys (keyboard control) */
     InputScript replay;
     const char *dump_dir;           /* --dump-pages */
     uint32_t dump_ticks[256];       /* --dump-ticks */
@@ -252,11 +254,24 @@ static void request_title_sample(App *app)
     app->title_sample_requested = true;
 }
 
-static void update_stick(void)
+/* Host gamepads as the original's controls (padmap.h): keys for keyboard control, the two
+ * joysticks for joystick control. Replays take neither: their input is the script. */
+static void update_pads(App *app)
 {
-    PlatGamepad pad;
-    plat_gamepad(0, &pad);
-    input_set_stick(0, pad.x, pad.y, pad.buttons & PLAT_PAD_BUTTON_A, pad.buttons & PLAT_PAD_BUTTON_B);
+    PlatGamepad pads[2] = { { 0 }, { 0 } };
+    if (!app->replaying) {
+        plat_gamepad(0, &pads[0]);
+        plat_gamepad(1, &pads[1]);
+    }
+    if (app->device == INPUT_DEVICE_KEYBOARD) {
+        padmap_keys(&app->padmap, &pads[0], on_key, app);
+        return;
+    }
+    padmap_menu_keys(&app->padmap, &pads[0], on_key, app);
+    PadStick sticks[2];
+    padmap_sticks(&pads[0], &pads[1], sticks);
+    for (int i = 0; i < 2; i++)
+        input_set_stick(i, sticks[i].x, sticks[i].y, sticks[i].button_a, sticks[i].button_b);
 }
 
 /* fs.exe ends and llama.exe starts game86 with a freshly loaded sound driver and keyboard
@@ -347,6 +362,7 @@ static bool frame(void *user)
 {
     App *app = user;
     bool window_open = plat_poll_events(on_key, app);
+    update_pads(app);
     app->pending_requests |= plat_take_requests();
     bool running = true;
     app->frame_count++;
@@ -362,7 +378,6 @@ static bool frame(void *user)
         request_title_sample(app);
         for (uint32_t i = 0; i < due && running && app->phase == PHASE_TITLE; i++) {
             run_retrace_ticks(app);
-            update_stick();
             input_frame_read(false);
             title_frame(&app->title, input_state()->joystick_buttons);
             if (title_finished(&app->title) && !start_game(app))
@@ -374,7 +389,6 @@ static bool frame(void *user)
          * a close arrives as PLAT_REQUEST_QUIT). */
         for (uint32_t i = 0; i < due && running; i++) {
             run_retrace_ticks(app);
-            update_stick();
             GameHostInput host = { app->pending_requests, plat_has_focus() };
             app->pending_requests = 0;
             game_frame(&app->game, &host);

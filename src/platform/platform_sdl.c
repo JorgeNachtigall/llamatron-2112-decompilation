@@ -351,6 +351,14 @@ void plat_gamepad(int index, PlatGamepad *out)
         out->buttons |= PLAT_PAD_BUTTON_B;
     if (SDL_GameControllerGetButton(pad, SDL_CONTROLLER_BUTTON_START))
         out->buttons |= PLAT_PAD_BUTTON_START;
+    if (SDL_GameControllerGetButton(pad, SDL_CONTROLLER_BUTTON_X))
+        out->buttons |= PLAT_PAD_BUTTON_X;
+    if (SDL_GameControllerGetButton(pad, SDL_CONTROLLER_BUTTON_Y))
+        out->buttons |= PLAT_PAD_BUTTON_Y;
+    if (SDL_GameControllerGetButton(pad, SDL_CONTROLLER_BUTTON_BACK))
+        out->buttons |= PLAT_PAD_BUTTON_BACK;
+    out->rx = axis_value(pad, SDL_CONTROLLER_AXIS_RIGHTX);
+    out->ry = axis_value(pad, SDL_CONTROLLER_AXIS_RIGHTY);
 }
 
 /* ---- Time and main loop -------------------------------------------------------------- */
