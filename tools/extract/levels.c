@@ -7,6 +7,11 @@
  *   wave type  byte < 0x80 (wave_run 1000:0455)
  *   spawns     {u8 enemy type (tbl_enemy_init DS:2CA4 index), u8 count} pairs; a pair whose
  *              count byte is 0xFF ends the list (wave_spawn_done 1000:3d09)
+ *
+ * Spawn clobber: enemy_shot_init (1000:123c/1241), reached from think_13 via 1000:10b0, zeroes
+ * the words [SI+8] and [SI+0A] with SI = think_13's code offset (think table DS:1FD2, entry
+ * 0x13), used as a DS address. Those bytes fall inside a level script; we find which spawn pairs
+ * they hit, so the game can reproduce it without naming the level.
  */
 #include "extract.h"
 
@@ -21,7 +26,18 @@ enum {
     SPAWN_END = 0xFF,
     OP_RECORD_SIZE = 6,
     MAX_OPERANDS = 4,
+
+    THINK_TABLE = 0x1FD2,
+    THINK_13 = 0x13,
+    CLOBBER_OFFSET = 8,    /* [SI+8], [SI+0A] */
+    CLOBBER_SIZE = 4,
+    NO_LEVEL = 0xFFFF,
 };
+
+/* Where each level's spawn pairs lie in DGROUP. */
+typedef struct {
+    uint16_t spawn_start, spawn_count;
+} SpawnArea;
 
 /* Operand bytes per handler index (= -opcode - 1), from the handlers listed in CS:0245. */
 static const uint8_t operand_counts[] = {
@@ -42,7 +58,7 @@ static const uint8_t *dgroup(const ExtractContext *ctx, uint16_t offset, size_t 
 
 /* Parses the script at DS:start into `ops` / `spawns`; writes its level record into `levels`. */
 static bool convert_level(const ExtractContext *ctx, int level, uint16_t start, ByteBuf *levels,
-                          ByteBuf *ops, ByteBuf *spawns)
+                          ByteBuf *ops, ByteBuf *spawns, SpawnArea *area)
 {
     uint16_t at = start;
     uint16_t first_op = (uint16_t)(ops->size / OP_RECORD_SIZE), op_count = 0;
@@ -69,6 +85,7 @@ static bool convert_level(const ExtractContext *ctx, int level, uint16_t start, 
     at++;
 
     uint16_t first_spawn = (uint16_t)(spawns->size / 2), spawn_count = 0;
+    area->spawn_start = at;
     for (;; at = (uint16_t)(at + 2)) {
         const uint8_t *pair = dgroup(ctx, at, 2);
         if (!pair)
@@ -83,13 +100,49 @@ static bool convert_level(const ExtractContext *ctx, int level, uint16_t start, 
         if (++spawn_count > MAX_SPAWNS || !bytebuf_append(spawns, pair, 2))
             return spawn_count > MAX_SPAWNS ? fail("level %d: too many spawns", level) : false;
     }
+    area->spawn_count = spawn_count;
     return bytebuf_put_u16(levels, start) && bytebuf_put_u16(levels, first_op) && bytebuf_put_u16(levels, op_count) &&
            bytebuf_push(levels, wave_type) && bytebuf_push(levels, (uint8_t)spawn_count) &&
            bytebuf_put_u16(levels, first_spawn);
 }
 
+/* Finds the spawn pairs that DS:target..target+CLOBBER_SIZE-1 overwrite. Fails if the range
+ * touches a script but not exactly whole spawn pairs; writes NO_LEVEL if it touches none. */
+static bool find_spawn_clobber(const ExtractContext *ctx, const SpawnArea *areas, int count, uint16_t record[3])
+{
+    const uint8_t *entry = dgroup(ctx, (uint16_t)(THINK_TABLE + THINK_13 * 2), 2);
+    if (!entry)
+        return false;
+    uint16_t target = (uint16_t)(read_u16le(entry) + CLOBBER_OFFSET);
+    record[0] = NO_LEVEL;
+    record[1] = record[2] = 0;
+    for (int level = 0; level < count; level++) {
+        uint16_t start = read_u16le(dgroup(ctx, (uint16_t)(LEVEL_TABLE + level * 2), 2));
+        uint32_t spawn_start = areas[level].spawn_start;
+        uint32_t spawn_end = spawn_start + areas[level].spawn_count * 2u;
+        uint32_t script_end = spawn_end + 2; /* FF FF */
+        if (target + (uint32_t)CLOBBER_SIZE <= start || target >= script_end)
+            continue;
+        if (target < spawn_start || target + (uint32_t)CLOBBER_SIZE > spawn_end || (target - spawn_start) % 2)
+            return fail("think_13 clobber DS:%04x..%04x hits level %d's script outside whole spawn pairs",
+                        target, target + CLOBBER_SIZE - 1, level);
+        if (record[0] != NO_LEVEL)
+            return fail("think_13 clobber DS:%04x hits two level scripts", target);
+        record[0] = (uint16_t)level;
+        record[1] = (uint16_t)((target - spawn_start) / 2);
+        record[2] = CLOBBER_SIZE / 2;
+    }
+    if (record[0] == NO_LEVEL)
+        printf("  warning: think_13 clobber DS:%04x hits no level script\n", target);
+    else
+        printf("  think_13 clobber: level %u spawn pairs %u..%u\n", record[0], record[1], record[1] + record[2] - 1);
+    return true;
+}
+
 bool extract_levels(ExtractContext *ctx)
 {
+    static SpawnArea areas[MAX_LEVELS];
+    uint16_t clobber[3];
     ByteBuf levels = {0}, ops = {0}, spawns = {0}, out = {0};
     bool ok = true;
     int count = 0;
@@ -101,14 +154,15 @@ bool extract_levels(ExtractContext *ctx)
         }
         if (read_u16le(entry) == 0)
             break;
-        if (!(ok = convert_level(ctx, count, read_u16le(entry), &levels, &ops, &spawns)))
+        if (!(ok = convert_level(ctx, count, read_u16le(entry), &levels, &ops, &spawns, &areas[count])))
             break;
     }
     ok = ok && bytebuf_append(&out, (const uint8_t *)"LLVL", 4) && bytebuf_put_u16(&out, FMT_LLVL_VERSION) &&
          bytebuf_put_u16(&out, (uint16_t)count) && bytebuf_append(&out, levels.data, levels.size) &&
          bytebuf_put_u16(&out, (uint16_t)(ops.size / OP_RECORD_SIZE)) && bytebuf_append(&out, ops.data, ops.size) &&
          bytebuf_put_u16(&out, (uint16_t)(spawns.size / 2)) && bytebuf_append(&out, spawns.data, spawns.size) &&
-         output_write(ctx->outputs, "data/levels.dat", out.data, out.size);
+         find_spawn_clobber(ctx, areas, count, clobber) && bytebuf_put_u16(&out, clobber[0]) &&
+         bytebuf_put_u16(&out, clobber[1]) && bytebuf_put_u16(&out, clobber[2]) && output_write(ctx->outputs, "data/levels.dat", out.data, out.size);
     ok = ok && index_define(ctx, "LEVEL_COUNT", (unsigned long)count);
     if (ok)
         printf("  %d levels, %zu script ops, %zu spawn entries\n", count, ops.size / OP_RECORD_SIZE,

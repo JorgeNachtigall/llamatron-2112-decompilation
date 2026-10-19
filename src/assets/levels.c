@@ -18,6 +18,10 @@ bool levels_parse(const uint8_t *data, size_t size, LevelSet *out)
     const uint8_t *op_records = reader_bytes(&r, (size_t)op_count * OP_RECORD_SIZE);
     uint16_t spawn_count = reader_u16(&r);
     const uint8_t *spawn_records = reader_bytes(&r, (size_t)spawn_count * 2);
+    LevelSpawnClobber clobber;
+    clobber.level = reader_u16(&r);
+    clobber.first_spawn = reader_u16(&r);
+    clobber.spawn_count = reader_u16(&r);
     if (!r.ok || r.pos != size)
         return format_fail("LLVL: %s", r.ok ? "trailing bytes" : "truncated");
 
@@ -58,6 +62,11 @@ bool levels_parse(const uint8_t *data, size_t size, LevelSet *out)
         level->ops = out->ops + first_op;
         level->spawns = out->spawns + first_spawn;
     }
+    if (ok && clobber.level != LEVEL_NONE &&
+        (clobber.level >= level_count || clobber.first_spawn > out->levels[clobber.level].spawn_count ||
+         clobber.spawn_count > out->levels[clobber.level].spawn_count - clobber.first_spawn))
+        ok = format_fail("LLVL: spawn clobber outside level %u's spawns", (unsigned)clobber.level);
+    out->clobber_10b0 = clobber;
     if (!ok)
         levels_free(out);
     return ok;

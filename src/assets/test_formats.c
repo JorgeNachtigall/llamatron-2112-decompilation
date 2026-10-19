@@ -213,14 +213,19 @@ static void test_levels(void)
     put8(&b, 0); put8(&b, 2); put8(&b, 0xFE); put8(&b, 2); put8(&b, 0); put8(&b, 0);
     put8(&b, 7); put8(&b, 1); put8(&b, 9); put8(&b, 0); put8(&b, 0); put8(&b, 0);
     put16(&b, 3); put8(&b, 5); put8(&b, 10); put8(&b, 6); put8(&b, 1); put8(&b, 40); put8(&b, 2);
+    put16(&b, 1); put16(&b, 0); put16(&b, 2);
     LevelSet set;
     CHECK(levels_parse(b.bytes, b.size, &set));
     CHECK(set.level_count == 2 && set.levels[0].op_count == 2 && set.levels[0].ops[0].operands[0] == 0xFE);
     CHECK(set.levels[0].ops[1].handler == 7 && set.levels[0].spawns[0].enemy_type == 5);
     CHECK(set.levels[1].wave_type == 3 && set.levels[1].spawn_count == 2 && set.levels[1].spawns[1].enemy_type == 40);
+    CHECK(set.clobber_10b0.level == 1 && set.clobber_10b0.first_spawn == 0 && set.clobber_10b0.spawn_count == 2);
     levels_free(&set);
     check_rejects_damage(&b, parse_levels, "LLVL");
-    b.bytes[b.size - 6 - 2 - 12] = 8; /* handler 8 does not exist */
+    b.bytes[b.size - 2] = 3; /* clobber of 3 pairs: past level 1's 2 spawns */
+    CHECK(!parse_levels(b.bytes, b.size));
+    b.bytes[b.size - 2] = 2;
+    b.bytes[b.size - 6 - 6 - 2 - 12] = 8; /* handler 8 does not exist */
     CHECK(!parse_levels(b.bytes, b.size));
 }
 

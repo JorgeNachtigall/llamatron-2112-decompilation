@@ -33,7 +33,7 @@ enum {
     FORMAT_LSCO_VERSION = 1,
     FORMAT_LCFG_VERSION = 1,
     FORMAT_LTXT_VERSION = 2,
-    FORMAT_LLVL_VERSION = 1,
+    FORMAT_LLVL_VERSION = 2,
     FORMAT_LHUD_VERSION = 1,
     FORMAT_LHSC_VERSION = 1,
     FORMAT_LENM_VERSION = 2,
@@ -259,7 +259,18 @@ typedef struct LevelScript {
     const LevelSpawn *spawns;
 } LevelScript;
 
+/* Spawn pairs the original overwrites with zeros (type 0, count 0) when enemy_shot_init
+ * (1000:123c/1241, via 1000:10b0 from think_13) writes [SI+8] and [SI+0A] with SI = think_13's
+ * code offset taken as a DS address. Computed by the extractor; level = LEVEL_NONE: none. */
+enum { LEVEL_NONE = 0xFFFF };
+typedef struct LevelSpawnClobber {
+    uint16_t level;
+    uint16_t first_spawn;    /* index into that level's spawns */
+    uint16_t spawn_count;
+} LevelSpawnClobber;
+
 typedef struct LevelSet {
+    LevelSpawnClobber clobber_10b0;
     uint16_t level_count;
     LevelScript *levels;
     LevelOp *ops;            /* storage behind levels[].ops */

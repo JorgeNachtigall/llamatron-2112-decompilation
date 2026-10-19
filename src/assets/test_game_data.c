@@ -141,6 +141,9 @@ static void check_levels(void)
             CHECK(level->spawns[i].enemy_type < ENEMY_TYPES);
     }
     CHECK(asset_level(LLAMA_LEVEL_COUNT) == NULL);
+    /* the current originals: think_13's clobber hits level 21, pairs 2..3 */
+    CHECK(set && set->clobber_10b0.level == 21 && set->clobber_10b0.first_spawn == 2 &&
+          set->clobber_10b0.spawn_count == 2);
 }
 
 static void check_samples_scores_config(void)

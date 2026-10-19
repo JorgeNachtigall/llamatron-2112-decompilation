@@ -230,7 +230,7 @@ The table has **100** entries (up to the 0 word at DS:2CA2), not 40. A 0 entry m
 to level 0 and increment the loop count.
 ```
 char  magic[4] = "LLVL"
-u16   version = 1
+u16   version = 2
 u16   level_count = 100
 struct {
     u16 ds_offset        where the original script starts
@@ -243,6 +243,12 @@ u16   op_count
 struct { u8 handler; u8 operand_count; u8 operands[4]; } ops[]   6 bytes each, unused operands 0
 u16   spawn_count
 struct { u8 enemy_type; u8 count; } spawns[]   enemy_type indexes tbl_enemy_init (DS:2CA4, 41)
+struct { u16 level; u16 first_spawn; u16 spawn_count; } spawn_clobber       (version 2)
+                         the spawn pairs (index within that level's list) that enemy_shot_init
+                         (1000:123c/1241, via 1000:10b0 from think_13) zeroes by writing [SI+8],
+                         [SI+0A] with SI = think_13's code offset (DS:1FD2 entry 0x13) used as a
+                         DS address; level 0xFFFF = none. Computed at build time; the extraction
+                         fails if the bytes are not exactly whole spawn pairs of one script
 ```
 `handler` = -opcode - 1 (opcode byte 0xFF -> 0 ... 0xF8 -> 7), the CS:0245 table:
 | handler | original | operands | effect |

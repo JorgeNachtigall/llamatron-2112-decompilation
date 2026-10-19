@@ -23,7 +23,15 @@ pos += op_count * 6
 (spawn_count,) = struct.unpack_from("<H", data, pos)
 pos += 2
 spawns = [data[pos + i * 2:pos + i * 2 + 2] for i in range(spawn_count)]
-assert pos + spawn_count * 2 == len(data), "trailing bytes"
+pos += spawn_count * 2
+clobber = struct.unpack_from("<3H", data, pos)
+assert version == 2 and pos + 6 == len(data), "trailing bytes"
+# the clobbered pairs are the 4 bytes at think_13's code offset (DS:1FD2 entry 0x13) + 8
+target = struct.unpack_from("<H", image, DGROUP + 0x1FD2 + 0x13 * 2)[0] + 8
+if clobber[0] != 0xFFFF:
+    lv = levels[clobber[0]]
+    found = [i for i in range(lv[4]) if image[DGROUP + target:DGROUP + target + 2] == spawns[lv[5] + i]]
+    assert clobber[1] in found and clobber[2] == 2, ("clobber", clobber, found)
 
 bad = 0
 for index, (ds_offset, first_op, n_ops, wave_type, n_spawns, first_spawn) in enumerate(levels):
