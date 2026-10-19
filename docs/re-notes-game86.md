@@ -297,9 +297,11 @@ from `39D7` up is zero (BSS). Ranges marked [H] are inferred from usage, not ful
 | `+24/+26` | word | handler-specific accumulators |
 | `+28` | word | animation toggle (`anim_01`) |
 | `+2c` | word | explicit sprite pointer when `+0c < 0` |
-| `+32` | word | extra sprite drawn after the anim handler (0 = none) |
-| `+36` | word | frame / timer |
-| `+3a` | word | kind index for the per-kind counts `g_type_counts` |
+| `+32` | word | **overlay sprite** x (0 = no overlay). After the anim handler, `entities_animate_all` (`1000:4392..43be`) draws sprite bank index `+36` at (`+32`, `+34`), then decrements `+38` and clears `+32` when it reaches 0 [C, W4/Keel] |
+| `+34` | word | overlay sprite y |
+| `+36` | word | overlay sprite index (`218C:001C + 2*i`) |
+| `+38` | word | overlay frames left |
+| `+3a` | word | kind for the kind roster `g_type_counts` (low byte; `< 0` = not counted) |
 | `+3c` | word | death sound request: low byte sample, high byte rate index (`1000:0eb0`) |
 | `+3e` | word | hit handler index (`tbl_hit_handlers`) |
 
@@ -321,7 +323,8 @@ speeds/parameters); everything else starts at 0.
 | `21C4` | `g_powerup` | [H] power-up state |
 | `21C6` | `g_extra_life_flag` | [H] |
 | `21C8/21CA` | | [H] |
-| `220A-226D` | `g_type_counts` | 50 words, per-kind live counts (`-1` = unused) |
+| `21CC-2209` | | no references in the listing (the one `[0x2200]` hit is bogus 218C disassembly) [C, W4/Keel] |
+| `220A-226D` | `g_type_counts` | kind roster: {byte kind, byte count} pairs, filled to `-1` (50 words) by `wave_spawn_enemies`; for each live entity with `+3a >= 0` the pair of that kind gets count+1, a new kind takes the first free pair with count 0 (so count = entities of that kind - 1). Only the first 31 pairs are searched (`1000:1d15..1d3e`) |
 
 ## 9. CS-resident data and dispatch tables (segment 1000 unless noted)
 | Address | Name | Entries | Index |
