@@ -33,7 +33,11 @@ DEFAULT_ORIGINAL = REPO_ROOT / "original"
 DEFAULT_WORKDIR = REPO_ROOT / "build-dosbox"
 MARKER = "REFRUN.TXT"
 PROBE_ASM = Path(__file__).resolve().parent / "probe.asm"
-HEADER_FMT = "<4sHHIIBBBB"     # PROBE.HDR, see probe.asm
+HEADER_FMT = "<4sHHIIBBBBHBBIHH"   # PROBE.HDR version 2, see probe.asm
+SNP_FMT = "<4sHHIHII"                # PROBE.SNP header
+KEY_FMT = "<IBB"                     # PROBE.KEY record: irq, scancode, 0
+SCAN_Q = 0x10
+QUIT_REPEATS = 30
 
 MACHINES = {"vga": "vgaonly", "ega": "ega"}
 VIDEO_CHAR = {"vga": "V", "ega": "E"}
@@ -58,7 +62,48 @@ class ProbeResult:
     exit_type: int            # 0 normal, 0xFF = EXEC failed
     exec_error: int
     workdir: str
+    snapshots_taken: int = 0
+    xms_ok: bool = False
+    timer_wrapped: int = 0    # 0 never, 1 wrapped, 2 game restored its vector at exit
+    irq_count: int = 0        # timer IRQs seen while the game ran
+    keys_applied: int = 0
+    keys_loaded: int = 0
     dgroup: bytes = field(default=b"", repr=False)   # 64 KB snapshot (never commit)
+    snapshots: list = field(default_factory=list, repr=False)
+
+
+@dataclass
+class Snapshot:
+    """One periodic snapshot (PROBE.SNP): DGROUP after timer IRQ `irq` (the game's
+    tick for that IRQ has run); VRAM planes 0..3 (VRAM_PLANE bytes each: pages
+    0000h/2000h/4000h) taken at IRQ `vram_irq` inside the vsync wait, or None."""
+    irq: int
+    vram_irq: int
+    dgroup: bytes = field(repr=False)
+    vram: list | None = field(repr=False)
+
+
+def read_snapshots(path: Path) -> list[Snapshot]:
+    data = path.read_bytes()
+    magic, version, count, _interval, flags, dg_size, vram_size = struct.unpack_from(SNP_FMT, data)
+    if magic != b"LTSN" or version != 1:
+        raise RuntimeError("bad PROBE.SNP")
+    pos = struct.calcsize(SNP_FMT)
+    meta = [struct.unpack_from("<II", data, pos + 8 * i) for i in range(count)]
+    pos += 8 * count
+    plane = vram_size // 4
+    out = []
+    for irq, vram_irq in meta:
+        dg = data[pos:pos + dg_size]
+        pos += dg_size
+        vram = None
+        if flags & 1:
+            raw = data[pos:pos + vram_size]
+            pos += vram_size
+            if vram_irq:
+                vram = [raw[i * plane:(i + 1) * plane] for i in range(4)]
+        out.append(Snapshot(irq, vram_irq, dg, vram))
+    return out
 
 
 def find_dosbox() -> str | None:
@@ -132,11 +177,17 @@ def run(original: Path = DEFAULT_ORIGINAL, workdir: Path = DEFAULT_WORKDIR,
 
 def probe(ticks: int, original: Path = DEFAULT_ORIGINAL, workdir: Path = DEFAULT_WORKDIR,
           machine: str = "vga", flash: str = "N", cycles: int = 20000,
-          time_limit: int = 60) -> ProbeResult:
+          time_limit: int = 60, interval: int = 0, max_snapshots: int = 0,
+          keys: list[tuple[int, int]] | None = None, quit_after: int = 0) -> ProbeResult:
     """Run game86 under PROBE.COM with the BIOS tick pinned to `ticks` during
-    start-up; return the DGROUP snapshot taken right after the RNG shuffle (at the
-    first mode-0Dh INT 10h). q is typed until the game quits so the probe can
-    write its files."""
+    start-up. Always returns the DGROUP snapshot taken right after the RNG shuffle.
+
+    interval/max_snapshots: periodic DGROUP (+ VRAM on vga) snapshots every
+    `interval` timer IRQs. keys: scripted input [(irq, scancode)], applied before the
+    game's tick for that IRQ. Without keys, q is typed via AUTOTYPE (wall-clock
+    timing) until the game quits. With keys, q presses are appended from
+    `quit_after` on (default: 50 IRQs after the last key) so the run ends
+    deterministically."""
     exe = find_dosbox()
     if not exe:
         raise FileNotFoundError("dosbox-x not found (brew install dosbox-x)")
@@ -144,11 +195,24 @@ def probe(ticks: int, original: Path = DEFAULT_ORIGINAL, workdir: Path = DEFAULT
     drive = workdir / "c"
     prepare_drive(original, drive, machine, flash)
     assemble_probe(drive / "PROBE.COM")
+    autotype = " ".join(["q"] * 8)
+    if keys is not None:
+        events = sorted(keys)
+        if not any(sc == SCAN_Q for _, sc in events):
+            # game86 clears the last make code at times (e.g. around a respawn), so a
+            # single q can be lost: press it every 100 IRQs until the game quits.
+            first = quit_after or (events[-1][0] if events else 0) + 50
+            for n in range(QUIT_REPEATS):
+                events += [(first + 100 * n, SCAN_Q), (first + 100 * n + 5, SCAN_Q | 0x80)]
+        (drive / "PROBE.KEY").write_bytes(b"".join(struct.pack(KEY_FMT, irq, sc, 0)
+                                                   for irq, sc in events))
+        autotype = ""
     vga = 1 if machine == "vga" else 0
     flash_arg = {"N": 0, "P": 1, "Y": 2}[flash]
     conf = workdir / "probe.conf"
-    write_conf(conf, drive, machine, cycles, " ".join(["q"] * 8), 3, 2, [],
-               program=[f"probe.com {ticks & 0xFFFFFFFF:08X} {vga} {flash_arg}"])
+    write_conf(conf, drive, machine, cycles, autotype, 3, 2, [],
+               program=[f"probe.com {ticks & 0xFFFFFFFF:08X} {vga} {flash_arg} "
+                        f"{interval:08X} {max_snapshots:04X}"])
     proc = subprocess.run([exe, "-defaultconf", "-conf", str(conf), "-nolog", "-fastlaunch",
                            "-silent", "-time-limit", str(time_limit)],
                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
@@ -157,13 +221,16 @@ def probe(ticks: int, original: Path = DEFAULT_ORIGINAL, workdir: Path = DEFAULT
     if "PROBE.HDR" not in files:
         raise RuntimeError(f"probe wrote no PROBE.HDR (dosbox-x rc {proc.returncode}); "
                            f"see {conf}")
-    magic, version, seg, pinned, seen, taken, code, etype, err = struct.unpack(
+    (magic, version, seg, pinned, seen, taken, code, etype, err, nsnaps, xms_ok, wrapped,
+     irqs, applied, loaded) = struct.unpack(
         HEADER_FMT, files["PROBE.HDR"].read_bytes()[:struct.calcsize(HEADER_FMT)])
-    if magic != b"LTPB" or version != 1:
+    if magic != b"LTPB" or version != 2:
         raise RuntimeError("bad PROBE.HDR")
     dgroup = files["PROBE.DG"].read_bytes() if "PROBE.DG" in files else b""
+    snaps = read_snapshots(files["PROBE.SNP"]) if "PROBE.SNP" in files else []
     return ProbeResult(proc.returncode, pinned, seen, bool(taken), seg, code, etype, err,
-                       str(workdir), dgroup)
+                       str(workdir), nsnaps, bool(xms_ok), wrapped, irqs, applied, loaded,
+                       dgroup, snaps)
 
 
 def main(argv=None) -> int:
@@ -172,6 +239,9 @@ def main(argv=None) -> int:
     ap.add_argument("action", choices=["smoke", "run", "probe"])
     ap.add_argument("--ticks", type=lambda v: int(v, 0), default=0x0012ABCD,
                     help="probe: BIOS tick count to pin (RNG seed)")
+    ap.add_argument("--interval", type=lambda v: int(v, 0), default=0,
+                    help="probe: snapshot every N timer IRQs")
+    ap.add_argument("--max-snapshots", type=int, default=0)
     ap.add_argument("--original", type=Path, default=DEFAULT_ORIGINAL)
     ap.add_argument("--workdir", type=Path, default=None)
     ap.add_argument("--machine", choices=sorted(MACHINES), default="vga")
@@ -186,8 +256,11 @@ def main(argv=None) -> int:
 
     if args.action == "probe":
         res = probe(args.ticks, args.original, args.workdir or DEFAULT_WORKDIR / "probe",
-                    args.machine, args.flash, args.cycles, args.time_limit)
-        print(json.dumps(asdict(res) | {"dgroup": f"{len(res.dgroup)} bytes"}, indent=2))
+                    args.machine, args.flash, args.cycles, args.time_limit,
+                    args.interval, args.max_snapshots)
+        summary = asdict(res) | {"dgroup": f"{len(res.dgroup)} bytes",
+                                 "snapshots": [(s.irq, s.vram_irq) for s in res.snapshots]}
+        print(json.dumps(summary, indent=2))
         return 0 if res.snapshot_taken and res.exit_type == 0 else 1
 
     keys = args.keys

@@ -63,20 +63,42 @@ lost, so the smoke run repeats `q`.
 
 ### PROBE.COM (`dosbox/probe.asm`, our own code; `brew install nasm`)
 
-`refrun.py probe --ticks 0x0012ABCD [--machine ega]` assembles the probe into the run
-copy and starts game86 through it, using the launcher's command-tail contract (sound
-= none, keyboard). The probe:
+`refrun.py probe --ticks 0x0012ABCD [--machine ega] [--interval 50 --max-snapshots 14]`
+assembles the probe into the run copy and starts game86 through it, using the
+launcher's command-tail contract (sound = none, keyboard). The probe:
 - masks IRQ0 and pins the BIOS tick word, so the tick schedule stays constant through
   the seed read (`1000:5f6b`) and the 8000 mixer calls of the shuffle;
 - snapshots DGROUP (64 KB) at game86's first INT 10h AX=000Dh (`1000:5960`, right
   after the shuffle), then releases the timer;
-- records the game's exit code. After the game exits it writes `PROBE.HDR` (layout in
-  probe.asm) and `PROBE.DG`.
+- wraps the game's timer handler when the game installs it (INT 21h AX=2508h from
+  `1000:e55b`). Timer IRQs are numbered from 1:
+  - **scripted input** (`probe(..., keys=[(irq, scancode)])` -> `PROBE.KEY`): each
+    key is applied just before the game's tick for its IRQ, with the effect of
+    game86's keyboard handler `1000:e567` (`[0x586]`, `[0x587]`, `[0x588]`,
+    `[0xb72]`). Quit presses are appended so the run ends on its own; game86 can
+    clear the last make code (e.g. around a respawn), so `q` is repeated every 100
+    IRQs;
+  - **periodic snapshots**: every `interval` IRQs DGROUP is copied to XMS after the
+    tick has run. On `vga`, the VRAM planes (offsets 0..5F3Fh = the three pages)
+    follow at the next IRQ that interrupted the game inside its vsync wait
+    (`1000:e5f3..e604`), so no drawing sequence is cut. The GC registers involved
+    are read back and restored, which only VGA allows;
+- records exit code, IRQ count and applied keys in `PROBE.HDR` (v2; layout in
+  probe.asm). `refrun.read_snapshots` parses `PROBE.SNP`.
 
-The snapshot is a copy of the original's memory. It stays in the gitignored work
-directory; never commit it (hashes are fine). `tests/dosbox/test_probe_rng.py`
-(ctest `dosbox.probe_rng`) checks the first end-to-end chain: the table and mixer
-state from DOSBox-X equal the unicorn oracle's for the same tick, on VGA and EGA.
+The snapshots are copies of the original's memory. They stay in the gitignored
+work directory; never commit them (hashes are fine).
 
-Next: periodic DGROUP/VRAM snapshots (wrap game86's INT 08 hook, buffer in XMS) and
-deterministic input timing for whole-game reference runs.
+Tests (opt-in, `-DLLAMATRON_DOSBOX_TESTS=ON`):
+- `dosbox.probe_rng`: the random table and mixer state from DOSBox-X equal the
+  unicorn oracle's and the port's `rng_init_constant` for the same tick, on VGA and EGA.
+- `dosbox.probe_replay`: the same tick + input script gives identical DGROUP and VRAM
+  snapshots in two runs. The script drives a real game (fire starts it, P1 moves).
+
+Contract for the port's replays: input events are tied to timer IRQ numbers and take
+effect before that IRQ's tick. Ticks are counted from the first IRQ after the mode-0Dh
+INT 10h. game86's own tick counter `[0x39e6]` follows the IRQ count until a game
+starts, then it is reset.
+
+Next: hashing snapshots for golden references (frames and DGROUP regions), and the
+port-side replay that compares against them.

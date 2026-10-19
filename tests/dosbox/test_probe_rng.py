@@ -3,8 +3,8 @@
 The original game runs in DOSBox-X under PROBE.COM with the BIOS tick pinned during
 start-up (tests/README.md: the RNG table depends on every tick value the shuffle
 reads). The 512-byte random table and the mixer state it ends with must equal what
-the unicorn oracle computes for the same constant tick schedule. The C port will
-join the chain through tests/adapters/rng.py.
+the unicorn oracle computes for the same constant tick schedule, and, when
+llamatron_game_testlib is built, what the port's rng_init_constant produces.
 """
 
 import os
@@ -53,3 +53,14 @@ def test_probe_table_matches_oracle(machine, ticks):
     assert dg[PERM_TABLE:PERM_TABLE + PERM_SIZE] == want.table
     assert struct.unpack("<4H", dg[MIXER:MIXER + 8]) == want.mixer
     assert struct.unpack("<H", dg[PERM_INDEX:PERM_INDEX + 2])[0] == 0
+
+    from adapters.cport import load_testlib
+    lib = load_testlib()
+    if lib is not None:                       # third link of the chain: the C port
+        import ctypes
+        from adapters.rng import CRngApi, rng_from_c, rng_to_c
+        c = rng_to_c(RngState())
+        CRngApi(lib).init_constant(ctypes.byref(c), ticks)
+        got = rng_from_c(c)
+        assert got.table == dg[PERM_TABLE:PERM_TABLE + PERM_SIZE]
+        assert got.mixer == want.mixer
