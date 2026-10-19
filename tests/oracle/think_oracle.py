@@ -170,7 +170,9 @@ class ThinkOracle:
 
     # ---- running both sides -----------------------------------------------------------
 
-    def run_original(self, machine, case: ThinkCase, think: int):
+    def run_original(self, machine, case: ThinkCase, think: int | None, entry: str | None = None,
+                     stop: str | None = None):
+        """Runs think handler `think`, or the code at `entry` (until its RET, or until `stop`)."""
         machine.write_dgroup(0, case.image)
         playing, priority = case.status     # stub: MOV AX, status; RETF
         machine.write(STUB_SEG, 0, bytes([0xB8, priority, playing, 0xCB]))
@@ -178,24 +180,33 @@ class ThinkOracle:
         heard = []
         bp = machine.add_breakpoint((STUB_SEG, 0), lambda m: heard.append(m.get_regs()))
         try:
-            # entities_think_all calls through SI (1000:4363 MOV SI,[BX+1FD2]; CALL SI), and
-            # some handlers' callees depend on it (enemy_shot_drop's 10b0 clobber).
-            handler = think_address(machine, think)
-            machine.call(f"1000:{handler:04x}",
-                         regs={"di": case.di, "bp": case.bp, "si": handler})
+            if entry is None:
+                # entities_think_all calls through SI (1000:4363 MOV SI,[BX+1FD2]; CALL SI), and
+                # some handlers' callees depend on it (enemy_shot_drop's 10b0 clobber).
+                handler = think_address(machine, think)
+                machine.call(f"1000:{handler:04x}",
+                             regs={"di": case.di, "bp": case.bp, "si": handler})
+            elif stop is None:
+                machine.call(entry)
+            else:
+                machine.run_until(entry, stop, max_insns=2_000_000)
         finally:
             machine.remove_breakpoint(bp)
         sounds = [(r["ax"] & 0xFF, r["cx"] & 0xFF, r["cx"] >> 8) for r in heard
                   if r["ax"] >> 8 == 3]
         return machine.read_dgroup(0, 0x10000), sounds
 
-    def run_port(self, case: ThinkCase, think: int):
+    def run_port(self, case: ThinkCase, think: int | None, port_call=None):
+        """Runs think handler `think`, or `port_call(state)` with the GameState from the image."""
         state = self.dg.from_dgroup(case.image)
-        fn = self.table[think]
-        assert fn, f"think_{think:02x} not in entity_think_handlers"
         self.sound_clear()
         self.override_status(True, self.SoundStatus(*case.status))
-        THINK_FN(fn)(ctypes.addressof(state), self.dg.entity(state, case.slot))
+        if port_call is not None:
+            port_call(state)
+        else:
+            fn = self.table[think]
+            assert fn, f"think_{think:02x} not in entity_think_handlers"
+            THINK_FN(fn)(ctypes.addressof(state), self.dg.entity(state, case.slot))
         self.override_status(False, self.SoundStatus(0, 0))
         sounds = []
         for i in range(self.sound_count()):
@@ -216,17 +227,18 @@ class ThinkOracle:
                     out[ref:ref + 2] = w16(frame)
         return bytes(out)
 
-    def check(self, machine, case: ThinkCase, think: int, fixup=None):
+    def check(self, machine, case: ThinkCase, think: int | None, fixup=None, entry=None,
+              stop=None, port_call=None):
         """`fixup(image) -> image` maps the original's representation of a value to the
         port's where the two differ by design; it is applied to the port's input image and to
         the original's result."""
-        want, want_sounds = self.run_original(machine, case, think)
+        want, want_sounds = self.run_original(machine, case, think, entry, stop)
         want = self.with_sprite_frames(case.image, want)
         port_case = case
         if fixup:
             want = fixup(want)
             port_case = ThinkCase(fixup(case.image), case.slot, case.status)
-        got, got_sounds = self.run_port(port_case, think)
+        got, got_sounds = self.run_port(port_case, think, port_call)
         bad = self.dg.mismatches(want, got)
         detail = [(hex(o), want[o], got[o]) for o in bad[:16]]
         assert not bad, f"slot {case.slot}: DGROUP differs at {detail}"

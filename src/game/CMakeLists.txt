@@ -7,6 +7,7 @@ add_library(llamatron_game STATIC
     score.c
     script.c
     entity_loop.c
+    player.c
     frame.c
     sound.c
     rng.c
