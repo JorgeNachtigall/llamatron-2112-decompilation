@@ -57,6 +57,7 @@ static bool parse_samples(const uint8_t *d, size_t n) { SampleSet s; bool ok = s
 static bool parse_scores(const uint8_t *d, size_t n) { HighScoreTable t; return scores_parse(d, n, &t); }
 static bool parse_config(const uint8_t *d, size_t n) { GameConfig c; return config_parse(d, n, &c); }
 static bool parse_hiscore(const uint8_t *d, size_t n) { HiscoreData h; return hiscore_data_parse(d, n, &h); }
+static bool parse_enemies(const uint8_t *d, size_t n) { EnemyTables e; return enemy_tables_parse(d, n, &e); }
 static bool parse_hud(const uint8_t *d, size_t n) { HudGlyphs h; return hud_glyphs_parse(d, n, &h); }
 
 static void test_sprites(void)
@@ -293,6 +294,20 @@ static void test_samples_scores_config(void)
     CHECK(strlen(hiscore.alphabet) == HISCORE_ALPHABET_SIZE && hiscore.alphabet[26] == 'A');
     CHECK(hiscore.row_colours[9] == 10 && memcmp(hiscore.rude_word, "WXYZ", 4) == 0);
     check_rejects_damage(&x, parse_hiscore, "LHSC");
+
+    Buf e = {0};
+    header(&e, "LENM", FORMAT_LENM_VERSION);
+    put16(&e, 2); put16(&e, 4); put16(&e, 6); put16(&e, 0xFFFF); put16(&e, 0xFFFF);
+    put8(&e, 1); put8(&e, 0xFF); put8(&e, 2); put8(&e, 0xFE);
+    for (int i = 0; i < PICKUP_KINDS; i++) put16(&e, (unsigned)(0x100 + i));
+    put16(&e, DEBRIS_TEMPLATE_COUNT);
+    for (int i = 0; i < DEBRIS_TEMPLATE_COUNT; i++) { put16(&e, (unsigned)i); put16(&e, 0xFFFE); put16(&e, 3); }
+    EnemyTables enemies;
+    CHECK(enemy_tables_parse(e.bytes, e.size, &enemies));
+    CHECK(enemies.score_award_count == 2 && enemies.score_awards[0].count_minus_1 == 4 && enemies.score_awards[0].digit == 6);
+    CHECK(enemies.drop_by_direction[1] == -1 && enemies.drop_by_direction[3] == -2 && enemies.pickup_sprites[9] == 0x109);
+    CHECK(enemies.debris[15].sprite == 15 && enemies.debris[15].vx == -2 && enemies.debris[15].vy == 3);
+    check_rejects_damage(&e, parse_enemies, "LENM");
 }
 
 int main(void)

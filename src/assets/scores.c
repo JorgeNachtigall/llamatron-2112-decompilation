@@ -1,5 +1,5 @@
 /* scores.c - default_scores.dat / user_scores.dat (LSCO), config.dat (LCFG), hud_glyphs.dat (LHUD),
- * hiscore.dat (LHSC). */
+ * hiscore.dat (LHSC), enemies.dat (LENM). */
 #include "formats.h"
 #include "reader.h"
 
@@ -94,5 +94,34 @@ bool hiscore_data_parse(const uint8_t *data, size_t size, HiscoreData *out)
     memcpy(out->alphabet, alphabet, HISCORE_ALPHABET_SIZE);
     memcpy(out->row_colours, colours, HISCORE_ROW_COUNT);
     memcpy(out->rude_word, word, HISCORE_RUDE_WORD_SIZE);
+    return true;
+}
+
+bool enemy_tables_parse(const uint8_t *data, size_t size, EnemyTables *out)
+{
+    memset(out, 0, sizeof *out);
+    Reader r = reader_open(data, size);
+    if (!reader_header(&r, "LENM", FORMAT_LENM_VERSION))
+        return false;
+    out->score_award_count = reader_u16(&r);
+    if (out->score_award_count > SCORE_AWARDS_MAX)
+        return format_fail("LENM: %u score awards", (unsigned)out->score_award_count);
+    for (uint16_t i = 0; i < out->score_award_count; i++) {
+        out->score_awards[i].count_minus_1 = reader_u16(&r);
+        out->score_awards[i].digit = reader_u16(&r);
+    }
+    for (int i = 0; i < DROP_DIRECTIONS; i++)
+        out->drop_by_direction[i] = (int8_t)reader_u8(&r);
+    for (int i = 0; i < PICKUP_KINDS; i++)
+        out->pickup_sprites[i] = reader_u16(&r);
+    if (reader_u16(&r) != DEBRIS_TEMPLATE_COUNT && r.ok)
+        return format_fail("LENM: debris count is not %d", DEBRIS_TEMPLATE_COUNT);
+    for (int i = 0; i < DEBRIS_TEMPLATE_COUNT; i++) {
+        out->debris[i].sprite = reader_u16(&r);
+        out->debris[i].vx = (int16_t)reader_u16(&r);
+        out->debris[i].vy = (int16_t)reader_u16(&r);
+    }
+    if (!r.ok || r.pos != size)
+        return format_fail("LENM: %s", r.ok ? "trailing bytes" : "truncated");
     return true;
 }

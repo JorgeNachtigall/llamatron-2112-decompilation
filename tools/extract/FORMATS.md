@@ -199,6 +199,25 @@ u8    rude_word[4]       the immediates of the CMPs at 1000:5e52, 5e5c, 5e61, 5e
                          entered name for this word (sets [0874] = 1)
 ```
 
+## `enemies.dat` (read-only tables of the enemy hit / kill handlers)
+```
+char  magic[4] = "LENM"
+u16   version = 1
+u16   award_count = 45
+struct { u16 count_minus_1; u16 digit; } score_awards[award_count]
+                         DS:2054, indexed by the entity's think index (ent_hit_00 1000:0e38);
+                         score_add (1000:0335) adds 1 to score digit `digit` (7 = units)
+                         count_minus_1 + 1 times; digit 0 = no score. The last record is the
+                         original's FFFF FFFF (kept: the code indexes the table directly)
+s8    drop_by_direction[4]    DS:0654, by (shot direction - 0x1d) & 3 (1000:0e07)
+u16   pickup_sprites[10]      DS:063C, sprite numbers of the pickup kinds (1000:0ed5)
+u16   debris_count = 16
+struct { u16 sprite; s16 vx; s16 vy; } debris[16]
+                         DS:0878 (the original's 4th word, always 0, is dropped); the kill
+                         actions use groups starting at DS:0878 / 0898 / 08B8 = index 0 / 4 / 8
+                         (1000:3bcb..3c46)
+```
+
 ## `levels.dat` (tbl_level_scripts DS:2BDA; interpreter game86 1000:020b)
 The table has **100** entries (up to the 0 word at DS:2CA2), not 40. A 0 entry makes the game wrap
 to level 0 and increment the loop count.

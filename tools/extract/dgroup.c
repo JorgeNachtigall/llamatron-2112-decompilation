@@ -8,6 +8,7 @@
  *   data/config.dat          the user's llama.inf as llama.exe parses it (else "absent")
  *   data/hud_glyphs.dat      HUD digit glyphs (DS:09EE) and player-life labels (DS:0A8E/0A9E)
  *   data/hiscore.dat         name-entry alphabet, table row colours, the rejected word
+ *   data/enemies.dat         score awards, drop values, pickup sprites, debris templates
  *
  * The only relocation inside DGROUP is DS:0406 (the stub driver's segment), so the relocated
  * image holds the original values everywhere these tables are read. */
@@ -48,6 +49,16 @@ enum {
     HISCORE_ALPHABET_SIZE = 33,      /* 11 x 3 */
     HISCORE_ROW_COLOURS = 0x09C9,    /* one colour per table row (DI at 1000:5cb5, read 5d60) */
     HISCORE_ROW_COUNT = 10,
+
+    SCORE_AWARDS = 0x2054,           /* {u16 count - 1, u16 digit} per think index, 1000:0e38 */
+    SCORE_AWARDS_MAX = 64,
+    DROP_BY_DIRECTION = 0x0654,      /* 4 x s8, 1000:0e07 */
+    DROP_DIRECTIONS = 4,
+    PICKUP_SPRITES = 0x063C,         /* 10 x u16 sprite numbers, 1000:0ed5 */
+    PICKUP_KINDS = 10,
+    DEBRIS_TEMPLATES = 0x0878,       /* 16 x {u16 sprite, s16 vx, s16 vy, u16 0}, 1000:3c46 */
+    DEBRIS_TEMPLATE_COUNT = 16,
+    DEBRIS_TEMPLATE_SIZE = 8,
 };
 
 /* The entered name is compared with a 4-letter word by CMP byte ptr [SI+d], imm8 instructions
@@ -249,8 +260,42 @@ static bool write_hiscore_data(ExtractContext *ctx)
     return ok;
 }
 
+/* Read-only tables of the enemy hit / kill handlers. The score table is indexed directly by
+ * the think index; its FFFF FFFF record is kept (the code never treats it as an end). */
+static bool write_enemy_tables(ExtractContext *ctx)
+{
+    ByteBuf out = {0};
+    uint16_t awards = 0;
+    for (;; awards++) {
+        const uint8_t *award = dgroup(ctx, (uint16_t)(SCORE_AWARDS + awards * 4), 4);
+        if (!award || awards == SCORE_AWARDS_MAX)
+            return award ? fail("score table at DS:%04x has no FFFF FFFF record", SCORE_AWARDS) : false;
+        if (read_u16le(award) == 0xFFFF && read_u16le(award + 2) == 0xFFFF)
+            break;
+    }
+    awards++; /* include the FFFF FFFF record */
+    bool ok = bytebuf_append(&out, (const uint8_t *)"LENM", 4) && bytebuf_put_u16(&out, FMT_LENM_VERSION) &&
+              bytebuf_put_u16(&out, awards) && append_words(ctx, &out, SCORE_AWARDS, (size_t)awards * 2) &&
+              append_dgroup(ctx, &out, DROP_BY_DIRECTION, DROP_DIRECTIONS) &&
+              append_words(ctx, &out, PICKUP_SPRITES, PICKUP_KINDS) &&
+              bytebuf_put_u16(&out, DEBRIS_TEMPLATE_COUNT);
+    for (uint16_t i = 0; ok && i < DEBRIS_TEMPLATE_COUNT; i++) {
+        const uint8_t *t = dgroup(ctx, (uint16_t)(DEBRIS_TEMPLATES + i * DEBRIS_TEMPLATE_SIZE), DEBRIS_TEMPLATE_SIZE);
+        if (!t || read_u16le(t + 6) != 0)
+            ok = t ? fail("debris template %u at DS:%04x: last word not 0", i, DEBRIS_TEMPLATES) : false;
+        else
+            ok = append_words(ctx, &out, (uint16_t)(DEBRIS_TEMPLATES + i * DEBRIS_TEMPLATE_SIZE), 3);
+    }
+    ok = ok && output_write(ctx->outputs, "data/enemies.dat", out.data, out.size) &&
+         index_define(ctx, "SCORE_AWARD_COUNT", awards);
+    bytebuf_free(&out);
+    return ok;
+}
+
 bool extract_dgroup_tables(ExtractContext *ctx)
 {
+    if (!write_enemy_tables(ctx))
+        return false;
     return write_palettes(ctx) && write_scores(ctx) && write_config(ctx) && write_hud_glyphs(ctx) &&
            write_hiscore_data(ctx);
 }

@@ -18,6 +18,7 @@ _Static_assert(LLAMA_FMT_LTXT_VERSION == FORMAT_LTXT_VERSION, "strings.dat versi
 _Static_assert(LLAMA_FMT_LLVL_VERSION == FORMAT_LLVL_VERSION, "levels.dat version");
 _Static_assert(LLAMA_FMT_LHUD_VERSION == FORMAT_LHUD_VERSION, "hud_glyphs.dat version");
 _Static_assert(LLAMA_FMT_LHSC_VERSION == FORMAT_LHSC_VERSION, "hiscore.dat version");
+_Static_assert(LLAMA_FMT_LENM_VERSION == FORMAT_LENM_VERSION, "enemies.dat version");
 
 static struct {
     bool loaded;
@@ -33,6 +34,7 @@ static struct {
     GameConfig config;
     HudGlyphs hud_glyphs;
     HiscoreData hiscore;
+    EnemyTables enemies;
 } data;
 
 static bool report(const char *name)
@@ -62,6 +64,7 @@ bool game_data_load(void)
               LOAD(LLAMA_ASSET_CONFIG_DAT, config_parse(bytes, size, &data.config)) &&
               LOAD(LLAMA_ASSET_HUD_GLYPHS_DAT, hud_glyphs_parse(bytes, size, &data.hud_glyphs)) &&
               LOAD(LLAMA_ASSET_HISCORE_DAT, hiscore_data_parse(bytes, size, &data.hiscore)) &&
+              LOAD(LLAMA_ASSET_ENEMIES_DAT, enemy_tables_parse(bytes, size, &data.enemies)) &&
               (pcm = asset_get(LLAMA_ASSET_SAMPLES_BIN, &pcm_size)) != NULL &&
               LOAD(LLAMA_ASSET_SAMPLES_IDX, samples_parse(bytes, size, pcm, pcm_size, &data.samples));
 #undef LOAD
@@ -227,4 +230,9 @@ const HudGlyphs *asset_hud_glyphs(void)
 const HiscoreData *asset_hiscore_data(void)
 {
     return data.loaded ? &data.hiscore : NULL;
+}
+
+const EnemyTables *asset_enemy_tables(void)
+{
+    return data.loaded ? &data.enemies : NULL;
 }

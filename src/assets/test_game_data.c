@@ -169,6 +169,13 @@ static void check_samples_scores_config(void)
         }
     }
     CHECK(asset_config() != NULL);
+    const EnemyTables *enemies = asset_enemy_tables();
+    CHECK(enemies && enemies->score_award_count == LLAMA_SCORE_AWARD_COUNT);
+    for (uint16_t i = 0; enemies && i + 1u < enemies->score_award_count; i++)
+        CHECK(enemies->score_awards[i].digit <= 7);
+    CHECK(enemies && enemies->score_awards[enemies->score_award_count - 1].digit == 0xFFFF);
+    for (int i = 0; enemies && i < PICKUP_KINDS; i++) /* sprite numbers resolve through the refs */
+        CHECK(asset_sprite_number_gfx(enemies->pickup_sprites[i]) != NULL);
     const HiscoreData *hiscore = asset_hiscore_data();
     CHECK(hiscore && strlen(hiscore->alphabet) == HISCORE_ALPHABET_SIZE);
     for (int i = 0; hiscore && i < HISCORE_RUDE_WORD_SIZE; i++)

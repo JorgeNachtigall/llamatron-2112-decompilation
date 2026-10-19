@@ -36,6 +36,7 @@ enum {
     FORMAT_LLVL_VERSION = 1,
     FORMAT_LHUD_VERSION = 1,
     FORMAT_LHSC_VERSION = 1,
+    FORMAT_LENM_VERSION = 1,
 };
 
 const char *format_error(void);
@@ -322,6 +323,41 @@ typedef struct HiscoreData {
 } HiscoreData;
 
 bool hiscore_data_parse(const uint8_t *data, size_t size, HiscoreData *out);
+
+/* ---- enemies.dat (LENM): read-only tables of the enemy hit / kill handlers ------------- */
+
+enum {
+    SCORE_AWARDS_MAX = 64,
+    DROP_DIRECTIONS = 4,
+    PICKUP_KINDS = 10,
+    DEBRIS_TEMPLATE_COUNT = 16,
+    /* First template of each group the kill actions use (DS:0878 / 0898 / 08B8, 1000:3bcb..) */
+    DEBRIS_GROUP_0878 = 0,
+    DEBRIS_GROUP_0898 = 4,
+    DEBRIS_GROUP_08B8 = 8,
+};
+
+/* score_add(AX = count_minus_1, BX = digit) (1000:0335): adds 1 to score digit `digit`
+ * (7 = units) count_minus_1 + 1 times; digit 0 = no score (ent_hit_00 1000:0e40). */
+typedef struct ScoreAward {
+    uint16_t count_minus_1;
+    uint16_t digit;
+} ScoreAward;
+
+typedef struct DebrisTemplate {
+    uint16_t sprite;         /* sprite number */
+    int16_t vx, vy;          /* shifted left by the caller (1000:3c50) */
+} DebrisTemplate;
+
+typedef struct EnemyTables {
+    uint16_t score_award_count;          /* incl. the original's FFFF FFFF last record */
+    ScoreAward score_awards[SCORE_AWARDS_MAX];   /* DS:2054, by think index (1000:0e38) */
+    int8_t drop_by_direction[DROP_DIRECTIONS];   /* DS:0654, by (shot dir - 0x1d) & 3 */
+    uint16_t pickup_sprites[PICKUP_KINDS];       /* DS:063C, sprite number per pickup kind */
+    DebrisTemplate debris[DEBRIS_TEMPLATE_COUNT]; /* DS:0878 */
+} EnemyTables;
+
+bool enemy_tables_parse(const uint8_t *data, size_t size, EnemyTables *out);
 
 /* ---- config.dat (LCFG): llama.inf as llama.exe parses it ------------------------------- */
 
