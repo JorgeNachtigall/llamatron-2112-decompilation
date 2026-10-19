@@ -60,7 +60,7 @@ game86,1000:1562,1265,play_tick_hook,game_tick,src/game/tick.c,todo,W4,B,
 game86,1000:16c1,,players_tick,players_tick,src/game/player.c,diff-tested,W5,B,per-player part of play_tick_hook (16c1..1a00)
 game86,1000:176c,175,enemy_aim_update,enemy_aim_update,src/game/player.c,diff-tested,W5,B,
 game86,1000:1947,,trail_record,trail_record,src/game/player.c,diff-tested,W5,B,trail write 1947..19ce with trail_entry; 199d misaligned first compare = DEVIATIONS #10
-game86,1000:1a3b,427,play_draw_hook,game_draw_frame,src/game/frame.c,todo,W4,B,
+game86,1000:1a3b,427,play_draw_hook,play_draw_hook,src/game/draw_play.c,diff-tested,W6,B,test_play_draw.py (real sprite and g3 banks)
 game86,1000:1be6,129,palette_set,gfx_set_game_palette,src/engine/gfx.c,diff-tested,W2,B,test_engine_palette.py: INT 10h 1012h/1002h calls applied to a card model (VGA DAC blocks 0..7/16..23 via the attribute registers e4f5 loads) = gfx_palette() 0..15; DS:4451 DAC staging buffer not kept
 game86,1000:1c67,134,enemy_random_spawn_pos,enemy_random_spawn_pos,src/game/entities/spawn.c,diff-tested,W5a,B,
 game86,1000:1ced,83,wave_spawn_enemies,wave_spawn_enemies,src/game/main_sm.c,todo,W4,B,
