@@ -165,6 +165,12 @@ void hit_kill_action(GameState *game, Entity *e, const EntityHit *hit);
  * e->timer. `touched` = the TOUCH_* bits from entity_hits_player. game86 1000:0f69 */
 void pickup_collect(GameState *game, Entity *e, unsigned touched);
 
+/* Pickup kind 9, also entered straight from think_11/12/1b: unless the wave is cleared, a
+ * shield is up or it is the demo, flash, play the death sound and kill the player. `touched`
+ * goes to player_kill unchanged (it tests only bit 1, so callers may pass any value).
+ * game86 1000:37c2 */
+void deadly_touch(GameState *game, unsigned touched);
+
 #ifdef __cplusplus
 }
 #endif

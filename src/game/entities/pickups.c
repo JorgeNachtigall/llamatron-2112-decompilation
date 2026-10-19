@@ -88,9 +88,9 @@ static void pickup_effect_08(GameState *game, unsigned touched)
     score_add(game, 4, 2);
 }
 
-/* game86 1000:37c2: a deadly "pickup". The same guards as the player-touch tail, with its own
- * flash and sound, then the player dies. */
-static void pickup_effect_09(GameState *game, unsigned touched)
+/* game86 1000:37c2: a deadly "pickup" (also entered from think_11/12/1b). The same guards as
+ * the player-touch tail, with its own flash and sound, then the player dies. */
+void deadly_touch(GameState *game, unsigned touched)
 {
     if (game->wave_result == WAVE_CLEARED || game->shield_timer != 0 || game->demo_mode != 0)
         return;
@@ -100,6 +100,11 @@ static void pickup_effect_09(GameState *game, unsigned touched)
     game_sound_play(0x1d, 3, 0x1e);
     game->death_sound_timer = 0x14;
     player_kill(game, touched);
+}
+
+static void pickup_effect_09(GameState *game, unsigned touched)
+{
+    deadly_touch(game, touched);
 }
 
 static const PickupEffectFn pickup_effects[PICKUP_EFFECT_COUNT] = {
