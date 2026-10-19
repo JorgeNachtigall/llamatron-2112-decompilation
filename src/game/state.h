@@ -225,12 +225,13 @@ typedef struct GameState {
      * life fires), the high-score compare is digit-wise (= numeric) and the HUD converts to
      * digits when drawing. */
     uint32_t score[PLAYER_COUNT];
-    bool hud_dirty;                     /* 0309 g_hud_dirty: redraw the HUD this frame */
+    bool hud_dirty;                     /* 05A1 redraw the HUD this frame (tested at 1000:0309) */
     int16_t continues;                  /* 061F 4 per game */
     int16_t respawn_timer[PLAYER_COUNT];/* 07F3 / 0634 [H] 0x64 at wave start, P1 0xFFFE = dying */
     int16_t loop_count;                 /* 233C times the level scripts wrapped to level 0 */
     int16_t level_flags;                /* 233E [H] sign selects shot sprites */
-    bool demo_mode;                     /* 06C4 score_add disabled */
+    int16_t demo_mode;                  /* 06C4 demo waves left: 3 when a demo starts (02b9), -1 per
+                                           wave (06bd); non-zero disables score_add */
 
     Entity companion;                   /* 4881 */
     Entity entities[ENTITY_COUNT];      /* 48C1 */
