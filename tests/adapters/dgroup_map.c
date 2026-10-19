@@ -79,6 +79,14 @@ enum {
     DS_POWERUP_0652 = 0x0652,
     DS_DEBRIS_ALT = 0x0876,
     DS_SNAKE_HEAD = 0x0870,
+    DS_FIRE_DELAY = 0x0631,     /* byte */
+    DS_FIRE_TURN = 0x0632,
+    DS_STARTED_WITH_STICK_B = 0x09D3,   /* word flag */
+    DS_DROID_AIM_TIMER = 0x0682,
+    DS_DROID_AIM_VOTES = 0x409C,        /* 4 bytes */
+    DS_DROID_QUARRY = 0x0919,
+    DS_CHAIN_TAIL = 0x06A4,     /* x, y */
+    DS_DEMO_WANDER = 0x06A8,    /* x, y */
     DS_TRAIL_HEAD = 0x2CF7,     /* 2 words: entry index * 8 (masked 0x3F8 by the original) */
     DS_FOLLOWER_LAG = 0x06BA,   /* 2 words: entries * 8 */
     DS_RESCUE_MARKER_PENDING = 0x091F,  /* word flag */
@@ -151,6 +159,15 @@ static void put32(Writer w, unsigned off, uint32_t v)
     put16(w, off, (uint16_t)v);
     put16(w, off + 2, (uint16_t)(v >> 16));
 }
+
+/* Per-ship control words: not one record but scattered words, P1 and P2 apart (src/game/state.h
+ * ShipControl). 0 = no location (P1's trail_flag is a local in the original). */
+static const struct ShipControlLayout {
+    uint16_t move, shot_velocity, shot_direction, aim, facing, trail_flag;
+} SHIP_CONTROL[PLAYER_COUNT] = {
+    { 0x06BE, 0x069C, 0x06AC, 0x06B6, 0x06C2, 0 },
+    { 0x06B0, 0x06A0, 0x06AE, 0x06B8, 0x07F9, 0x06B4 },
+};
 
 /* Trail positions: the original keeps entry counts as byte offsets into 8-byte records. */
 static int16_t getentries(Reader r, unsigned off) { return (int16_t)(gets16(r, off) / 8); }
@@ -537,6 +554,31 @@ void gamestate_from_dgroup(GameState *g, const uint8_t *dgroup)
         g->rescue_marker_y[i] = gets16(r, DS_RESCUE_MARKER_Y + 2 * (unsigned)i);
     }
     g->rescue_marker_pending = getflag16(r, DS_RESCUE_MARKER_PENDING);
+
+    for (int i = 0; i < PLAYER_COUNT; i++) {
+        const struct ShipControlLayout *l = &SHIP_CONTROL[i];
+        ShipControl *c = &g->ship_control[i];
+        c->move.x = gets16(r, l->move);
+        c->move.y = gets16(r, l->move + 2u);
+        c->shot_velocity.x = gets16(r, l->shot_velocity);
+        c->shot_velocity.y = gets16(r, l->shot_velocity + 2u);
+        c->shot_direction = gets16(r, l->shot_direction);
+        c->aim = gets16(r, l->aim);
+        c->facing = gets16(r, l->facing);
+        if (l->trail_flag)
+            c->trail_flag = gets16(r, l->trail_flag);
+    }
+    g->fire_delay = get8(r, DS_FIRE_DELAY);
+    g->fire_turn = gets16(r, DS_FIRE_TURN);
+    g->started_with_stick_b = getflag16(r, DS_STARTED_WITH_STICK_B);
+    g->droid_aim_timer = gets16(r, DS_DROID_AIM_TIMER);
+    for (int i = 0; i < 4; i++)
+        g->droid_aim_votes[i] = get8(r, DS_DROID_AIM_VOTES + (unsigned)i);
+    g->droid_quarry = gets16(r, DS_DROID_QUARRY);
+    g->chain_tail.x = gets16(r, DS_CHAIN_TAIL);
+    g->chain_tail.y = gets16(r, DS_CHAIN_TAIL + 2);
+    g->demo_wander.x = gets16(r, DS_DEMO_WANDER);
+    g->demo_wander.y = gets16(r, DS_DEMO_WANDER + 2);
     for (int i = 0; i < SNAKE_TRAIL_LENGTH; i++) {
         unsigned b = DS_SNAKE_TRAIL + 8 * (unsigned)i;
         g->snake_trail[i].x = gets16(r, b + 0);
@@ -660,6 +702,31 @@ static void write_state(const GameState *g, Writer w)
         put16(w, DS_RESCUE_MARKER_Y + 2 * (unsigned)i, (uint16_t)g->rescue_marker_y[i]);
     }
     putflag16(w, DS_RESCUE_MARKER_PENDING, g->rescue_marker_pending);
+
+    for (int i = 0; i < PLAYER_COUNT; i++) {
+        const struct ShipControlLayout *l = &SHIP_CONTROL[i];
+        const ShipControl *c = &g->ship_control[i];
+        put16(w, l->move, (uint16_t)c->move.x);
+        put16(w, l->move + 2u, (uint16_t)c->move.y);
+        put16(w, l->shot_velocity, (uint16_t)c->shot_velocity.x);
+        put16(w, l->shot_velocity + 2u, (uint16_t)c->shot_velocity.y);
+        put16(w, l->shot_direction, (uint16_t)c->shot_direction);
+        put16(w, l->aim, (uint16_t)c->aim);
+        put16(w, l->facing, (uint16_t)c->facing);
+        if (l->trail_flag)
+            put16(w, l->trail_flag, (uint16_t)c->trail_flag);
+    }
+    put8(w, DS_FIRE_DELAY, g->fire_delay);
+    put16(w, DS_FIRE_TURN, (uint16_t)g->fire_turn);
+    putflag16(w, DS_STARTED_WITH_STICK_B, g->started_with_stick_b);
+    put16(w, DS_DROID_AIM_TIMER, (uint16_t)g->droid_aim_timer);
+    for (int i = 0; i < 4; i++)
+        put8(w, DS_DROID_AIM_VOTES + (unsigned)i, g->droid_aim_votes[i]);
+    put16(w, DS_DROID_QUARRY, (uint16_t)g->droid_quarry);
+    put16(w, DS_CHAIN_TAIL, (uint16_t)g->chain_tail.x);
+    put16(w, DS_CHAIN_TAIL + 2, (uint16_t)g->chain_tail.y);
+    put16(w, DS_DEMO_WANDER, (uint16_t)g->demo_wander.x);
+    put16(w, DS_DEMO_WANDER + 2, (uint16_t)g->demo_wander.y);
     for (int i = 0; i < SNAKE_TRAIL_LENGTH; i++) {
         unsigned b = DS_SNAKE_TRAIL + 8 * (unsigned)i;
         put16(w, b + 0, (uint16_t)g->snake_trail[i].x);
