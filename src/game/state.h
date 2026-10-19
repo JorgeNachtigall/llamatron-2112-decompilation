@@ -242,6 +242,16 @@ typedef struct GameState {
     Shot shots[SHOT_COUNT];             /* 68C9 */
     bool shots_bounce;                  /* 0650 power-up: shots reflect at the edges */
     TrailPoint trail[PLAYER_COUNT][TRAIL_LENGTH]; /* 6CC9 / 70C9 */
+    /* 2CF7/2CF9 newest TrailPoint of each ship (the original keeps index * 8, always masked
+     * to the ring by the play tick 1000:1975..19ce) */
+    int16_t trail_head[PLAYER_COUNT];
+    /* 06BA/06BC how many trail entries a rescued llama follows behind (+5 per rescue, think_05
+     * 4d8c/4d22). [H] The play tick reads head + lag unmasked (1000:194f), i.e. past the ring
+     * into the next one: tick.c reproduces that. */
+    int16_t follower_lag[PLAYER_COUNT];
+    bool rescue_marker_pending;         /* 091F last llama rescued (4cfe), cleared at 4da1 */
+    int16_t rescue_marker_y[PLAYER_COUNT]; /* 0921/0923 marker above the ship (1aed/1bbc), -1 per
+                                              tick while >= 0 (15ea) */
 
     WaveResult wave_result;             /* 0810 */
     int16_t wave_intro_timer;           /* 08FC 0x32 ticks of freeze at wave start */
@@ -272,6 +282,7 @@ typedef struct GameState {
     int16_t powerup_0652;               /* 0652 [H] 1 from pickup 03 (with level_flags = 0x32) */
     int16_t debris_alt;                 /* 0876 [H] 0 from kill actions 01/02/09, 1 from 04 */
     SnakeTrailPoint snake_trail[SNAKE_TRAIL_LENGTH]; /* 4481 enemy_init_10 fills it with the head */
+    int16_t snake_head;                 /* 0870 newest snake_trail entry, 0..63 (think_1d 36e1) */
     uint16_t tick_count;                /* 39E6 50 Hz counter */
     bool frame_drawn;                   /* 0429 the tick hook idles until a wave frame is drawn */
 
