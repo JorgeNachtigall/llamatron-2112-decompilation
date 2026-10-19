@@ -77,6 +77,27 @@ All functions preserve BX,CX,DX,SI,DI,DS; AX is the result.
 
 (CL>4 would index past the table into code bytes — never happens.)
 
+### Scheduling edge cases (confirmed: W2/Lantern ndisasm, re-checked by W8 with capstone)
+
+AH=2 order is fixed: `0x171` pending stop, then `0x14B` promote, then `0x38C` DMA start when `[0x2AD]!=0`.
+Time base: one tick = 0x5CEC PIT cycles = **19936.6 µs**; a sample lasts exactly `length * (256 - TC)` µs.
+
+* **Sticky stop** (`0x171`): `[0xB3]` is cleared only when it is 0xFF or equals the current sample `[0xB8]`.
+  A stop for a sample that is not playing stays armed (also while idle) and fires on the first tick where that
+  sample is current. Because the stop check runs before the promote, that can be the tick right after the sample
+  started. `[0xB3]=0` means no stop.
+* **Requests are stored unconditionally** (`0x10F`): AL goes into `[0xB2]` and the TC/priority into
+  `[0x2AE]`/`[0x2B0]` before any check. So a request with AL=0 or AL>0x20 cancels a pending valid request; with
+  AL>0x20 the slot keeps that invalid value, never promotes, and blocks until the next request overwrites it.
+  Its CH is still compared with the current priority, so it can also schedule a stop of the current sample.
+* **TC at start = latest request** (`0x3B3` reads `[0x2AE]`): if several requests arrive between ticks, the sample
+  that starts plays at the rate (and gets the priority, `0x16A`) of the *last* request, not its own.
+* **Back-to-back samples:** the SB IRQ (`0x553`) clears busy `[0x2A9]` and current `[0xB8]` between ticks, so a
+  waiting sample starts on the first tick that sees the previous one ended (no gap tick).
+* **Order in game86:** the INT 08 handler `1000:3de4` calls the driver tick (AH=2 at `3e02`) **before** the game's
+  tick hook (`CALL [g_tick_hook]` at `3eb7`). So requests made by the game logic in tick N start at tick N+1 at the
+  earliest.
+
 ### Driver variables (for reference)
 
 `[0xB2]` pending request, `[0xB3]` pending stop (0xFF=any), `[0xB8]` current sample, `[0xB6]` FM status port (0x228),
