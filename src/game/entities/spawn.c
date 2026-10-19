@@ -103,7 +103,10 @@ Entity *enemy_shot_alloc(GameState *game, const Entity *from, const EnemyShot *t
     return shot;
 }
 
-/* game86 1000:10b0 */
+/* game86 1000:10b0
+ * TODO(W0 decision, 1000:10b0): the original's enemy_shot_init also zeroes DS:2576..2579
+ * here (its caller's SI is 0x256E, think_13's code address). Not reproduced until it is
+ * known whether those level-script bytes are read afterwards. */
 Entity *enemy_shot_drop(GameState *game, const Entity *from)
 {
     Entity *shot = first_free_slot(game);
