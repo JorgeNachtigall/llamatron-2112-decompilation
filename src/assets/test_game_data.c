@@ -194,6 +194,12 @@ static void check_samples_scores_config(void)
         CHECK(controls->spread_a[i] < INPUT_NIBBLES && controls->spread_b[i] < INPUT_NIBBLES);
     for (int i = 0; controls && i < DROID_QUADRANTS; i++)
         CHECK(controls->droid_aim[i] < INPUT_NIBBLES);
+    const TitleTables *title = asset_title_tables();
+    CHECK(title && title->tune_length >= 3 && title->tune[title->tune_length - 1] == 0);
+    for (int i = 0; title && i + 1 < title->tune_length; i += 2) /* rates and sample numbers */
+        CHECK(title->tune[i] < LLAMA_SAMPLE_RATE_COUNT && asset_sample(title->tune[i + 1]) != NULL);
+    for (int i = 0; title && i < TITLE_LETTER_SPRITE_COUNT; i++)
+        CHECK(asset_sprite_number_gfx(title->letter_sprites[i]) != NULL);
     const HiscoreData *hiscore = asset_hiscore_data();
     CHECK(hiscore && strlen(hiscore->alphabet) == HISCORE_ALPHABET_SIZE);
     for (int i = 0; hiscore && i < HISCORE_RUDE_WORD_SIZE; i++)

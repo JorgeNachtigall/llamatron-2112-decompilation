@@ -1,5 +1,6 @@
 /* scores.c - default_scores.dat / user_scores.dat (LSCO), config.dat (LCFG), hud_glyphs.dat (LHUD),
- * hiscore.dat (LHSC), enemies.dat (LENM), controls.dat (LCTL). */
+ * hiscore.dat (LHSC), enemies.dat (LENM), controls.dat (LCTL),
+ * title.dat (LTTL). */
 #include "formats.h"
 #include "reader.h"
 
@@ -153,5 +154,28 @@ bool control_tables_parse(const uint8_t *data, size_t size, ControlTables *out)
     }
     if (!r.ok || r.pos != size)
         return format_fail("LCTL: %s", r.ok ? "trailing bytes" : "truncated");
+    return true;
+}
+
+bool title_tables_parse(const uint8_t *data, size_t size, TitleTables *out)
+{
+    memset(out, 0, sizeof *out);
+    Reader r = reader_open(data, size);
+    if (!reader_header(&r, "LTTL", FORMAT_LTTL_VERSION))
+        return false;
+    const uint8_t *letters = reader_bytes(&r, TITLE_LETTER_SPRITE_COUNT);
+    if (letters)
+        memcpy(out->letter_sprites, letters, TITLE_LETTER_SPRITE_COUNT);
+    for (int i = 0; i < TITLE_LLAMA_SPRITE_COUNT; i++)
+        out->llama_sprites[i] = reader_u16(&r);
+    out->tune_length = reader_u16(&r);
+    if (r.ok && (out->tune_length == 0 || out->tune_length > TITLE_TUNE_MAX || out->tune_length % 2 == 0))
+        return format_fail("LTTL: tune length %u", (unsigned)out->tune_length);
+    const uint8_t *tune = reader_bytes(&r, out->tune_length);
+    if (!r.ok || r.pos != size)
+        return format_fail("LTTL: %s", r.ok ? "trailing bytes" : "truncated");
+    memcpy(out->tune, tune, out->tune_length);
+    if (out->tune[out->tune_length - 1] != 0)
+        return format_fail("LTTL: tune does not end with a 0 rate byte");
     return true;
 }

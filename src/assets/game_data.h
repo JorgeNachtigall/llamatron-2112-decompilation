@@ -82,6 +82,7 @@ const HudGlyphs *asset_hud_glyphs(void);
 const HiscoreData *asset_hiscore_data(void);
 const EnemyTables *asset_enemy_tables(void);
 const ControlTables *asset_control_tables(void);
+const TitleTables *asset_title_tables(void);
 
 #ifdef __cplusplus
 }

@@ -59,6 +59,7 @@ static bool parse_config(const uint8_t *d, size_t n) { GameConfig c; return conf
 static bool parse_hiscore(const uint8_t *d, size_t n) { HiscoreData h; return hiscore_data_parse(d, n, &h); }
 static bool parse_enemies(const uint8_t *d, size_t n) { EnemyTables e; return enemy_tables_parse(d, n, &e); }
 static bool parse_controls(const uint8_t *d, size_t n) { ControlTables c; return control_tables_parse(d, n, &c); }
+static bool parse_title(const uint8_t *d, size_t n) { TitleTables t; return title_tables_parse(d, n, &t); }
 static bool parse_hud(const uint8_t *d, size_t n) { HudGlyphs h; return hud_glyphs_parse(d, n, &h); }
 
 static void test_sprites(void)
@@ -328,6 +329,19 @@ static void test_samples_scores_config(void)
     CHECK(controls.shot_vx[1] == 1 && controls.shot_direction[0] == 32 && controls.trail_flag[15] == 143);
     CHECK(controls.droid_shot_vx[0] == -112 && controls.droid_aim[3] == 159);
     check_rejects_damage(&k, parse_controls, "LCTL");
+
+    Buf t = {0};
+    header(&t, "LTTL", FORMAT_LTTL_VERSION);
+    for (int i = 0; i < TITLE_LETTER_SPRITE_COUNT; i++) put8(&t, (unsigned)(20 + i));
+    for (int i = 0; i < TITLE_LLAMA_SPRITE_COUNT; i++) put16(&t, (unsigned)(0x300 + i));
+    put16(&t, 5); put8(&t, 1); put8(&t, 9); put8(&t, 2); put8(&t, 8); put8(&t, 0);
+    TitleTables title;
+    CHECK(title_tables_parse(t.bytes, t.size, &title));
+    CHECK(title.letter_sprites[9] == 29 && title.llama_sprites[3] == 0x303);
+    CHECK(title.tune_length == 5 && title.tune[3] == 8 && title.tune[4] == 0);
+    check_rejects_damage(&t, parse_title, "LTTL");
+    t.bytes[t.size - 1] = 3; /* no 0 rate byte at the end */
+    CHECK(!parse_title(t.bytes, t.size));
 }
 
 int main(void)

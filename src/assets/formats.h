@@ -38,6 +38,7 @@ enum {
     FORMAT_LHSC_VERSION = 1,
     FORMAT_LENM_VERSION = 2,
     FORMAT_LCTL_VERSION = 1,
+    FORMAT_LTTL_VERSION = 1,
 };
 
 const char *format_error(void);
@@ -426,6 +427,26 @@ typedef struct ControlTables {
 } ControlTables;
 
 bool control_tables_parse(const uint8_t *data, size_t size, ControlTables *out);
+
+/* ---- title.dat (LTTL): attract mode / title screen ------------------------------------- */
+
+enum {
+    TITLE_LETTER_SPRITE_COUNT = 10,
+    TITLE_LLAMA_SPRITE_COUNT = 4,
+    TITLE_TUNE_MAX = 256,
+};
+
+typedef struct TitleTables {
+    uint8_t letter_sprites[TITLE_LETTER_SPRITE_COUNT];  /* DS:2118, sprite numbers (SPRITE_NUMBER_BASE:
+                                                         * 1000:403f reads 218C:1C + 2n) */
+    uint16_t llama_sprites[TITLE_LLAMA_SPRITE_COUNT];   /* DS:0909, sprite bases (1000:4560) */
+    /* DS:09D5 verbatim, so byte positions match the original's tune pointer: {rate index,
+     * sample} pairs, then a 0 rate byte = restart at byte 0 (title_tune_tick 1000:0870) */
+    uint16_t tune_length;                   /* including the final 0 */
+    uint8_t tune[TITLE_TUNE_MAX];
+} TitleTables;
+
+bool title_tables_parse(const uint8_t *data, size_t size, TitleTables *out);
 
 /* ---- config.dat (LCFG): llama.inf as llama.exe parses it ------------------------------- */
 

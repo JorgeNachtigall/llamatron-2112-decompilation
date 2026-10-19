@@ -10,6 +10,7 @@
  *   data/hiscore.dat         name-entry alphabet, table row colours, the rejected word
  *   data/enemies.dat         score awards, drop values, pickup sprites, debris templates
  *   data/controls.dat        player shot / move tables by input nibble, droid aim by quadrant
+ *   data/title.dat           title letter sprites, title llama sprites, title tune
  *
  * The only relocation inside DGROUP is DS:0406 (the stub driver's segment), so the relocated
  * image holds the original values everywhere these tables are read. */
@@ -71,6 +72,13 @@ enum {
 
     INPUT_NIBBLES = 16,              /* bits 0/1 up/down, 2/3 left/right */
     DROID_QUADRANTS = 4,
+
+    TITLE_LETTER_SPRITES = 0x2118,   /* 10 x u8 sprite numbers, title_draw_hook 1000:4036 */
+    TITLE_LETTERS = 10,
+    TITLE_LLAMA_SPRITES = 0x0909,    /* 4 x u16 sprite bases, attract_llamas_init 1000:4560 */
+    TITLE_LLAMAS = 4,
+    TITLE_TUNE = 0x09D5,             /* {rate index, sample} pairs, 0 rate = restart (1000:0870) */
+    TITLE_TUNE_MAX = 256,
 };
 
 /* Player control tables, 16 bytes each by input nibble (player_fire 1000:0981.., players_tick
@@ -336,8 +344,35 @@ static bool write_control_tables(ExtractContext *ctx)
     return ok;
 }
 
+/* The tune is kept as bytes, in the original order, up to and including its 0 rate byte. */
+static bool write_title_tables(ExtractContext *ctx)
+{
+    ByteBuf out = {0};
+    bool ok = bytebuf_append(&out, (const uint8_t *)"LTTL", 4) && bytebuf_put_u16(&out, FMT_LTTL_VERSION) &&
+              append_dgroup(ctx, &out, TITLE_LETTER_SPRITES, TITLE_LETTERS) &&
+              append_words(ctx, &out, TITLE_LLAMA_SPRITES, TITLE_LLAMAS);
+    uint16_t length = 0;
+    for (const uint8_t *rate; ok; length += 2) {
+        rate = dgroup(ctx, (uint16_t)(TITLE_TUNE + length), 2);
+        if (!rate || length >= TITLE_TUNE_MAX) {
+            ok = rate ? fail("title tune at DS:%04x has no 0 rate byte", TITLE_TUNE) : false;
+            break;
+        }
+        if (rate[0] == 0) {
+            length++;
+            break;
+        }
+    }
+    ok = ok && bytebuf_put_u16(&out, length) && append_dgroup(ctx, &out, TITLE_TUNE, length) &&
+         output_write(ctx->outputs, "data/title.dat", out.data, out.size);
+    bytebuf_free(&out);
+    return ok;
+}
+
 bool extract_dgroup_tables(ExtractContext *ctx)
 {
+    if (!write_title_tables(ctx))
+        return false;
     if (!write_control_tables(ctx))
         return false;
     if (!write_enemy_tables(ctx))

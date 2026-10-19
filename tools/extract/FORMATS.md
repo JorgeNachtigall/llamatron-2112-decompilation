@@ -247,6 +247,19 @@ u8    droid_aim[4]       DS:0698   input nibble   1000:1810
 ```
 DS:0793 and DS:07A3 (between spread_b and move_vx) have no reader in game86 and are not exported.
 
+## `title.dat` (attract mode / title screen)
+```
+char  magic[4] = "LTTL"
+u16   version = 1
+u8    letter_sprites[10]  DS:2118, sprite numbers of the title letters (title_draw_hook
+                          1000:4036; 403f reads 218C:001C + 2n = sprite_refs[0x0E + n])
+u16   llama_sprites[4]    DS:0909, sprite bases of the title llamas (attract_llamas_init 1000:4560,
+                          index (BP >> 3) & 3)
+u16   tune_length         bytes, including the final 0
+u8    tune[tune_length]   DS:09D5 verbatim: {rate index, sample} pairs, then a 0 rate byte that
+                          makes title_tune_tick (1000:0870..0889) restart at the first pair
+```
+
 ## `levels.dat` (tbl_level_scripts DS:2BDA; interpreter game86 1000:020b)
 The table has **100** entries (up to the 0 word at DS:2CA2), not 40. A 0 entry makes the game wrap
 to level 0 and increment the loop count.
