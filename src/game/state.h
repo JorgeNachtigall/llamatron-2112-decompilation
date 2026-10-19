@@ -1,8 +1,8 @@
 /*
- * state.h - the game's state as ordinary C (docs/PLAN.md §0.1, §3.1).
+ * state.h - the game's state as ordinary C (docs/PLAN.md §0.1).
  *
- * DRAFT for review by W0 and W6/W5 (Prism): after it is agreed this is a shared header and
- * changes go through the integration lead (docs/CHANGELOG-shared.md).
+ * Shared header (PLAN.md §7): changes go through the integration lead and get a line in
+ * docs/CHANGELOG-shared.md.
  *
  * The structs are designed for reading, not for the original's byte layout; the mapping to
  * DGROUP lives only in tests/adapters. Comments give the original location (DS offsets in
@@ -31,7 +31,7 @@ enum {
     SCORE_DIGITS = 8,
     HISCORE_COUNT = 10,
     HISCORE_NAME_LENGTH = 8,
-    LEVEL_COUNT = 40,
+    LEVEL_COUNT = 100,          /* tbl_level_scripts DS:2BDA..2CA1 */
 };
 
 /* --------------------------------------------------------------------------------------
@@ -46,8 +46,8 @@ enum {
 
 typedef struct Entity {
     /* +00 type word. The original tests the sign of the whole word in the think/animate/alloc
-     * loops (i.e. hatch_into < 0) but the low byte in wave_spawn_enemies (1000:1d0a); both
-     * bytes are 0xFF for a free slot. */
+     * loops (i.e. hatch_into < 0) but the low byte in wave_spawn_enemies (1000:1d0a), whose
+     * port tests think < 0 explicitly; both bytes are 0xFF for a free slot. */
     int8_t think;               /* +00 lo: tbl_think_handlers index (46 handlers) */
     int8_t hatch_into;          /* +00 hi: think index it becomes when a spawn hatches (think_00) */
     int16_t x, y;               /* +02/+04 sprite centre, screen pixels */
@@ -102,12 +102,13 @@ typedef struct RosterEntry {
 typedef struct Player {
     int16_t lives;              /* 21A6, 5 at a new game */
     int16_t wave;               /* 21A8 wave within the level */
-    int16_t level;              /* 21AA 0..39 */
+    int16_t level;              /* 21AA 0..LEVEL_COUNT-1; past the last script it wraps to 0
+                                   and loop_count goes up */
     int16_t enemy_speed_x;      /* 21AC script op 0 */
     int16_t enemy_speed_y;      /* 21AE */
     int16_t wave_type;          /* 21B0 first byte of the current wave record */
     int16_t param_21b2;         /* 21B2 [H] */
-    int16_t score_scale;        /* 21B4 [H] digit count passed to score_add */
+    int16_t score_scale;        /* 21B4 score_add awards every increment score_scale+1 times */
     int16_t script_param[7];    /* 21B6..21C2 per-level parameters set by script ops 1..2 [H] */
     int16_t powerup;            /* 21C4 [H] power-up state, sign tested by anim_10 */
     int16_t extra_life_flag;    /* 21C6 [H] 3 on extra life */
@@ -185,7 +186,7 @@ typedef struct GameState {
     uint8_t score[PLAYER_COUNT][SCORE_DIGITS]; /* 4441/4449 one decimal digit per byte, MSD first */
     int16_t continues;                  /* 061F 4 per game */
     int16_t respawn_timer[PLAYER_COUNT];/* 07F3 / 0634 [H] 0x64 at wave start, P1 0xFFFE = dying */
-    int16_t loop_count;                 /* 233C times all 40 levels were completed */
+    int16_t loop_count;                 /* 233C times the level scripts wrapped to level 0 */
     int16_t level_flags;                /* 233E [H] sign selects shot sprites */
     bool demo_mode;                     /* 06C4 score_add disabled */
 
@@ -201,7 +202,10 @@ typedef struct GameState {
 
     WaveResult wave_result;             /* 0810 */
     int16_t wave_intro_timer;           /* 08FC 0x32 ticks of freeze at wave start */
-    uint16_t script_pos;                /* 39EB position in the current level script */
+    /* 39EB level script position: op `script_op` of level `script_level` in the extracted
+     * LevelSet (levels.dat); the byte address mapping lives in tests/adapters. */
+    int16_t script_level;
+    uint16_t script_op;
     uint16_t tick_count;                /* 39E6 50 Hz counter */
     bool frame_drawn;                   /* 0429 the tick hook idles until a wave frame is drawn */
 
