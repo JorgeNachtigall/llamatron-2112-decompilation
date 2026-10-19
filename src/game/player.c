@@ -306,7 +306,7 @@ static void shot_launch(Shot *s, Point16 at, Point16 velocity, int16_t direction
     s->x = at.x;
 }
 
-/* One ship's volley: a shot along its aim, and with `spread` and a non-zero score_scale up
+/* One ship's volley: a shot along its aim, and with `spread` and a non-zero multi_shot up
  * to two more in the directions the spread tables give for that aim. False when no shot slot
  * was free at all. game86 1000:09ab..0ad1 (P2), 0add..0bf7 (P1) */
 static bool fire_volley(GameState *game, int player, bool spread)
@@ -317,7 +317,7 @@ static bool fire_volley(GameState *game, int player, bool spread)
     if (!s)
         return false;
     shot_launch(s, at, c->shot_velocity, c->shot_direction);
-    if (!spread || game->player.score_scale == 0)
+    if (!spread || game->player.multi_shot == 0)
         return true;
 
     const ControlTables *t = asset_control_tables();

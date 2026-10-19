@@ -17,7 +17,7 @@ extern "C" {
 void players_tick(GameState *game);
 
 /* Fires a volley from each ship every 9th tick once the wave's spawns are out (3-way spread
- * with a non-zero Player.score_scale, alternating between the ships in two-player mode).
+ * with a non-zero Player.multi_shot, alternating between the ships in two-player mode).
  * game86 1000:0981 */
 void player_fire(GameState *game);
 
