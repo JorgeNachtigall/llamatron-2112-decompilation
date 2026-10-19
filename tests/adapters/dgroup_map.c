@@ -59,6 +59,7 @@ enum {
     DS_PLAY_FLAG_0617 = 0x0617,
     DS_LEVEL_DEFAULT = 0x059F,
     DS_PULSE_ENABLE = 0x0902,   /* word flag */
+    DS_PULSE_INDEX = 0x0680,    /* EGA colour-1 pulse step, game86 1000:3ea1 */
     DS_FLASH_FRAME_TIMER = 0x044C,  /* byte */
     DS_PLAYER2_LABEL_OFFSET = 0x07F7,
     DS_LEVEL_VARIANT = 0x0941,
@@ -624,6 +625,7 @@ void gamestate_from_dgroup(GameState *g, const uint8_t *dgroup)
     g->play_flag_0617 = gets16(r, DS_PLAY_FLAG_0617);
     g->level_default = gets16(r, DS_LEVEL_DEFAULT);
     g->pulse_enable = getflag16(r, DS_PULSE_ENABLE);
+    g->pulse_index = gets16(r, DS_PULSE_INDEX);
     g->flash_frame_timer = get8(r, DS_FLASH_FRAME_TIMER);
     g->player2_label_offset = gets16(r, DS_PLAYER2_LABEL_OFFSET);
     g->level_variant = gets16(r, DS_LEVEL_VARIANT);
@@ -808,6 +810,7 @@ static void write_state(const GameState *g, Writer w)
     put16(w, DS_PLAY_FLAG_0617, (uint16_t)g->play_flag_0617);
     put16(w, DS_LEVEL_DEFAULT, (uint16_t)g->level_default);
     putflag16(w, DS_PULSE_ENABLE, g->pulse_enable);
+    put16(w, DS_PULSE_INDEX, (uint16_t)g->pulse_index);
     put8(w, DS_FLASH_FRAME_TIMER, g->flash_frame_timer);
     put16(w, DS_PLAYER2_LABEL_OFFSET, (uint16_t)g->player2_label_offset);
     put16(w, DS_LEVEL_VARIANT, (uint16_t)g->level_variant);
