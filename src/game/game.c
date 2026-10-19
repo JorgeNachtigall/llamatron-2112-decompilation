@@ -24,7 +24,8 @@ bool game_init(GameState *game, const GameLaunch *launch)
     memset(game, 0, sizeof *game);
     game->vga = launch->vga;
     game->joystick = launch->joystick;
-    game->sound = launch->sound;
+    game->sound_present = launch->sound;
+    game->sound_on = launch->sound;
     game->flash_mode = launch->flash_mode;
 
     RngTickSource ticks = launch->shuffle_ticks;

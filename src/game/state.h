@@ -108,12 +108,14 @@ typedef struct Player {
     int16_t enemy_speed_x;      /* 21AC script op 0 */
     int16_t enemy_speed_y;      /* 21AE */
     int16_t wave_type;          /* 21B0 first byte of the current wave record */
-    int16_t param_21b2;         /* 21B2 [H] */
+    int16_t swarm_reaim_period; /* 21B2 think_03's re-aim period: max(swarm_count / 2, 3) (1a28) */
     int16_t score_scale;        /* 21B4 score_add awards every increment score_scale+1 times */
     int16_t script_param[7];    /* 21B6..21C2 per-level parameters set by script ops 1..2 [H] */
     int16_t powerup;            /* 21C4 [H] power-up state, sign tested by anim_10 */
-    int16_t extra_life_flag;    /* 21C6 [H] 3 on extra life */
-    int16_t param_21c8;         /* 21C8 2 at a new game and in think_01 */
+    int16_t pickup_pending;     /* 21C6 k+1: the next killed enemy becomes pickup kind k (0eb8);
+                                   score_add's extra life sets 3 */
+    int16_t bonus_countdown;    /* 21C8 -1 per 200 kills; at 0 back to 2 and, below level 90,
+                                   pickup 1 is queued (2 at a new game) */
     int16_t param_21ca;         /* 21CA */
     RosterEntry roster[ROSTER_SIZE]; /* 220A */
 } Player;
@@ -168,11 +170,46 @@ typedef enum GameOptions {      /* DS:2CF6 bits */
  * the extractor's score table uses, so loading and saving copy rows unchanged. */
 typedef HighScore HiscoreEntry;
 
+/* Where wave spawns are read from (DS:39EB points into one of them): the level's own
+ * (type, count) list, or the player's roster when a player resumes a wave (1000:07b1). Both
+ * hold count = entities - 1 and end with a count of 0xFF (1000:3d0d). */
+typedef enum SpawnSource { SPAWN_FROM_LEVEL, SPAWN_FROM_ROSTER } SpawnSource;
+
+typedef struct SpawnCursor {
+    SpawnSource source;
+    int16_t level;              /* level whose list is read (SPAWN_FROM_LEVEL) */
+    uint16_t index;             /* next (type, count) pair */
+} SpawnCursor;
+
+/* Per-level enemy parameters set by level-script ops 3..7 (1000:0392..03e1), each read by
+ * one enemy handler; named after their address until W5 knows their meaning. */
+typedef struct LevelTuning {
+    int16_t init01_mode;        /* 0812 op 5: enemy_init_01 sub_mode */
+    int16_t init0d_hp;          /* 0816 op 4: enemy_init_0d hit points */
+    int16_t segment_family;     /* 0818 op 3: enemy_init_11 family, ent_hit_0e +2e */
+    int16_t orbit_phase_step;   /* 0820 op 7: enemy_init_15 sine phase step (0x40 until set) */
+    int16_t p0826;              /* 0826 op 3 */
+    uint32_t accum_start;       /* 0828/082A op 6: enemy_init_22..25 accumulators */
+    int16_t p082c;              /* 082C op 6: copied to +2e */
+    int16_t p082e;              /* 082E op 6: copied to +24 */
+    int16_t p0830;              /* 0830 op 5 */
+    int16_t init19_vx;          /* 086E op 4: enemy_init_19 vx */
+} LevelTuning;
+
+enum { SNAKE_TRAIL_LENGTH = 64 };
+
+typedef struct SnakeTrailPoint {    /* DS:4481, 8 bytes each */
+    int16_t x, y;
+    int16_t sprite;
+    int16_t unused;
+} SnakeTrailPoint;
+
 typedef struct GameState {
     /* Configuration from the launcher's command tail (game86 1000:5f6b) */
     bool vga;                           /* 058A */
     bool joystick;                      /* 058B (058D keyboard = !joystick) */
-    bool sound;                         /* 0688/0689 driver present and on */
+    bool sound_present;                 /* 0688 a sound driver was loaded */
+    bool sound_on;                      /* 0689 toggled at runtime by 1000:1514 */
     uint8_t flash_mode;                 /* 0589 0 none, 1 pulsing, 2 pulsing and flashes */
     bool quit;                          /* leave the game (exit path 1000:5ed9) */
 
@@ -207,10 +244,32 @@ typedef struct GameState {
 
     WaveResult wave_result;             /* 0810 */
     int16_t wave_intro_timer;           /* 08FC 0x32 ticks of freeze at wave start */
-    /* 39EB level script position: op `script_op` of level `script_level` in the extracted
-     * LevelSet (levels.dat); the byte address mapping lives in tests/adapters. */
-    int16_t script_level;
-    uint16_t script_op;
+    LevelTuning tuning;
+    SpawnCursor spawn;                  /* 39EB; the byte address mapping lives in tests/adapters */
+    int16_t spawn_remaining;            /* 08FA entities of the current pair still to spawn, -1 none */
+    int16_t spawn_type;                 /* 0900 enemy type (tbl_enemy_init index) being spawned */
+
+    int16_t shield_timer;               /* 0907 invulnerability ticks (500 from pickup 0fa2) */
+    bool smart_bomb;                    /* 0615 hit every solid entity (pickup 0fb5, cleared 0d27) */
+    int16_t death_sound_timer;          /* 0872 0x14 when < 10 enemies are left (43f7); sample 0x11 at 0 */
+    int16_t swarm_count;                /* 091D think_03 entities this tick (reset 1a1f) */
+    int16_t eshot_param[5];             /* 0419..0421 enemy shot template (041B/041D aim limits);
+                                           [H] maybe only scratch: W5 to settle */
+    const FlashList *flash_list;        /* 06C7 pending screen-flash list, NULL = none */
+
+    /* Wave-wide enemy state (W5 handlers; [H] names are proposals) */
+    int16_t spawn_sprite;               /* 0806 from tbl_spawn_kind (0808) by level & 3 or random (1daa) */
+    int16_t spawn_count_0804;           /* 0804 [H] enemy_init_00 counts up, no reader found */
+    int16_t unhatched;                  /* 091B [H] enemy_init_00 counts up, think handlers read */
+    int16_t spawn_phase;                /* 0814 enemy_init_01: timer = value & 0x1f */
+    uint32_t orbit_angle;               /* 081A/081C 0x20000 from enemy_init_15, think_21 adds 0x40 */
+    int16_t orbit_next_phase;           /* 081E enemy_init_15 sine phase (low byte) */
+    int16_t segment_sprite;             /* 0824 enemy_init_11..14/1f, read by ent_hit_0e */
+    uint32_t speed_accum;               /* 0636/0638 [H] 0x800 at start, the play tick adds 0x200 (15df) */
+    int16_t kills_toward_bonus;         /* 063A ent_hit_00 counts; at 200 resets and a pickup drops */
+    int16_t powerup_0652;               /* 0652 [H] 1 from pickup 03 (with level_flags = 0x32) */
+    int16_t debris_alt;                 /* 0876 [H] 0 from kill actions 01/02/09, 1 from 04 */
+    SnakeTrailPoint snake_trail[SNAKE_TRAIL_LENGTH]; /* 4481 enemy_init_10 fills it with the head */
     uint16_t tick_count;                /* 39E6 50 Hz counter */
     bool frame_drawn;                   /* 0429 the tick hook idles until a wave frame is drawn */
 

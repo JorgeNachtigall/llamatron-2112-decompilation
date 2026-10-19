@@ -5,6 +5,7 @@
 add_library(llamatron_game STATIC
     game.c
     score.c
+    sound.c
     rng.c
     draw_page.c
     draw_rect.c

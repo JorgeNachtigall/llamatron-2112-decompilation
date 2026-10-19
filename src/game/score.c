@@ -1,7 +1,7 @@
 /* score.c - score awards (see score.h). */
 #include "score.h"
 
-#include "snd.h"
+#include "sound.h"
 
 enum {
     EXTRA_LIFE_PLACE = 4,           /* a carry out of this digit (thousands) earns a life */
@@ -35,8 +35,8 @@ void score_add(GameState *game, int place, int increments)
         for (int s = 0; s < steps; s++) {
             uint32_t before = game->score[player];
             if (place >= EXTRA_LIFE_PLACE && before % carry_limit + unit >= carry_limit) {
-                game->player.extra_life_flag = 3;
-                snd_play(EXTRA_LIFE_SAMPLE, EXTRA_LIFE_RATE, EXTRA_LIFE_PRIORITY);
+                game->player.pickup_pending = 3;
+                game_sound_play(EXTRA_LIFE_SAMPLE, EXTRA_LIFE_RATE, EXTRA_LIFE_PRIORITY);
             }
             game->score[player] = (before + unit) % SCORE_MODULUS;
         }
