@@ -31,9 +31,10 @@ if(LLAMATRON_TESTLIB_ENV)
   list(APPEND _harness_env "${LLAMATRON_TESTLIB_ENV}")
 endif()
 
-# DOSBox-X reference-run smoke tests (PLAN §3.3): the original launch chain runs
-# headless on a copy of the original folder. Needs dosbox-x and the original files;
-# label "dosbox" (about 25 s each), exclude with ctest -LE dosbox.
+# DOSBox-X reference runs (PLAN §3.3) are slow (25-50 s each) and therefore opt-in:
+# configure with -DLLAMATRON_DOSBOX_TESTS=ON. They carry the label "dosbox", so
+# ctest -LE dosbox still gives the fast set when they are enabled.
+option(LLAMATRON_DOSBOX_TESTS "Register the slow DOSBox-X reference-run tests" OFF)
 find_program(LLAMATRON_DOSBOX_X dosbox-x)
 find_program(LLAMATRON_PYTHON3 python3)
 if(DEFINED LLAMATRON_ORIGINAL_DIR AND NOT LLAMATRON_ORIGINAL_DIR STREQUAL "")
@@ -41,7 +42,9 @@ if(DEFINED LLAMATRON_ORIGINAL_DIR AND NOT LLAMATRON_ORIGINAL_DIR STREQUAL "")
 else()
   set(_original_dir "${LLAMATRON_REPO_DIR}/original")
 endif()
-if(LLAMATRON_DOSBOX_X AND LLAMATRON_PYTHON3 AND EXISTS "${_original_dir}/llama.exe")
+if(NOT LLAMATRON_DOSBOX_TESTS)
+  message(STATUS "DOSBox-X tests off (enable with -DLLAMATRON_DOSBOX_TESTS=ON)")
+elseif(LLAMATRON_DOSBOX_X AND LLAMATRON_PYTHON3 AND EXISTS "${_original_dir}/llama.exe")
   foreach(_machine vga ega)
     add_test(NAME dosbox.smoke_${_machine}
              COMMAND "${LLAMATRON_PYTHON3}" "${LLAMATRON_HARNESS_DIR}/dosbox/refrun.py" smoke
@@ -73,7 +76,10 @@ file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/pytest-tmp")
 
 # End-to-end DOSBox-X probe tests (label dosbox, ~25 s per case); they skip
 # themselves without dosbox-x, nasm or the original files.
-file(GLOB _dosbox_tests CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/dosbox/test_*.py")
+set(_dosbox_tests "")
+if(LLAMATRON_DOSBOX_TESTS)
+  file(GLOB _dosbox_tests CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/dosbox/test_*.py")
+endif()
 foreach(_test IN LISTS _dosbox_tests)
   get_filename_component(_name "${_test}" NAME_WE)
   string(REGEX REPLACE "^test_" "" _name "${_name}")

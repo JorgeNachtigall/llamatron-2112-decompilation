@@ -8,8 +8,9 @@
   `LLAMATRON_FUZZ_SCALE=N` multiplies the case counts; `LLAMATRON_FUZZ_SEED=S` picks
   another reproducible set.
 - `dosbox/test_*.py`: end-to-end runs of the original in DOSBox-X through
-  `tools/harness/dosbox` (label `dosbox`, slow; skipped without dosbox-x, nasm or the
-  original files).
+  `tools/harness/dosbox`. They are slow, so they are opt-in: configure with
+  `-DLLAMATRON_DOSBOX_TESTS=ON` (label `dosbox`; they skip without dosbox-x, nasm or
+  the original files).
 - `adapters/`: the only place that knows original offsets. These modules convert
   between our state structs and the DGROUP byte layout (`rng.py`, `entities.py`; `dgroup_map.c` for the C `GameState`
   later); `cport.py` loads the port's `llamatron_game_testlib` via ctypes (fixture `cgame`).
