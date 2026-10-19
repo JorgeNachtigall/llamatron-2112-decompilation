@@ -78,7 +78,7 @@ typedef struct InputState {
 
     /* Per-controller control bytes: [0] = controller 1 ([0x7fc]), [1] = controller 2 ([0x7fb]). */
     uint8_t controls[INPUT_CONTROLLERS];
-    uint8_t joystick_buttons;       /* [0x7fd]: port 201h inverted (bits 4..7 = buttons) */
+    uint8_t joystick_buttons;       /* [0x7fd]: port 201h inverted (bits 4..7 = buttons, 0..3 set) */
 
     JoystickCalibration calibration[INPUT_STICKS];
     JoystickReading sticks[INPUT_STICKS];

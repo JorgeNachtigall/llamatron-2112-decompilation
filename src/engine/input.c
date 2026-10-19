@@ -13,6 +13,7 @@ enum {
     JOY_BUTTON_1B = 0x20,
     JOY_BUTTON_2A = 0x40,
     JOY_BUTTON_2B = 0x80,
+    JOY_AXES_IDLE = 0x0f,   /* axis one-shots have run out before the read: inverted to 1s */
 };
 
 static InputState g_input;
@@ -114,10 +115,11 @@ void input_set_stick(int stick, float x, float y, bool button_a, bool button_b)
     r->button_b = button_b;
 }
 
-/* Port 201h buttons, inverted so that 1 = pressed. */
+/* Port 201h read before the axis trigger, inverted (game86 1e7b:0046, 1000:3e27): 1 = button
+ * pressed, low nibble always set. */
 static uint8_t joystick_button_bits(void)
 {
-    uint8_t bits = 0;
+    uint8_t bits = JOY_AXES_IDLE;
     if (g_input.sticks[0].button_a) bits |= JOY_BUTTON_1A;
     if (g_input.sticks[0].button_b) bits |= JOY_BUTTON_1B;
     if (g_input.sticks[1].button_a) bits |= JOY_BUTTON_2A;
