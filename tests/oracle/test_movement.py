@@ -9,6 +9,8 @@ from generators import case_rng, fuzz_cases
 
 from adapters.cport import bind
 
+LINE_STATE, LINE_STATE_BYTES = 0x0832, 0x18     # g_line_* words 0832..0848 (re-notes §8.2)
+
 
 class Point16(ctypes.Structure):
     _fields_ = [("x", ctypes.c_int16), ("y", ctypes.c_int16)]
@@ -33,6 +35,8 @@ def test_line_walk(machine, line_walk, case):
     else:
         x1, y1 = rnd.randrange(0, 320), rnd.randrange(0, 200)
     steps = rnd.choice([0, 0, 1, rnd.randrange(64), rnd.randrange(400), 0xFFFF, 0x8000])
+    # g_line_* (DS:0832..0849) is set up from the arguments: stale state must not matter.
+    machine.write_dgroup(LINE_STATE, rnd.randbytes(LINE_STATE_BYTES))
     res = machine.call("1000:32fe", regs={"ax": x0, "bx": y0, "cx": x1 & 0xFFFF,
                                           "dx": y1 & 0xFFFF, "bp": steps})
     got = line_walk(Point16(x0, y0), Point16(x1, y1), s16(steps))
