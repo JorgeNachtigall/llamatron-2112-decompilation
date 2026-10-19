@@ -53,6 +53,7 @@ public class Export extends GhidraScript {
 							r.getReferenceType().getName().charAt(0) + ")";
 					}
 					String text = fmt.getRepresentationString(cu);
+						if (cu instanceof Instruction ins) text = fixSregMov(ins, text);
 					if (eol != null) text += "    ; " + eol.replace("\n", " / ");
 					w.println(cu.getAddress() + "  " + text + (refs.isEmpty() ? "" : "    ;xref" + refs));
 				}
@@ -60,5 +61,18 @@ public class Export extends GhidraScript {
 			}
 		}
 		println("wrote " + out);
+	}
+
+	// Ghidra 12.1.4 x86 SLEIGH (ia.sinc ":MOV Rmr16,Sreg ... byte=0x8e; mod=3") displays the register
+	// form of 8E /r with its operands swapped: 8E C0 (MOV ES,AX) prints as "MOV AX,ES". The p-code
+	// (Sreg = Rmr16) is correct, so only the text is fixed here. Memory forms (mod != 3) are fine.
+	static String fixSregMov(Instruction ins, String text) throws Exception {
+		byte[] b = ins.getBytes();
+		int i = 0;
+		while (i < b.length - 1 && (b[i] & 0xe7) == 0x26) i++;  // skip ES/CS/SS/DS override prefixes
+		if (i + 1 >= b.length || (b[i] & 0xff) != 0x8e || (b[i + 1] & 0xc0) != 0xc0) return text;
+		int sp = text.indexOf(' '), comma = text.indexOf(',');
+		if (sp < 0 || comma < sp) return text;
+		return text.substring(0, sp + 1) + text.substring(comma + 1) + "," + text.substring(sp + 1, comma);
 	}
 }
