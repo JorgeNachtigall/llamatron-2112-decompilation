@@ -50,6 +50,10 @@ const GfxFont *text_font(void);
 typedef bool (*TextSpriteLookup)(unsigned number, const GfxSprite **sprite, int *nominal_width);
 void text_set_sprite_lookup(TextSpriteLookup lookup);
 
+/* The game's font (asset_font_gfx) and \s sprites (asset_sprite_number_gfx with the frame's
+ * nominal width), from the loaded game data. */
+void text_use_game_assets(void);
+
 /* Draw one glyph with its top-left at (x, y). game86 1000:559f */
 void text_draw_glyph(const DrawTarget *target, const TextState *state, unsigned char ch,
                      int x, int y);

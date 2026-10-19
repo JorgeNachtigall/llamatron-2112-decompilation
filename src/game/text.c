@@ -5,6 +5,8 @@
 
 #include <stddef.h>
 
+#include "game_data.h"
+
 static const GfxFont *s_font;
 static TextSpriteLookup s_sprite_lookup;
 
@@ -29,6 +31,23 @@ const GfxFont *text_font(void)
 void text_set_sprite_lookup(TextSpriteLookup lookup)
 {
     s_sprite_lookup = lookup;
+}
+
+static bool game_sprite_lookup(unsigned number, const GfxSprite **sprite, int *nominal_width)
+{
+    const SpriteBank *bank = asset_sprite_bank(SPRITE_BANK_GAME);
+    const GfxSprite *found = asset_sprite_number_gfx(number);
+    if (!bank || !found)
+        return false;
+    *sprite = found;
+    *nominal_width = bank->frames[found - bank->sprites].nominal_width;
+    return true;
+}
+
+void text_use_game_assets(void)
+{
+    text_set_font(asset_font_gfx());
+    text_set_sprite_lookup(game_sprite_lookup);
 }
 
 static const GfxGlyph *glyph_for(unsigned char ch)
