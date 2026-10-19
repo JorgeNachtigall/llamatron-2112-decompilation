@@ -105,16 +105,30 @@ public class ApplySymbols extends GhidraScript {
 					return;
 				}
 			}
+			Function outer = getFunctionContaining(a);
+			if (outer != null) {
+				// Shared tail inside another body (e.g. a table entry pointing into a handler):
+				// a label keeps the name visible without splitting the outer function.
+				applyLabel(a, name, comment, "", false);
+				println(a + " " + name + ": inside " + outer.getName() + ", applied as label");
+				return;
+			}
 			if (!dry) fn = createFunction(a, name);
 			if (!dry && fn == null) {
-				printerr(a + " " + name + ": createFunction failed (inside another function?)");
+				printerr(a + " " + name + ": createFunction failed");
 				nSkip++;
 				return;
 			}
 		}
 		else if (!fn.getName().equals(name)) {
 			if (fn.getSymbol().getSource() == SourceType.DEFAULT) aka = fn.getName();
-			if (!dry) fn.setName(name, SourceType.USER_DEFINED);
+			if (!dry) {
+				// A plain label of the same name (e.g. from an earlier label row) would block the rename.
+				for (Symbol s : currentProgram.getSymbolTable().getSymbols(a)) {
+					if (s.getSymbolType() == SymbolType.LABEL && s.getName().equals(name)) s.delete();
+				}
+				fn.setName(name, SourceType.USER_DEFINED);
+			}
 		}
 		else {
 			setCommentIfChanged(a, CommentType.PLATE, comment, null);
@@ -130,6 +144,7 @@ public class ApplySymbols extends GhidraScript {
 		Symbol prim = st.getPrimarySymbol(a);
 		if (prim == null || !prim.getName().equals(name)) {
 			nLabel++;
+			if (dry) println("label " + a + " " + name + " (now " + (prim == null ? "-" : prim.getName()) + ")");
 			if (!dry) {
 				if (prim != null && prim.getSource() == SourceType.USER_DEFINED &&
 					prim.getSymbolType() == SymbolType.LABEL) {
@@ -163,7 +178,10 @@ public class ApplySymbols extends GhidraScript {
 			}
 		}
 		nType++;
-		if (dry) return;
+		if (dry) {
+			println("type " + a + " " + name + " " + dtype + " (now " + (cur == null ? "-" : cur.getDataType().getName()) + ")");
+			return;
+		}
 		clearListing(a, end);
 		createData(a, dt);
 	}
