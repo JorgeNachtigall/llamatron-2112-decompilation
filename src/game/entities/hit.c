@@ -72,7 +72,7 @@ void entity_kill(GameState *game, Entity *e, const EntityHit *hit)
     entity_set_type(e, 0x02, 0);            /* think_02: the explosion fades */
     e->anim = 0x05;
     e->solid = 0;
-    set_flash(game, FLASH_LIST_PLAYER_DEATH);
+    set_flash(game, FLASH_LIST_KILL);
 
     if (++game->kills_toward_bonus >= KILLS_PER_BONUS) {
         int16_t queued = game->player.pickup_pending;
@@ -125,7 +125,7 @@ static void ent_hit_01(GameState *game, Entity *e, const EntityHit *hit)
 /* game86 1000:105f: hit points; at < 0 the record's kill action runs. */
 static void ent_hit_03(GameState *game, Entity *e, const EntityHit *hit)
 {
-    set_flash(game, FLASH_LIST_0707);
+    set_flash(game, FLASH_LIST_HIT);
     if (--e->hp >= 0)
         ent_hit_01(game, e, hit);
     else
@@ -204,7 +204,7 @@ static void ent_hit_07(GameState *game, Entity *e, const EntityHit *hit)
  * goes, without a kill. */
 static void ent_hit_08(GameState *game, Entity *e, const EntityHit *hit)
 {
-    set_flash(game, FLASH_LIST_0707);
+    set_flash(game, FLASH_LIST_HIT);
     game_sound_play(0x17, 0, 4);
     uint8_t reload = (uint8_t)(e->aux24 & 0xff);
     int8_t left = (int8_t)((uint16_t)e->aux24 >> 8);
@@ -244,7 +244,7 @@ static void ent_hit_0a(GameState *game, Entity *e, const EntityHit *hit)
         entity_kill(game, e, hit);
         return;
     }
-    set_flash(game, FLASH_LIST_0707);
+    set_flash(game, FLASH_LIST_HIT);
     e->timer = word(hit->shot->y * 4);
     e->hp = word(hit->shot->vx * 4);
     e->aux1c = 0x200;
@@ -260,7 +260,7 @@ static void ent_hit_0a(GameState *game, Entity *e, const EntityHit *hit)
 static void ent_hit_0b(GameState *game, Entity *e, const EntityHit *hit)
 {
     e->aux1a = 0x10;
-    set_flash(game, FLASH_LIST_0707);
+    set_flash(game, FLASH_LIST_HIT);
     if (--e->aux16 < 0) {
         entity_kill(game, e, hit);
         return;
@@ -275,13 +275,13 @@ static void ent_hit_0c(GameState *game, Entity *e, const EntityHit *hit)
     uint8_t left = (uint8_t)(((uint16_t)e->aux24 >> 8) - 1);
     e->aux24 = (int16_t)((uint16_t)left << 8 | (e->aux24 & 0xff));
     if (left != 0) {
-        set_flash(game, FLASH_LIST_0729);
+        set_flash(game, FLASH_LIST_HIT_0C);
         game_sound_play(0x1e, 3, 4);
         return;
     }
     entity_vanish(e);
     game->enemies_alive--;
-    set_flash(game, FLASH_LIST_072D);
+    set_flash(game, FLASH_LIST_KILL_0C);
     game_sound_play(0x1e, 1, 6);
 }
 
@@ -341,7 +341,7 @@ static void ent_hit_0e(GameState *game, Entity *e, const EntityHit *hit)
 /* game86 1000:12d2 */
 static void ent_hit_0f(GameState *game, Entity *e, const EntityHit *hit)
 {
-    set_flash(game, FLASH_LIST_0713);
+    set_flash(game, FLASH_LIST_HIT_ALT);
     if (--e->aux24 == 0) {
         entity_kill(game, e, hit);
         return;
@@ -353,7 +353,7 @@ static void ent_hit_0f(GameState *game, Entity *e, const EntityHit *hit)
 static void ent_hit_11(GameState *game, Entity *e, const EntityHit *hit)
 {
     (void)hit;
-    set_flash(game, FLASH_LIST_0713);
+    set_flash(game, FLASH_LIST_HIT_ALT);
     game_sound_play(0x1e, 4, 4);
     if (--e->aux16 >= 0)
         return;
