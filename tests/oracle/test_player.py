@@ -25,7 +25,7 @@ FOLLOWER_LAG, TRAIL_HEAD = 0x06BA, 0x2CF7
 TRAIL_P1, TRAIL_P2, TRAIL_BYTES = 0x6CC9, 0x70C9, 0x400
 SHOTS, SHOT_COUNT, SHOT_SIZE = 0x68C9, 15, 16
 SPAWNING_DONE = 0x0802
-SCORE_SCALE = 0x21B4
+MULTI_SHOT = 0x21B4
 DEMO_MODE, INTRO_TIMER, RESPAWN_P1, RESPAWN_P2 = 0x06C4, 0x08FC, 0x07F3, 0x0634
 SHIPS = 0x2CFB
 PLAYER_A, PLAYER_B, PLAYER_WORDS = 0x21A6, 0x226E, 0x64
@@ -113,7 +113,7 @@ def fire_words(rnd, records, slot):
     words[RESPAWN_P1] = rnd.choice([0, 0, 0, 0, 0xFFFE])
     words[RESPAWN_P2] = rnd.choice([0, 0, 0, 0, 0x64])
     words[SPAWNING_DONE] = rnd.choice([1, 1, 1, 0])
-    words[SCORE_SCALE] = rnd.choice([0, 1, 1, 2])
+    words[MULTI_SHOT] = rnd.choice([0, 1, 1, 2])
     for i in range(SHOT_COUNT):
         base = SHOTS + SHOT_SIZE * i
         busy = rnd.random() < 0.5
