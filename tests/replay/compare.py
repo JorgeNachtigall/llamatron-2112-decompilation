@@ -40,6 +40,15 @@ TUNE_PERIOD, TUNE_COUNTDOWN = 0x0627, 0x0629
 # is state. Compared again as soon as either side allocates the slot.
 ENTITIES, ENTITY_COUNT, ENTITY_SIZE = 0x48C1, 70, 0x40
 
+# Title llama leftovers in play: entity fields of slots 0..8 (ATTRACT_LLAMAS) that the original
+# never reads before writing, proven by tests/dosbox/llama_residue.py (0 and the inverted
+# leftover poked at the attract -> play switch change nothing in warp, death_continue and
+# two_player over their full length). Only these fields are skipped.
+LEFTOVER_FIELDS = range(0x02, 0x40)        # every word after the type word passed
+LEFTOVER_REASON = ("title llama leftovers in play (slots 0..8, fields +02..+3f, unchanged "
+                   "since the first play snapshot, port 0): never read before written, "
+                   "tests/dosbox/llama_residue.py")
+
 # DEVIATIONS #10: the loaded image has trail_head[1] = 2 (not entry-aligned) until P2's
 # first trail write; the port starts at entry 0. Skipped while the reference still holds 2.
 P2_TRAIL_HEAD = 0x2CF9
@@ -297,7 +306,8 @@ def _leftover(a: bytes, b: bytes, play_start: bytes | None, offs: list[int], ski
     snapshot where the port holds 0."""
     if play_start is None:
         return offs, skipped
-    left = {o for o in offs if o in ATTRACT_LLAMAS and b[o] == 0 and a[o] == play_start[o]}
+    left = {o for o in offs if o in ATTRACT_LLAMAS and (o - ENTITIES) % ENTITY_SIZE in LEFTOVER_FIELDS
+            and b[o] == 0 and a[o] == play_start[o]}
     if not left:
         return offs, skipped
     return ([o for o in offs if o not in left],
@@ -352,6 +362,8 @@ def first_divergence(diffs: list[TickDiff]) -> int | None:
 
 def report(diffs: list[TickDiff]) -> str:
     lines = []
+    if any("title llama bytes left" in name for d in diffs for _, name in d.ignored):
+        lines.append(f"ignored: {LEFTOVER_REASON}")
     for d in diffs:
         state = "ok" if not d.offsets else f"{len(d.offsets)} bytes: " + ", ".join(d.fields())
         if d.shift:

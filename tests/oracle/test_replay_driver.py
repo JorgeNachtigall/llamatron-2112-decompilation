@@ -292,6 +292,7 @@ def test_compare_skips_title_llama_bytes_left_in_used_slots():
     assert diffs[20].offsets == [moving]               # changed since: real
     assert diffs[30].offsets == []
     assert any("title llama bytes left in used slots" in n for _, n in diffs[10].ignored)
+    assert compare.report(list(diffs.values())).startswith("ignored: title llama leftovers")
 
 
 def test_frames_dump_the_frames_of_dumped_ticks(driver, tmp_path):
