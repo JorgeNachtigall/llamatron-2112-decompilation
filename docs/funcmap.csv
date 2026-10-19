@@ -56,14 +56,14 @@ game86,1000:1499,55,shots_draw,shots_draw,src/game/bullets.c,diff-tested,W5a,B,t
 game86,1000:14d0,110,pause_tick_hook,pause_tick_hook,src/game/pause.c,diff-tested,W5,B,"tests/oracle/test_pause.py (G/O hooks, S via game_sound_toggle 1514, key sample)"
 game86,1000:1514,36,sound_toggle,snd_toggle,src/sound/,todo,W7,B,
 game86,1000:1538,,pause_key_sample,pause_tick_hook,src/game/pause.c,diff-tested,W5,B,part of pause_tick_hook (the fall-through key-sample path); tests/oracle/test_pause.py
-game86,1000:1562,1265,play_tick_hook,play_tick_hook,src/game/tick.c,ported,W4,B,1562..16c0 play_tick_timers; 1a1c shots_update (bullets.c); 1a38 wave_spawn_tick
+game86,1000:1562,1265,play_tick_hook,play_tick_hook,src/game/tick.c,diff-tested,W4,B,"tests/oracle/test_wave_core.py (whole hook on random play state, free entity table, keys P/X and controls); 1562..16c0 play_tick_timers; 1a1c shots_update (bullets.c); 1a38 wave_spawn_tick"
 game86,1000:16c1,,players_tick,players_tick,src/game/player.c,diff-tested,W5,B,per-player part of play_tick_hook (16c1..1a00)
 game86,1000:176c,175,enemy_aim_update,enemy_aim_update,src/game/player.c,diff-tested,W5,B,
 game86,1000:1947,,trail_record,trail_record,src/game/player.c,diff-tested,W5,B,trail write 1947..19ce with trail_entry; 199d misaligned first compare = DEVIATIONS #10
 game86,1000:1a3b,427,play_draw_hook,play_draw_hook,src/game/draw_play.c,diff-tested,W6,B,test_play_draw.py (real sprite and g3 banks)
 game86,1000:1be6,129,palette_set,gfx_set_game_palette,src/engine/gfx.c,diff-tested,W2,B,test_engine_palette.py: INT 10h 1012h/1002h calls applied to a card model (VGA DAC blocks 0..7/16..23 via the attribute registers e4f5 loads) = gfx_palette() 0..15; DS:4451 DAC staging buffer not kept
 game86,1000:1c67,134,enemy_random_spawn_pos,enemy_random_spawn_pos,src/game/entities/spawn.c,diff-tested,W5a,B,
-game86,1000:1ced,83,wave_spawn_enemies,wave_spawn_enemies,src/game/tick.c,ported,W4,B,
+game86,1000:1ced,83,wave_spawn_enemies,wave_spawn_enemies,src/game/tick.c,diff-tested,W4,B,"tests/oracle/test_wave_core.py (roster rebuild, up to 40 distinct kinds, junk roster)"
 game86,1000:1dcd,95,enemy_init_00,enemy_init_00,src/game/entities/enemy_init.c,diff-tested,W5a,C,
 game86,1000:1e2c,88,enemy_init_03,enemy_init_03,src/game/entities/enemy_init.c,diff-tested,W5a,C,
 game86,1000:1e84,88,enemy_init_21,enemy_init_21,src/game/entities/enemy_init.c,diff-tested,W5a,C,
@@ -179,7 +179,7 @@ game86,1000:42cb,24,g3_draw_nodirty,draw_sprite_unrecorded,src/game/draw_sprite.
 game86,1000:42da,22,g3_draw,draw_sprite,src/game/draw_sprite.c,diff-tested,W6,D,register-saving wrapper of sprite_draw_core (ES from the caller); tests/oracle/test_draw_wrappers.py::test_draw
 game86,1000:42f0,23,sprite_draw,draw_sprite,src/game/draw_sprite.c,diff-tested,W6,D,register-saving wrapper of sprite_draw_core (sprite bank); tests/oracle/test_draw_wrappers.py::test_draw
 game86,1000:4307,36,entities_clear,entities_clear,src/game/entity_loop.c,diff-tested,W4,D,tests/oracle/test_entity_loop.py (original also clears 30 records past the table)
-game86,1000:432b,73,entities_think_all,entities_think_all,src/game/entity_loop.c,ported,W4,D,NULL (unported) handlers skipped
+game86,1000:432b,73,entities_think_all,entities_think_all,src/game/entity_loop.c,diff-tested,W4,D,"tests/oracle/test_wave_core.py (thinks 00..03, double-controller target per slot); NULL (unported) handlers skipped"
 game86,1000:4374,85,entities_animate_all,entities_animate_all,src/game/frame.c,diff-tested,W4,D,state only (tests/oracle/test_entity_animate.py); overlay pixels via W6 blitter tests
 game86,1000:43c9,19,think_02,think_02,src/game/entities/think_basic.c,diff-tested,W5,D,
 game86,1000:43dc,21,think_00,think_00,src/game/entities/think_basic.c,diff-tested,W5,D,
@@ -225,7 +225,7 @@ game86,1000:52b0,55,hud_draw_level,hud_draw_level,src/game/hud.c,diff-tested,W6,
 game86,1000:52e7,48,hud_draw_score,hud_draw_score,src/game/hud.c,diff-tested,W6,E,"test_hud.py; leading zeros not drawn, zero score = 00"
 game86,1000:5317,31,player_swap_state,player_swap_state,src/game/player.c,diff-tested,W5,E,
 game86,1000:5336,26,player_copy_state,player_copy_state,src/game/player.c,diff-tested,W5,E,
-game86,1000:5350,18,level_select_variant,level_select_variant,src/game/script.c,ported,W4,E,
+game86,1000:5350,18,level_select_variant,level_select_variant,src/game/script.c,diff-tested,W4,E,tests/oracle/test_wave_core.py
 game86,1000:5363,12,text_print_home,text_print_home,src/game/text.c,diff-tested,W6,E,"pen to (0,0) + text_print; tests/oracle/test_text.py::test_text_print_home"
 game86,1000:536f,391,text_print,text_print,src/game/text.c,diff-tested,W6,E,"test_text.py (random fonts/strings incl. \s inline sprites, whole 64 KB canvas)"
 game86,1000:54f6,65,text_draw_char,text_draw_char,src/game/text.c,diff-tested,W6,E,via test_text.py::test_text_print_*
