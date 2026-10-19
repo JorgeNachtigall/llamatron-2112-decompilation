@@ -24,3 +24,13 @@ def game86_path() -> Path:
 def machine(game86_path) -> Machine:
     """A freshly loaded game86 image (relocated at 1000, DS = DGROUP)."""
     return Machine.from_game86(game86_path)
+
+
+@pytest.fixture(scope="session")
+def cgame():
+    """The port's game logic as a ctypes library (llamatron_game_testlib)."""
+    from adapters.cport import load_testlib
+    lib = load_testlib()
+    if lib is None:
+        pytest.skip("llamatron_game_testlib not built (LLAMATRON_GAME_TESTLIB unset)")
+    return lib

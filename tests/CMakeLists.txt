@@ -25,6 +25,12 @@ if(DEFINED LLAMATRON_GENERATED_DIR)
   list(APPEND _harness_env "LLAMATRON_GAME86_IMAGE=${LLAMATRON_GENERATED_DIR}/exe/game86.unpacked")
 endif()
 
+# Shared build of src/game for the C side of the comparisons (ctypes).
+include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/TestLib.cmake")
+if(LLAMATRON_TESTLIB_ENV)
+  list(APPEND _harness_env "${LLAMATRON_TESTLIB_ENV}")
+endif()
+
 if(NOT EXISTS "${LLAMATRON_HARNESS_PYTHON}" AND LLAMATRON_HARNESS_SETUP)
   execute_process(COMMAND sh "${LLAMATRON_HARNESS_DIR}/setup_venv.sh"
                   RESULT_VARIABLE _venv_rc)
