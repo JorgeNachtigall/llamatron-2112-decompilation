@@ -33,7 +33,7 @@ enum {
     FORMAT_LSCO_VERSION = 1,
     FORMAT_LCFG_VERSION = 1,
     FORMAT_LTXT_VERSION = 2,
-    FORMAT_LLVL_VERSION = 3,
+    FORMAT_LLVL_VERSION = 4,
     FORMAT_LHUD_VERSION = 1,
     FORMAT_LHSC_VERSION = 1,
     FORMAT_LENM_VERSION = 2,
@@ -322,7 +322,7 @@ typedef struct LevelSpawnClobber {
     uint16_t spawn_count;
 } LevelSpawnClobber;
 
-enum { LEVEL_VARIANTS = 4 };
+enum { LEVEL_VARIANTS = 4, WARP_BOX_COLOUR_COUNT = 4 };
 
 typedef struct LevelSet {
     LevelSpawnClobber clobber_10b0;
@@ -332,6 +332,9 @@ typedef struct LevelSet {
     /* Warp-in sprite number of each spawn effect (1000:1d60, entity +0C), picked by level & 3 at
      * wave start into g_level_variant DS:0941 (level_select_variant 1000:5350). DS:0939. */
     uint16_t warp_sprites[LEVEL_VARIANTS];
+    /* Colours the warp rectangle cycles through, SI = 0..3 (1000:06e9, [0619 + SI] & 0x0F);
+     * stored as in the original, the & 0x0F is the reader's. DS:0619. */
+    uint8_t warp_box_colours[WARP_BOX_COLOUR_COUNT];
     uint16_t level_count;
     LevelScript *levels;
     LevelOp *ops;            /* storage behind levels[].ops */

@@ -218,6 +218,7 @@ static void test_levels(void)
     put16(&b, 3); put8(&b, 5); put8(&b, 10); put8(&b, 6); put8(&b, 1); put8(&b, 40); put8(&b, 2);
     put16(&b, 1); put16(&b, 0); put16(&b, 2);
     for (int i = 0; i < 2 * LEVEL_VARIANTS; i++) put16(&b, (unsigned)(0x20 + i));
+    for (int i = 0; i < WARP_BOX_COLOUR_COUNT; i++) put8(&b, (unsigned)(0x31 + i));
     LevelSet set;
     CHECK(levels_parse(b.bytes, b.size, &set));
     CHECK(set.level_count == 2 && set.levels[0].op_count == 2 && set.levels[0].ops[0].operands[0] == 0xFE);
@@ -225,9 +226,10 @@ static void test_levels(void)
     CHECK(set.levels[1].wave_type == 3 && set.levels[1].spawn_count == 2 && set.levels[1].spawns[1].enemy_type == 40);
     CHECK(set.clobber_10b0.level == 1 && set.clobber_10b0.first_spawn == 0 && set.clobber_10b0.spawn_count == 2);
     CHECK(set.spawn_sprites[0] == 0x20 && set.spawn_sprites[3] == 0x23 && set.warp_sprites[0] == 0x24 && set.warp_sprites[3] == 0x27);
+    CHECK(set.warp_box_colours[0] == 0x31 && set.warp_box_colours[3] == 0x34);
     levels_free(&set);
     check_rejects_damage(&b, parse_levels, "LLVL");
-    size_t variants = 4u * LEVEL_VARIANTS;
+    size_t variants = 4u * LEVEL_VARIANTS + WARP_BOX_COLOUR_COUNT;
     b.bytes[b.size - variants - 2] = 3; /* clobber of 3 pairs: past level 1's 2 spawns */
     CHECK(!parse_levels(b.bytes, b.size));
     b.bytes[b.size - variants - 2] = 2;

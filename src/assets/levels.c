@@ -28,6 +28,7 @@ bool levels_parse(const uint8_t *data, size_t size, LevelSet *out)
         spawn_sprites[i] = reader_u16(&r);
     for (int i = 0; i < LEVEL_VARIANTS; i++)
         warp_sprites[i] = reader_u16(&r);
+    const uint8_t *warp_box_colours = reader_bytes(&r, WARP_BOX_COLOUR_COUNT);
     if (!r.ok || r.pos != size)
         return format_fail("LLVL: %s", r.ok ? "trailing bytes" : "truncated");
 
@@ -75,6 +76,7 @@ bool levels_parse(const uint8_t *data, size_t size, LevelSet *out)
     out->clobber_10b0 = clobber;
     memcpy(out->spawn_sprites, spawn_sprites, sizeof spawn_sprites);
     memcpy(out->warp_sprites, warp_sprites, sizeof warp_sprites);
+    memcpy(out->warp_box_colours, warp_box_colours, WARP_BOX_COLOUR_COUNT);
     if (!ok)
         levels_free(out);
     return ok;

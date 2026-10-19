@@ -292,7 +292,7 @@ The table has **100** entries (up to the 0 word at DS:2CA2), not 40. A 0 entry m
 to level 0 and increment the loop count.
 ```
 char  magic[4] = "LLVL"
-u16   version = 3
+u16   version = 4
 u16   level_count = 100
 struct {
     u16 ds_offset        where the original script starts
@@ -317,6 +317,8 @@ u16   spawn_sprites[4]   (version 3) DS:0808: sprite number of each spawned enem
 u16   warp_sprites[4]    (version 3) DS:0939: warp-in sprite number of each spawn effect, by
                          level & 3 at wave start (level_select_variant 1000:5350 -> DS:0941,
                          entity +0C at 1000:1d63)
+u8    warp_box_colours[4] (version 4) DS:0619: colours the warp rectangle cycles through,
+                         SI = 0..3 (1000:06e9 reads [0619 + SI] & 0x0F), stored unmasked
 ```
 `handler` = -opcode - 1 (opcode byte 0xFF -> 0 ... 0xF8 -> 7), the CS:0245 table:
 | handler | original | operands | effect |

@@ -26,9 +26,10 @@ spawns = [data[pos + i * 2:pos + i * 2 + 2] for i in range(spawn_count)]
 pos += spawn_count * 2
 clobber = struct.unpack_from("<3H", data, pos)
 pos += 6
-variants = data[pos:pos + 16]
-assert version == 3 and pos + 16 == len(data), "trailing bytes"
-assert variants == image[DGROUP + 0x0808:DGROUP + 0x0810] + image[DGROUP + 0x0939:DGROUP + 0x0941], "spawn/warp sprites"
+variants = data[pos:pos + 20]
+assert version == 4 and pos + 20 == len(data), "trailing bytes"
+assert variants == (image[DGROUP + 0x0808:DGROUP + 0x0810] + image[DGROUP + 0x0939:DGROUP + 0x0941]
+                    + image[DGROUP + 0x0619:DGROUP + 0x061D]), "spawn/warp sprites, warp box colours"
 # the clobbered pairs are the 4 bytes at think_13's code offset (DS:1FD2 entry 0x13) + 8
 target = struct.unpack_from("<H", image, DGROUP + 0x1FD2 + 0x13 * 2)[0] + 8
 if clobber[0] != 0xFFFF:
