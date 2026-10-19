@@ -53,37 +53,47 @@ def press(tick, make, hold=8):
 
 
 # Timelines (phase from the tick hook 39E4) were taken from exploratory runs of this seed.
+#
+# tick_phase / start_delay: the port replay's clock calibration for the run (llamatron_replay and
+# the app's --tick-phase F / --start-delay N, src/engine/timing.h timing_set_phase): the fraction
+# of a timer tick elapsed at game_init, and the retraces of timer ticks the original's start-up
+# takes before its first frame. Fitted per run by sweeping both (phase in 0.025 steps, then 0.005
+# around the edges; delay 0..6) for the latest first real divergence and fewest real bytes outside
+# the attract llamas (48C1..4B00). The window the fit held is noted; the value is its middle. Runs
+# that start a game with fire on the title tune don't depend on start_delay (0).
 RUNS = {
     "walk_vga": dict(
         summary="fire on the title tune starts a game (play from ~175), P1 walks right and up",
         ticks=SEED, machine="vga", interval=50, max_snapshots=14, keys=START + WALK,
-        quit_after=720),
+        quit_after=720, tick_phase=0.83, start_delay=0),       # 0.825..0.835
     "walk_ega": dict(
         summary="walk_vga on an EGA machine (59.92 Hz frames, no VRAM capture)",
         ticks=SEED, machine="ega", interval=50, max_snapshots=14, keys=START + WALK,
-        quit_after=720),
+        quit_after=720, tick_phase=0.375, start_delay=0),      # 0.325..0.425 (0.135..0.165)
     "attract": dict(
         summary="no input: title tune to ~1100, title menu to ~2600, then the attract cycle "
                 "(1500-tick timeout, 1000:013b)",
         ticks=SEED, machine="vga", interval=50, max_snapshots=60, keys=[], quit_after=3000,
-        time_limit=150),
+        tick_phase=0.375, start_delay=4, time_limit=150),       # delay 4: 0..0.75
     "two_player": dict(
         summary="title menu right x2 = 2 players with the droid (options 3), fire at 1200, "
                 "P1 walks right",
         ticks=SEED, machine="vga", interval=50, max_snapshots=38,
         keys=[(1150, RIGHT), (1156, RIGHT_UP), (1170, RIGHT), (1176, RIGHT_UP),
               (1200, SPACE), (1210, SPACE_UP), (1400, RIGHT), (1480, RIGHT_UP)],
-        quit_after=1900, time_limit=150),
+        quit_after=1900, tick_phase=0.3, start_delay=5, time_limit=150),  # delay 5: 0.1..0.5
     "warp": dict(
         summary="walk_vga with wave_result poked to 4 (warp) at 300: banner, level 0 -> 5, "
                 "next wave from ~375",
         ticks=SEED, machine="vga", interval=25, max_snapshots=40, keys=START + WALK,
-        pokes=[(300, WAVE_RESULT, WAVE_WARP)], quit_after=1000),
+        pokes=[(300, WAVE_RESULT, WAVE_WARP)], quit_after=1000,
+        tick_phase=0.55, start_delay=0),                        # 0.425..0.7
     "death_continue": dict(
         summary="lives poked to 1 at 250, idle death ~560, continue prompt (0816), fire at "
                 "700 continues with 5 lives",
         ticks=SEED, machine="vga", interval=50, max_snapshots=30, keys=START + press(700, SPACE),
-        pokes=[(250, LIVES, 1)], quit_after=1500, time_limit=120),
+        pokes=[(250, LIVES, 1)], quit_after=1500, tick_phase=0.43, start_delay=0,  # 0.425..0.44
+        time_limit=120),
     "game_over_hiscore": dict(
         summary="lives 1, continues 1 and score 00500000 poked at 250: idle death = game over, "
                 "name entry (5b06) from ~590: a, b, then '*' ends it",
@@ -91,7 +101,7 @@ RUNS = {
         keys=START + press(650, SPACE) + press(680, RIGHT) + press(720, SPACE)
         + press(750, LEFT) + press(780, LEFT) + press(820, SPACE),
         pokes=[(250, LIVES, 1), (250, CONTINUES, 1), (250, SCORE_P1 + 2, 0x0005)],
-        quit_after=1300, time_limit=120),
+        quit_after=1300, tick_phase=0.625, start_delay=0, time_limit=120),  # 0.425..0.825
 }
 
 
@@ -145,8 +155,23 @@ def summary(result) -> dict:
     }
 
 
+CALIBRATION = ("tick_phase", "start_delay")    # the port replay's, not the probe's
+
+
 def probe_args(run: dict) -> dict:
+    return {k: v for k, v in run.items() if k not in ("summary", "time_limit", *CALIBRATION)}
+
+
+def golden_config(run: dict) -> dict:
+    """The reference_runs.json "config": the probe's arguments and the replay calibration
+    (visual_check.py / web_parity.py read tick_phase and start_delay from it)."""
     return {k: v for k, v in run.items() if k not in ("summary", "time_limit")}
+
+
+def replay_args(run: dict) -> list[str]:
+    """llamatron_replay flags for the run's clock calibration."""
+    return ["--tick-phase", str(run.get("tick_phase", 0)),
+            "--start-delay", str(run.get("start_delay", 0))]
 
 
 @pytest.fixture(scope="module", params=sorted(RUNS))
@@ -177,12 +202,14 @@ def test_golden_hashes(reference):
     got = summary(result)
     golden = json.loads(GOLDEN.read_text()) if GOLDEN.exists() else {}
     if os.environ.get("LLAMATRON_GOLDEN_UPDATE") == "1" or name not in golden:
-        config = {k: v for k, v in cfg.items()}
-        golden[name] = {"config": config, **got}
+        golden[name] = {"config": golden_config(RUNS[name]), **got}
         GOLDEN.parent.mkdir(parents=True, exist_ok=True)
         GOLDEN.write_text(json.dumps(golden, indent=1, sort_keys=True) + "\n")
         pytest.skip(f"golden entry {name} written to {GOLDEN.relative_to(ROOT)}; commit it")
     want = golden[name]
+    # json has lists for tuples; a config edit (calibration included) needs the entry rewritten
+    assert want["config"] == json.loads(json.dumps(golden_config(RUNS[name]))), \
+        f"RUNS[{name!r}] differs from its golden config: LLAMATRON_GOLDEN_UPDATE=1"
     assert got["irq_count"] == want["irq_count"]
     assert got["exit_code"] == want["exit_code"]
     assert sorted(got["snapshots"], key=int) == sorted(want["snapshots"], key=int)
@@ -205,7 +232,8 @@ def test_port_replay_report(reference, tmp_path):
     if (drive / "PROBE.POK").exists():
         script += ["--pokes", str(drive / "PROBE.POK")]
     proc = subprocess.run([driver, "--ticks", str(last + 1), "--every", str(cfg["interval"]),
-                           "--around", "1", machine, "--seed", str(cfg["ticks"]), *script,
+                           "--around", "1", machine, "--seed", str(cfg["ticks"]),
+                           *replay_args(RUNS[name]), *script,
                            "--out", str(out)], capture_output=True, text=True, timeout=300)
     assert proc.returncode == 0, proc.stderr
     port = compare.read_port(out)

@@ -123,6 +123,23 @@ def test_ega_runs_on_the_ega_display_clock(driver, tmp_path):
     assert abs(ega - 500 * 59.92 / 50.16) <= 2
 
 
+def test_clock_calibration(driver, tmp_path):
+    """--start-delay N: N retraces of ordinary timer ticks with no game frame; --tick-phase F
+    starts game_init F of a tick in, so the ticks come earlier (fewer retraces for as many)."""
+    def frames(*args):
+        proc = subprocess.run([driver, "--ticks", "500", *args], capture_output=True,
+                              text=True, timeout=120)
+        assert proc.returncode == 0, proc.stderr
+        assert "ticks=500 " in proc.stdout
+        return int(proc.stdout.split("frames=")[1].split()[0])
+    base = frames()
+    assert frames("--start-delay", "5") == base - 5
+    assert frames("--tick-phase", "0.99") <= base
+    assert frames("--tick-phase", "0") == base
+    port = run(driver, tmp_path, "d", "--ticks", "20", "--every", "10", "--start-delay", "3")
+    assert sorted(port.snapshots) == [10, 20]
+
+
 def test_first_snapshot_tick(driver, tmp_path):
     port = run(driver, tmp_path, "f", "--ticks", "64", "--every", "1", "--first", "60")
     assert sorted(port.snapshots) == [60, 61, 62, 63, 64]

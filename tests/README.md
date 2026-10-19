@@ -76,6 +76,15 @@ Consequences:
   `EgaPlanes.rasterise`) and `shown` (the CRTC start address at capture).
 - The replay driver uses the EGA monitor's 59.92 Hz frame clock for `--ega` runs and VGA
   mode 0Dh's 70.086 Hz otherwise.
+- Clock calibration: each run's `tick_phase` (fraction of a timer tick elapsed at game_init)
+  and `start_delay` (retraces of timer ticks before the first frame) go to
+  `llamatron_replay --tick-phase F --start-delay N`, the same flags as `llamatron --replay`.
+  They are stored in the golden `config`, which visual_check.py and web_parity.py read. The
+  values are fitted per run (the comment above `RUNS` says how). A config edit needs
+  `LLAMATRON_GOLDEN_UPDATE=1`.
+- Timing shifts: when a byte equals the port's state one tick later or earlier at a tick or
+  draw hook switch, the report lists it as timing, not as a divergence (DEVIATIONS #20).
+  Only real bytes decide the first divergence.
 - Dev loops: `tests/replay/window.py SCENARIO FIRST [--count N]` runs a scenario with a
   snapshot after every tick from FIRST (at most 60) and the port over the same ticks, then
   prints the report and every differing byte at the first divergent tick.

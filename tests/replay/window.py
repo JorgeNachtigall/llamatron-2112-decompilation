@@ -5,7 +5,8 @@
 
 runs the scenario from tests/dosbox/test_reference_golden.py (same seed, keys and pokes)
 under DOSBox-X with a DGROUP snapshot after every IRQ from FIRST (at most 60: the XMS slots),
-replays the port over the same ticks (llamatron_replay --every 1 --first FIRST) and prints
+replays the port over the same ticks (llamatron_replay --every 1 --first FIRST, with the run's
+tick_phase/start_delay calibration) and prints
 the per-tick report, then every differing field at the first divergent tick with the
 reference and port bytes. Snapshots stay in the workdir (gitignored build-dosbox/ by
 default); never commit them.
@@ -26,7 +27,7 @@ sys.path.insert(0, str(ROOT / "tests" / "replay"))
 
 import compare  # noqa: E402
 import refrun  # noqa: E402
-from test_reference_golden import ORIGINAL, RUNS, probe_args  # noqa: E402
+from test_reference_golden import ORIGINAL, RUNS, probe_args, replay_args  # noqa: E402
 
 MAX_WINDOW = 60
 
@@ -68,7 +69,8 @@ def main(argv=None) -> int:
     # one extra tick either side, for the timing classification
     proc = subprocess.run([args.driver, "--ticks", str(last + 1), "--every", "1",
                            "--first", str(max(1, args.first - 1)), machine,
-                           "--seed", str(cfg["ticks"]), *script, "--out", str(out)],
+                           "--seed", str(cfg["ticks"]), *replay_args(run), *script,
+                           "--out", str(out)],
                           capture_output=True, text=True)
     if proc.returncode != 0:
         print(proc.stderr, file=sys.stderr)

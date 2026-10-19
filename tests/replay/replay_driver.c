@@ -4,13 +4,17 @@
  * PROBE.SNP). Test-only (tests/, PLAN §3.3); the game itself never sees the DGROUP layout.
  *
  *   llamatron_replay --ticks N [--every K [--first F] [--around R]] [--ega|--vga] [--seed T]
+ *                    [--tick-phase F] [--start-delay N]
  *                    [--keys PROBE.KEY] [--pokes PROBE.POK] [--out FILE] [--data DIR]
  *
  * Sequencing is the shell's replay mode (src/platform/apps/llamatron_main.c): game_init, then
  * per frame of the fixed display clock (VGA mode 0Dh 70.086 Hz, or the EGA monitor's
  * 59.92 Hz with --ega, as the reference run's machine) the due timer ticks (each: the script bytes
  * due at that tick into the keyboard handler, then game_tick) and one game_frame. Ticks count
- * from 1 after game_init, like the probe's IRQs. After tick F and every K-th tick from there
+ * from 1 after game_init, like the probe's IRQs. The reference run's calibration (its config's
+ * tick_phase and start_delay) is applied as the app's replay mode does: timing_set_phase right
+ * after game_init, then N retraces of timer ticks with no game_frame (ordinary ticks: they
+ * count from 1 and take script keys). After tick F and every K-th tick from there
  * (F defaults to K, as the probe's first-snapshot argument), after the game's handler as in
  * the probe, the GameState goes through gamestate_to_dgroup into the output. --around R also
  * dumps the R ticks either side of each of those (compare.py uses them to recognise a
@@ -161,11 +165,20 @@ static void tick_cb(void *user)
     }
 }
 
+/* Fraction of a tick -> 1/65536 units, as the app's parse_phase (llamatron_main.c). */
+static uint16_t parse_phase(const char *text)
+{
+    double f = strtod(text, NULL);
+    if (!(f > 0))
+        return 0;
+    return f * 65536.0 >= 65535.0 ? 65535u : (uint16_t)(f * 65536.0 + 0.5);
+}
+
 static int usage(void)
 {
     fprintf(stderr, "usage: llamatron_replay --ticks N [--every K [--first F] [--around R]] "
                     "[--ega|--vga] "
-                    "[--seed T] "
+                    "[--seed T] [--tick-phase F] [--start-delay N] "
                     "[--keys PROBE.KEY] [--pokes PROBE.POK] [--out FILE] [--data DIR]\n");
     return 2;
 }
@@ -175,6 +188,8 @@ int main(int argc, char **argv)
     Replay *r = &g_replay;
     GameLaunch launch = { .vga = true, .joystick = false, .sound = false, .flash_mode = 0 };
     const char *out_path = NULL;
+    uint16_t tick_phase = 0;
+    uint32_t start_delay = 0;
     for (int i = 1; i < argc; i++) {
         const char *a = argv[i];
         const char *v = i + 1 < argc ? argv[i + 1] : NULL;
@@ -190,6 +205,10 @@ int main(int argc, char **argv)
             r->around = (uint32_t)strtoul(argv[++i], NULL, 10);
         else if (strcmp(a, "--first") == 0 && v)
             r->first = (uint32_t)strtoul(argv[++i], NULL, 10);
+        else if (strcmp(a, "--tick-phase") == 0 && v)
+            tick_phase = parse_phase(argv[++i]);
+        else if (strcmp(a, "--start-delay") == 0 && v)
+            start_delay = (uint32_t)strtoul(argv[++i], NULL, 10);
         else if (strcmp(a, "--seed") == 0 && v)
             launch.bios_ticks = (uint32_t)strtoul(argv[++i], NULL, 10);
         else if (strcmp(a, "--keys") == 0 && v) {
@@ -230,6 +249,11 @@ int main(int argc, char **argv)
     const DisplayTiming *display = launch.vga ? &DISPLAY_VGA_MODE_0D : &DISPLAY_EGA_MODE_0D;
     TickScheduler sched;
     timing_init_display(&sched, display);
+    timing_set_phase(&sched, tick_phase);
+    for (uint32_t i = 0; i < start_delay && r->ticks < r->max_ticks; i++) {
+        timing_advance_frame(&sched, display);
+        timing_run_timer_ticks(&sched, tick_cb, r);
+    }
     GameHostInput host = { 0, true };
     unsigned long frames = 0;
     while (r->ticks < r->max_ticks && !game_wants_quit(&r->game)) {
