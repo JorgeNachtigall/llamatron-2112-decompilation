@@ -124,6 +124,7 @@ static void test_input(void)
     CHECK(in->last_make_code == PC_KEY_DOWN);
     input_frame_read(false);
     CHECK(in->controls[0] == (INPUT_LEFT | INPUT_UP));    /* left beats right, up beats down */
+    input_tick_fire();                                     /* held over a tick */
     input_key_event(PC_KEY_LEFT, false);
     CHECK(in->last_scan_code == (PC_KEY_LEFT | PC_KEY_BREAK));
     CHECK(in->last_make_code == PC_KEY_DOWN);              /* breaks do not change it */
@@ -133,14 +134,12 @@ static void test_input(void)
     input_key_event(PC_KEY_SPACE, true);
     input_tick_fire();
     CHECK(in->controls[0] & INPUT_FIRE);
-    input_frame_read(false);
-    input_key_event(PC_KEY_SPACE, false);               /* seen by both readers: up at once */
+    input_key_event(PC_KEY_SPACE, false);               /* a tick has seen it: up at once */
     CHECK(!(in->keys_held & INPUT_FIRE));
     input_tick_fire();
     CHECK(!(in->controls[0] & INPUT_FIRE));
 
-    /* Taps inside one host frame (press + release delivered in the same event batch) must be
-     * seen once by each reader, then released. */
+    /* Taps shorter than a tick stay down until the next tick, then go up. */
     input_init(INPUT_DEVICE_KEYBOARD, true);
     in = input_state();
     input_key_event(PC_KEY_SPACE, true);
@@ -157,38 +156,38 @@ static void test_input(void)
     input_frame_read(false);
     CHECK(!(in->controls[0] & INPUT_LEFT));
     CHECK(in->keys_held == 0);
-    /* The same-frame fire tap in the shell's order: the retrace's tick runs, then the frame
-     * read, which the title's start check (game86 1000:0136..016a) looks at. Both see it,
-     * once (Prism's portal check: a quick Space at the title was lost when the tick ran first). */
-    for (int tick_first = 0; tick_first < 2; tick_first++) {
-        input_init(INPUT_DEVICE_KEYBOARD, true);
-        in = input_state();
-        input_key_event(PC_KEY_SPACE, true);
-        input_key_event(PC_KEY_SPACE, false);
-        if (tick_first) {
-            input_tick_fire();
-            CHECK(in->controls[0] & INPUT_FIRE);
-        }
-        input_frame_read(false);
-        CHECK(in->controls[0] & INPUT_FIRE);            /* the title starts */
-        if (!tick_first) {
-            input_tick_fire();
-            CHECK(in->controls[0] & INPUT_FIRE);        /* the shot still fires */
-        }
-        CHECK(in->keys_held == 0);
-        input_tick_fire();
-        input_frame_read(false);
-        CHECK(!(in->controls[0] & INPUT_FIRE));
-    }
-    /* A held key released after it was sampled goes up immediately (original behaviour). */
-    input_key_event(PC_KEY_UP, true);
+    /* A tap in a state without frame reads (the start-up scroller) is gone after one tick, so
+     * the next state's first frame read does not see it (Prism: one Space skipped the scroller
+     * and also started a game at the title, 1000:0136..016a). */
+    input_init(INPUT_DEVICE_KEYBOARD, true);
+    in = input_state();
+    input_key_event(PC_KEY_SPACE, true);
+    input_key_event(PC_KEY_SPACE, false);
+    input_tick_fire();
+    CHECK(in->controls[0] & INPUT_FIRE);
+    input_tick_fire();
     input_frame_read(false);
+    CHECK(!(in->controls[0] & INPUT_FIRE) && in->keys_held == 0);
+    /* The shell's order for a same-batch tap: make, the retrace's tick, the game frame (frame
+     * read), then the break the shell held back. Both readers see it once. */
+    input_init(INPUT_DEVICE_KEYBOARD, true);
+    in = input_state();
+    input_key_event(PC_KEY_SPACE, true);
+    input_tick_fire();
+    input_frame_read(false);
+    CHECK(in->controls[0] & INPUT_FIRE);
+    input_key_event(PC_KEY_SPACE, false);
+    CHECK(in->keys_held == 0);
+    /* A held key released after a tick goes up immediately (original behaviour). */
+    input_key_event(PC_KEY_UP, true);
+    input_tick_fire();
     input_key_event(PC_KEY_UP, false);
     CHECK(in->keys_held == 0);
     /* Press, release, press again before a sample: stays held. */
     input_key_event(PC_KEY_DOWN, true);
     input_key_event(PC_KEY_DOWN, false);
     input_key_event(PC_KEY_DOWN, true);
+    input_tick_fire();
     input_frame_read(false);
     CHECK(in->keys_held == INPUT_DOWN && (in->controls[0] & INPUT_DOWN));
 

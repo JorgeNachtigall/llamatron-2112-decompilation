@@ -73,9 +73,8 @@ typedef struct InputState {
     uint8_t last_scan_code;         /* [0x587]: last byte, make or break */
     uint8_t last_make_code;         /* [0x586]: last make code; the game clears it after use */
     uint8_t last_make_code_copy;    /* [0xb72]: second copy, consumed independently */
-    uint8_t unseen_by_frame;        /* port only: pressed keys input_frame_read has not read yet */
-    uint8_t unseen_by_tick;         /* port only: INPUT_FIRE pressed, input_tick_fire not run yet */
-    uint8_t release_pending;        /* port only: released before being seen; cleared once seen */
+    uint8_t unsampled;              /* port only: keys pressed since the last timer tick */
+    uint8_t release_pending;        /* port only: released before that tick; cleared by it */
 
     /* Per-controller control bytes: [0] = controller 1 ([0x7fc]), [1] = controller 2 ([0x7fb]). */
     uint8_t controls[INPUT_CONTROLLERS];
@@ -96,11 +95,13 @@ InputState *input_state(void);
 JoystickCalibration input_calibrate(uint16_t centre_x, uint16_t centre_y);
 
 /* game86 1000:e567: one byte from the keyboard (make code, or make | 0x80 for a release).
- * A key released before it was sampled stays held until every reader of keys_held has seen it:
- * input_frame_read for all keys and, for fire, input_tick_fire too (game86 reads fire in both,
- * e.g. the title starts on the frame's copy, the shots on the tick's), so taps shorter than one
- * host frame are not lost. last_make_code is set on the press as in the original and survives
- * the release. */
+ * A key released before the next timer tick (input_tick_fire, which runs every tick in every
+ * game state) stays held until that tick, so a tap shorter than a tick still reaches the tick's
+ * fire read; the host holds a break back until a game frame has run with its make, which covers
+ * the frame-side readers (input_frame_read, the last scan code). Never longer than that: in the
+ * original the key state is live, so a tap must not still be down at a later check (e.g. a
+ * Space that skips the start-up scroller must not also start a game at the title).
+ * last_make_code is set on the press as in the original and survives the release. */
 void input_keyboard_byte(uint8_t scan_code);
 /* Convenience for platform key events. */
 void input_key_event(uint8_t make_code, bool pressed);

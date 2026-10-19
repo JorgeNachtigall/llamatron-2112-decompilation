@@ -67,26 +67,25 @@ void input_keyboard_byte(uint8_t scan_code)
     }
     if (released) {
         /* Port deviation (documented): the original's INT 09 runs asynchronously, so a real
-         * key press always overlaps at least one sample. Here press and release can arrive in
-         * the same host event batch; keep the key held until each of its readers has seen it
-         * once (all keys: frame read 1e7b:0000; fire also: tick 1000:3e12). Longer presses
-         * behave exactly as before. */
-        if ((g_input.unseen_by_frame | g_input.unseen_by_tick) & bit)
+         * key press always overlaps at least one timer tick. Here press and release can arrive
+         * closer together; keep the key held until the next tick (1000:3e12 reads fire there).
+         * Longer presses behave exactly as before. */
+        if (g_input.unsampled & bit)
             g_input.release_pending |= bit;
         else
             g_input.keys_held &= (uint8_t)~bit;
     } else {
         g_input.keys_held |= bit;
-        g_input.unseen_by_frame |= bit;
-        g_input.unseen_by_tick |= bit & INPUT_FIRE;
+        g_input.unsampled |= bit;
         g_input.release_pending &= (uint8_t)~bit;
     }
 }
 
-/* A reader has sampled keys_held: finish the releases no reader is waiting for any more. */
+/* A timer tick has run: finish the releases that were waiting for it. */
 static void keys_sampled(void)
 {
-    uint8_t done = g_input.release_pending & (uint8_t)~(g_input.unseen_by_frame | g_input.unseen_by_tick);
+    g_input.unsampled = 0;
+    uint8_t done = g_input.release_pending;
     g_input.keys_held &= (uint8_t)~done;
     g_input.release_pending &= (uint8_t)~done;
 }
@@ -159,8 +158,6 @@ void input_frame_read(bool force_both_sticks)
         else if (held & INPUT_DOWN)
             c |= INPUT_DOWN;
         g_input.controls[0] = c;
-        g_input.unseen_by_frame = 0;
-        keys_sampled();
         return;
     }
 
@@ -189,10 +186,8 @@ void input_tick_fire(void)
             g_input.controls[0] |= INPUT_FIRE;
         if (g_input.joystick_buttons & JOY_BUTTONS_STICK2)
             g_input.controls[1] |= INPUT_FIRE;
-    } else {
-        if (g_input.keys_held & INPUT_FIRE)
-            g_input.controls[0] |= INPUT_FIRE;
-        g_input.unseen_by_tick = 0;
-        keys_sampled();
+    } else if (g_input.keys_held & INPUT_FIRE) {
+        g_input.controls[0] |= INPUT_FIRE;
     }
+    keys_sampled();
 }
