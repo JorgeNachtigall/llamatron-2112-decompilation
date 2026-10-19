@@ -103,8 +103,10 @@ static bool convert_font(const ByteBuf *raw, ByteBuf *out)
     return ok;
 }
 
-bool extract_cmp_data(const char *original_dir, OutputSet *outputs)
+bool extract_cmp_data(ExtractContext *ctx)
 {
+    const char *original_dir = ctx->original_dir;
+    OutputSet *outputs = ctx->outputs;
     ByteBuf raw = {0}, font = {0};
     bool ok = load_cmp(original_dir, "f.cmp", F_CMP_SIZE, &raw) && convert_font(&raw, &font) &&
               output_write(outputs, "data/font.bin", font.data, font.size);

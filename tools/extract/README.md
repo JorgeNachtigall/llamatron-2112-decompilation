@@ -22,6 +22,7 @@ llamatron-extract --sha256 FILE...
 | `data/title_ega.idx4` | 640x350, 1 byte/pixel, values 0..15 (tronega.lbm) |
 | `data/title_ega.pal` | 17 EGA palette register values (rgbRGB), entry 16 = overscan = 0, built like fs.exe |
 | `data/font.bin`, `data/sine.bin` | from f.cmp / s.cmp (LZSS), see FORMATS.md |
+| `data/sprites.bin`, `data/sprite_refs.bin`, `data/g3.bin` | sprite frames (game86 bank 218C, g3.cmp) and the bank's reference table, see FORMATS.md |
 | `extract.stamp` | SHA-256 of every output, fixed order |
 
 `<n>` = `game86`, `fs`, `llama`, `install`. Data formats: [FORMATS.md](FORMATS.md). Original file names are matched as given or in upper case (DOS copies).

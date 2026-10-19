@@ -106,7 +106,8 @@ static bool extract_ega_title(const char *original_dir, OutputSet *outputs)
     return ok;
 }
 
-bool extract_title_pictures(const char *original_dir, OutputSet *outputs)
+bool extract_title_pictures(ExtractContext *ctx)
 {
-    return extract_vga_title(original_dir, outputs) && extract_ega_title(original_dir, outputs);
+    return extract_vga_title(ctx->original_dir, ctx->outputs) &&
+           extract_ega_title(ctx->original_dir, ctx->outputs);
 }

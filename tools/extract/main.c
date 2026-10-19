@@ -13,8 +13,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* Ghidra loads every program at segment 1000, so image offset + 0x10000 == Ghidra address. */
-#define LOAD_SEGMENT 0x1000
 static const char *const packed_executables[] = {"game86", "fs", "llama", "install"};
 
 typedef struct {
@@ -68,7 +66,9 @@ static bool load_and_verify(const Options *opt, Manifest *manifest)
 
 /* Unpacks one shipped executable into exe/<base>.exe, exe/<base>.unpacked and
  * exe/<base>.layout.json (see tools/extract/README.md). */
-static bool extract_executable(const Options *opt, OutputSet *outputs, const char *base)
+/* `keep_image` (optional) receives the relocated load module. */
+static bool extract_executable(const Options *opt, OutputSet *outputs, const char *base,
+                               ByteBuf *keep_image)
 {
     char name[64], path[4096], relative[128];
     snprintf(name, sizeof name, "%s.exe", base);
@@ -115,10 +115,29 @@ static bool extract_executable(const Options *opt, OutputSet *outputs, const cha
     if (ok)
         printf("  %-12s %zu -> %zu bytes (%d layers, %u relocations)\n", name, packed.size,
                unpacked.size, layers, header.reloc_count);
+    if (ok && keep_image) {
+        bytebuf_free(keep_image);
+        *keep_image = image;
+        image = (ByteBuf){0};
+    }
     bytebuf_free(&packed);
     bytebuf_free(&unpacked);
     bytebuf_free(&image);
     return ok;
+}
+
+const uint8_t *game86_at(const ExtractContext *ctx, uint16_t seg, uint16_t off, size_t size)
+{
+    if (seg < LOAD_SEGMENT) {
+        fail("address %04x:%04x below the load segment", seg, off);
+        return NULL;
+    }
+    size_t linear = (size_t)(seg - LOAD_SEGMENT) * 16 + off;
+    if (linear + size > ctx->game86_image.size) {
+        fail("game86 %04x:%04x+%zu is outside the image", seg, off, size);
+        return NULL;
+    }
+    return ctx->game86_image.data + linear;
 }
 
 static int run_all(const Options *opt)
@@ -140,25 +159,30 @@ static int run_all(const Options *opt)
         return report_failure("out of memory");
     outputs->root = opt->out_dir;
     printf("Unpacking executables into %s\n", exe_dir);
+    ExtractContext ctx = {.original_dir = opt->original_dir, .outputs = outputs};
     int status = 0;
-    for (size_t i = 0; i < sizeof packed_executables / sizeof *packed_executables; i++) {
-        if (!extract_executable(opt, outputs, packed_executables[i])) {
+    for (size_t i = 0; status == 0 && i < sizeof packed_executables / sizeof *packed_executables; i++) {
+        bool is_game = strcmp(packed_executables[i], "game86") == 0;
+        if (!extract_executable(opt, outputs, packed_executables[i], is_game ? &ctx.game86_image : NULL))
             status = report_failure(packed_executables[i]);
-            break;
-        }
     }
-    if (status == 0) {
-        printf("Decoding title pictures\n");
-        if (!extract_title_pictures(opt->original_dir, outputs))
-            status = report_failure("title pictures");
-    }
-    if (status == 0) {
-        printf("Decoding font and sine tables\n");
-        if (!extract_cmp_data(opt->original_dir, outputs))
-            status = report_failure("cmp data");
+
+    static const struct {
+        const char *label;
+        bool (*run)(ExtractContext *ctx);
+    } steps[] = {
+        {"title pictures", extract_title_pictures},
+        {"font and sine tables", extract_cmp_data},
+        {"sprites", extract_sprites},
+    };
+    for (size_t i = 0; status == 0 && i < sizeof steps / sizeof *steps; i++) {
+        printf("Extracting %s\n", steps[i].label);
+        if (!steps[i].run(&ctx))
+            status = report_failure(steps[i].label);
     }
     if (status == 0 && !output_write_stamp(outputs))
         status = report_failure("extract.stamp");
+    bytebuf_free(&ctx.game86_image);
     free(outputs);
     return status;
 }

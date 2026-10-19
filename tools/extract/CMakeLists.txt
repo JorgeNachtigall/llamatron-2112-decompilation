@@ -14,6 +14,7 @@ add_executable(llamatron-extract
     mz.c
     outputs.c
     sha256.c
+    sprites.c
     title.c
     unexepack.c
     unlzexe.c
