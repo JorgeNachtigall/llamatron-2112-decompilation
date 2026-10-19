@@ -142,3 +142,9 @@ bool script_next_spawn_pair(GameState *game, const LevelSet *levels)
     cursor->index++;
     return true;
 }
+
+/* game86 1000:5350 */
+void level_select_variant(GameState *game, const LevelSet *levels)
+{
+    game->level_variant = (int16_t)levels->warp_sprites[(uint16_t)game->player.level & 3];
+}

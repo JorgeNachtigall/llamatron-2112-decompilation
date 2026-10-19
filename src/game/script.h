@@ -30,6 +30,9 @@ void script_run_op(GameState *game, const LevelOp *op);
  * false (and spawns_done set) at the end of the list. game86 1000:3d09 */
 bool script_next_spawn_pair(GameState *game, const LevelSet *levels);
 
+/* The warp-in sprite of this wave's spawn effects, by level & 3. game86 1000:5350 */
+void level_select_variant(GameState *game, const LevelSet *levels);
+
 /* Quirk: enemy_shot_init clears the "parent's" words +8/+0A through SI, but on the think_13
  * path (1000:10b0) SI still holds think_13's code offset, so the original zeroes two spawn
  * pairs of the level script that happens to sit at that DS offset (levels.dat

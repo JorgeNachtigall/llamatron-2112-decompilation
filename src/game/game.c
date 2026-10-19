@@ -1,16 +1,18 @@
 /*
- * game.c - host entry points (game.h).
- *
- * Bring-up state: start-up builds the RNG table; the tick keeps the counter and the fire
- * input; frames are presented but nothing is drawn yet. The title/attract mode, the state
- * machine and play land in attract.c, main_sm.c, tick.c and frame.c.
+ * game.c - host entry points (game.h): start-up, the timer tick's hook dispatch and the
+ * display frame, which runs the top-level flow (main_sm.c) up to its next retrace wait.
  */
 #include "game.h"
 
 #include <string.h>
 
-#include "gfx.h"
+#include "attract.h"
+#include "continue.h"
+#include "init.h"
 #include "input.h"
+#include "main_sm.h"
+#include "pause.h"
+#include "tick.h"
 
 static uint16_t constant_tick(void *ctx, unsigned call)
 {
@@ -22,6 +24,7 @@ static uint16_t constant_tick(void *ctx, unsigned call)
 bool game_init(GameState *game, const GameLaunch *launch)
 {
     memset(game, 0, sizeof *game);
+    init_image_values(game);
     game->vga = launch->vga;
     game->joystick = launch->joystick;
     game->sound_present = launch->sound;
@@ -33,6 +36,9 @@ bool game_init(GameState *game, const GameLaunch *launch)
         ticks = (RngTickSource){ constant_tick, (void *)&launch->bios_ticks };
     rng_seed(&game->rng.mixer, launch->bios_ticks);
     rng_shuffle(&game->rng, ticks);
+    init_load_data(game);
+    title_tune_start(game);                         /* 00b6 */
+    main_sm_start(game);
     return true;
 }
 
@@ -41,15 +47,37 @@ void game_tick(GameState *game)
 {
     game->tick_count++;
     input_tick_fire();
+    /* 3e4e..3eb5: the colour 1 pulse is not ported yet. */
+    switch (game->tick_hook) {                      /* 3eb6 CALL [39E4] */
+    case TICK_HOOK_TITLE_TUNE:
+        title_tune_tick(game);
+        break;
+    case TICK_HOOK_TITLE:
+        title_tick_hook(game);
+        break;
+    case TICK_HOOK_PLAY:
+        play_tick_hook(game);
+        break;
+    case TICK_HOOK_PAUSE:
+        pause_tick_hook(game);
+        break;
+    case TICK_HOOK_CONTINUE:
+        continue_tick_hook(game);
+        break;
+    case TICK_HOOK_NAME_ENTRY:                      /* 5b06: not ported yet */
+    case TICK_HOOK_NONE:
+        break;
+    }
 }
 
-/* game86 1e7b:013f */
+/* One retrace of the original: the flow runs to its next frame_run, wait_vsync or
+ * palette_set. */
 void game_frame(GameState *game, const GameHostInput *host)
 {
     if (host->requests & GAME_HOST_QUIT)
         game->quit = true;
-    input_frame_read(false);
-    gfx_flip();
+    if (!game->quit)
+        main_sm_frame(game);
 }
 
 bool game_wants_quit(const GameState *game)
