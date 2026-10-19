@@ -44,7 +44,10 @@ typedef struct GameHostInput {
     bool focused;
 } GameHostInput;
 
-/* Once, after the front screen. false = the game cannot start (missing data). */
+/* Once, after the front screen. false = the game cannot start (missing data).
+ * Call it once per process, never per game: GameState lives as long as the original's
+ * DGROUP did, and state the original never resets (spawns_clobbered_10b0, the high scores,
+ * the RNG) must carry over from one game to the next. */
 bool game_init(GameState *game, const GameLaunch *launch);
 
 /* One 50.16 Hz timer tick, called from the shell's timing_run_timer_ticks callback, i.e.

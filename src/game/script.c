@@ -95,6 +95,20 @@ void script_start_level(GameState *game, const LevelSet *levels)
     game->spawn = (SpawnCursor){ SPAWN_FROM_LEVEL, game->player.level, 0 };
 }
 
+/* game86 1000:10ea -> 123c..1241 (see script.h) */
+void script_clobber_spawns_10b0(GameState *game)
+{
+    game->spawns_clobbered_10b0 = true;
+}
+
+static bool spawn_is_clobbered(const GameState *game, const LevelSet *levels, int level,
+                               unsigned index)
+{
+    const LevelSpawnClobber *clobber = &levels->clobber_10b0;
+    return game->spawns_clobbered_10b0 && level == clobber->level &&
+           index >= clobber->first_spawn && index - clobber->first_spawn < clobber->spawn_count;
+}
+
 /* game86 1000:3d09 */
 bool script_next_spawn_pair(GameState *game, const LevelSet *levels)
 {
@@ -113,6 +127,8 @@ bool script_next_spawn_pair(GameState *game, const LevelSet *levels)
         if (cursor->index < script->spawn_count) {
             type = script->spawns[cursor->index].enemy_type;
             count = script->spawns[cursor->index].count;
+            if (spawn_is_clobbered(game, levels, cursor->level, cursor->index))
+                type = count = 0;
         }
     }
 

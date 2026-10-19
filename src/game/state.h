@@ -262,6 +262,9 @@ typedef struct GameState {
     bool spawning_done;                 /* 0802 the whole list is out: player fire (0981) and the
                                            wave-cleared check (1665) wait for it */
     int16_t unhatched_left;             /* 08F8 [H] unhatched when the list ended, -1 at 4cb3 */
+    bool spawns_clobbered_10b0;         /* a think_13 drop has zeroed LevelSet.clobber_10b0's
+                                           spawn pairs (1000:123c via 10b0); never reset, as the
+                                           original never reloads its script data */
 
     int16_t shield_timer;               /* 0907 invulnerability ticks (500 from pickup 0fa2) */
     bool smart_bomb;                    /* 0615 hit every solid entity (pickup 0fb5, cleared 0d27) */
