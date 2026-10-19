@@ -49,6 +49,18 @@ typedef struct DrawTarget {
 
 DrawTarget draw_target_page(GfxPageId page);
 
+/* Cells dropped because they fell outside a page target (where the original wrote into the
+ * gap after the page, or into another page: docs/DEVIATIONS.md #3, #17), counted since the
+ * last reset, and the last one dropped. For tests (tests/oracle/level_sweep.py). */
+typedef struct DrawDropStats {
+    uint32_t cells;
+    int page;               /* the last dropped cell's GfxPageId */
+    int32_t cell;           /* and its cell number on that page */
+} DrawDropStats;
+
+DrawDropStats draw_drop_stats(void);
+void draw_reset_drop_stats(void);
+
 /* After the scroller's canvas has wrapped once (65536 is not a multiple of 40), the original
  * shifts every text/sprite cell address by -16 cells to stay on its rows (game86
  * [0x442] >= 2 in 1000:e0fa). */

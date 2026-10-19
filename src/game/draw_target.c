@@ -8,12 +8,24 @@
 /* game86 [0x442] g_scroll_mode >= 2 */
 static bool s_canvas_wrapped;
 
+static DrawDropStats s_drops;
+
 /* Cells the original moves back once the scroller canvas has wrapped (1000:e0fa). */
 enum { CANVAS_WRAP_SHIFT_CELLS = DRAW_CANVAS_CELLS % DRAW_CELLS_PER_ROW };
 
 DrawTarget draw_target_page(GfxPageId page)
 {
     return (DrawTarget){ &gfx_page(page)->pixels[0][0], DRAW_PAGE_CELLS, false, (int)page };
+}
+
+DrawDropStats draw_drop_stats(void)
+{
+    return s_drops;
+}
+
+void draw_reset_drop_stats(void)
+{
+    s_drops = (DrawDropStats){ 0, -1, 0 };
 }
 
 void draw_set_canvas_wrapped(bool wrapped)
@@ -55,6 +67,7 @@ static uint8_t *cell_pixels(const DrawTarget *target, int32_t cell)
         if (cell < 0)
             cell += target->cell_count;
     } else if (cell < 0 || cell >= target->cell_count) {
+        s_drops = (DrawDropStats){ s_drops.cells + 1, target->page, cell };
         return NULL;
     }
     return target->pixels + (size_t)cell * DRAW_CELL_PIXELS;
