@@ -108,6 +108,30 @@ static void test_priority_rules(void)
     CHECK(st().playing == 0);
 }
 
+/* Invalid requests (AL = 0 or > 0x20) still run the priority compare (sblaster.bin 0x11F) and
+ * leave the unpromotable value in the pending slot until the next request. */
+static void test_invalid_requests(void)
+{
+    snd_init(&g_bank, 0);
+    snd_play(8, 0, 5);
+    snd_tick();
+    snd_play(0x21, 1, 5);                        /* invalid, priority >= current: stops it */
+    snd_tick();
+    CHECK(st().playing == 0);
+    snd_tick();
+    CHECK(st().playing == 0);                    /* 0x21 is never promoted */
+    snd_play(3, 1, 1);                           /* the next request replaces it */
+    snd_tick();
+    CHECK(st().playing == 3);
+
+    snd_init(&g_bank, 0);
+    snd_play(8, 0, 5);
+    snd_tick();
+    snd_play(0, 1, 4);                           /* invalid, lower priority: current keeps playing */
+    snd_tick();
+    CHECK(st().playing == 8);
+}
+
 static void test_stops(void)
 {
     snd_init(&g_bank, 0);
@@ -206,6 +230,7 @@ int main(void)
     test_latching_and_duration();
     test_priority_rules();
     test_stops();
+    test_invalid_requests();
     test_disabled();
     test_output();
     test_timer_order();
