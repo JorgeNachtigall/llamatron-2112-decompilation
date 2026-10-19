@@ -10,7 +10,7 @@ game86,1000:03e1,19,script_op3,script_run_op,src/game/script.c,diff-tested,W4,A,
 game86,1000:03f4,45,script_op2_sound,script_run_op,src/game/script.c,diff-tested,W4,A,tests/oracle/test_script.py
 game86,1000:0421,23,script_op0_speed,script_run_op,src/game/script.c,diff-tested,W4,A,tests/oracle/test_script.py
 game86,1000:0438,29,script_op1_params,script_run_op,src/game/script.c,diff-tested,W4,A,tests/oracle/test_script.py
-game86,1000:0455,945,wave_run,wave_run,src/game/main_sm.c,todo,W4,A,
+game86,1000:0455,945,wave_run,wave_start,src/game/main_sm.c,ported,W4,A,"045d..0616 wave_start/wave_show/wave; 0616..07b4 outcomes (wave_over, warp_sound, wave_cleared, wave_next, warp box 06d4..0759 with LevelSet.warp_box_colours, player_died, respawn); replay meter: golden walk_vga"
 game86,1000:07b7,16,shots_clear,shots_clear,src/game/bullets.c,diff-tested,W5a,A,tests/oracle/test_shots.py::test_shots_clear
 game86,1000:0816,37,continue_tick_hook,continue_tick_hook,src/game/continue.c,diff-tested,W5,A,tests/oracle/test_continue.py::test_continue_tick_hook (incl. tick_hook -> NONE on fire); continue_begin 07d6..07dc via test_continue_begin
 game86,1000:083b,19,title_tune_start,title_tune_start,src/game/attract.c,diff-tested,W5,A,tests/oracle/test_attract.py::test_tune
@@ -56,14 +56,14 @@ game86,1000:1499,55,shots_draw,shots_draw,src/game/bullets.c,diff-tested,W5a,B,t
 game86,1000:14d0,110,pause_tick_hook,pause_tick_hook,src/game/pause.c,diff-tested,W5,B,"tests/oracle/test_pause.py (G/O hooks, S via game_sound_toggle 1514, key sample)"
 game86,1000:1514,36,sound_toggle,snd_toggle,src/sound/,todo,W7,B,
 game86,1000:1538,,pause_key_sample,pause_tick_hook,src/game/pause.c,diff-tested,W5,B,part of pause_tick_hook (the fall-through key-sample path); tests/oracle/test_pause.py
-game86,1000:1562,1265,play_tick_hook,game_tick,src/game/tick.c,todo,W4,B,
+game86,1000:1562,1265,play_tick_hook,play_tick_hook,src/game/tick.c,ported,W4,B,1562..16c0 play_tick_timers; 1a1c shots_update (bullets.c); 1a38 wave_spawn_tick
 game86,1000:16c1,,players_tick,players_tick,src/game/player.c,diff-tested,W5,B,per-player part of play_tick_hook (16c1..1a00)
 game86,1000:176c,175,enemy_aim_update,enemy_aim_update,src/game/player.c,diff-tested,W5,B,
 game86,1000:1947,,trail_record,trail_record,src/game/player.c,diff-tested,W5,B,trail write 1947..19ce with trail_entry; 199d misaligned first compare = DEVIATIONS #10
 game86,1000:1a3b,427,play_draw_hook,play_draw_hook,src/game/draw_play.c,diff-tested,W6,B,test_play_draw.py (real sprite and g3 banks)
 game86,1000:1be6,129,palette_set,gfx_set_game_palette,src/engine/gfx.c,diff-tested,W2,B,test_engine_palette.py: INT 10h 1012h/1002h calls applied to a card model (VGA DAC blocks 0..7/16..23 via the attribute registers e4f5 loads) = gfx_palette() 0..15; DS:4451 DAC staging buffer not kept
 game86,1000:1c67,134,enemy_random_spawn_pos,enemy_random_spawn_pos,src/game/entities/spawn.c,diff-tested,W5a,B,
-game86,1000:1ced,83,wave_spawn_enemies,wave_spawn_enemies,src/game/main_sm.c,todo,W4,B,
+game86,1000:1ced,83,wave_spawn_enemies,wave_spawn_enemies,src/game/tick.c,ported,W4,B,
 game86,1000:1dcd,95,enemy_init_00,enemy_init_00,src/game/entities/enemy_init.c,diff-tested,W5a,C,
 game86,1000:1e2c,88,enemy_init_03,enemy_init_03,src/game/entities/enemy_init.c,diff-tested,W5a,C,
 game86,1000:1e84,88,enemy_init_21,enemy_init_21,src/game/entities/enemy_init.c,diff-tested,W5a,C,
@@ -224,7 +224,7 @@ game86,1000:52b0,55,hud_draw_level,hud_draw_level,src/game/hud.c,diff-tested,W6,
 game86,1000:52e7,48,hud_draw_score,hud_draw_score,src/game/hud.c,diff-tested,W6,E,"test_hud.py; leading zeros not drawn, zero score = 00"
 game86,1000:5317,31,player_swap_state,player_swap_state,src/game/player.c,diff-tested,W5,E,
 game86,1000:5336,26,player_copy_state,player_copy_state,src/game/player.c,diff-tested,W5,E,
-game86,1000:5350,18,level_select_variant,level_select_variant,src/game/script.c,todo,W4,E,
+game86,1000:5350,18,level_select_variant,level_select_variant,src/game/script.c,ported,W4,E,
 game86,1000:5363,12,text_print_home,text_print_home,src/game/text.c,diff-tested,W6,E,"pen to (0,0) + text_print; tests/oracle/test_text.py::test_text_print_home"
 game86,1000:536f,391,text_print,text_print,src/game/text.c,diff-tested,W6,E,"test_text.py (random fonts/strings incl. \s inline sprites, whole 64 KB canvas)"
 game86,1000:54f6,65,text_draw_char,text_draw_char,src/game/text.c,diff-tested,W6,E,via test_text.py::test_text_print_*
@@ -233,8 +233,8 @@ game86,1000:559f,640,glyph_blit,text_draw_glyph,src/game/text.c,diff-tested,W6,E
 game86,1000:581f,14,crtc_set_start,gfx_flip,src/engine/gfx.c,ported,W2,E,"display start = the page gfx_flip shows (frame_run 1e7b:0185 write diff-tested in test_engine_pages.py) or the scroller window (W6 draw_scroller.c, test_scroller.py)"
 game86,1000:582f,21,display_page_reset,canvas_from_vram_pages,src/game/draw_scroller.c,diff-tested,W6,E,implemented by W6 in the scroller (draw_copy_screen_to_draw_page + gfx_flip); test_scroller.py covers it
 game86,1000:5844,284,text_scroller,scroller_start/scroller_frame/scroller_finish,src/game/draw_scroller.c,diff-tested,W6,E,"test_scroller.py: lockstep with the original loop (plain and story runs, skip/pause input, window, canvas, pages); per-frame state machine instead of the blocking loop; own canvas buffer shown via page 0"
-game86,1000:5960,52,video_init,video_init,src/engine/gfx.c,todo,W2,E,
-game86,1000:5994,23,video_init_tail,video_init_tail,src/engine/gfx.c,todo,W2,E,
+game86,1000:5960,52,video_init,boot,src/game/main_sm.c,ported,W2,E,main_sm states MS_BOOT..MS_BOOT_SCROLL; EGA: palette_set(PALETTE_ID_EGA) as video_set_mode e4f5 does; owner change to W4 pending (lead)
+game86,1000:5994,23,video_init_tail,,,ported,W2,E,"dead code (only self-referenced); not ported, 39DE has no field"
 game86,1000:59ab,79,hud_draw_control_labels,hud_draw_control_labels,src/game/hud.c,diff-tested,W6,E,test_hud.py; g3 shapes 7..11 through a lookup
 game86,1000:59fa,202,hiscore_name_entry,name_entry_begin,src/game/hiscore.c,diff-tested,W6,E,test_hiscore.py 59fa..5a85; screen_reveal_bg and the frame_run loop are the caller
 game86,1000:5ac4,66,name_entry_draw_hook,name_entry_draw,src/game/hiscore.c,diff-tested,W6,E,test_hiscore.py
@@ -250,7 +250,7 @@ game86,1000:60aa,104,data_load,assets_load,src/assets/,todo,W1,E,assets come fro
 game86,1000:6112,130,vram_fill_rect,draw_rect_outline,src/game/draw_rect.c,diff-tested,W6,E,tests/oracle/test_draw_basic.py::test_rect_outline
 game86,1000:619c,61,vram_fill_span,draw_rect_outline,src/game/draw_rect.c,diff-tested,W6,E,draw_dot(); via test_rect_outline
 game86,1000:61d9,38,vram_latch_copy_setup,draw_save_screen_as_background,src/game/draw_page.c,diff-tested,W6,E,latch setup of the page copies; no C equivalent needed
-game86,1000:61ff,233,screen_reveal_bg,screen_reveal_bg,src/engine/gfx.c,todo,W2,E,
+game86,1000:61ff,233,screen_reveal_bg,reveal,src/game/main_sm.c,ported,W2,E,"MS_REVEAL: 5 retrace waits (palette_set black, 3x wait_vsync, palette_set game); owner change to W4 pending (lead)"
 game86,1000:62e8,14,vram_copy_page_to_bg,draw_save_screen_as_background,src/game/draw_page.c,diff-tested,W6,E,test_draw_basic.py::test_page_copy
 game86,1000:62f6,14,vram_copy_bg_to_page,draw_show_background,src/game/draw_page.c,diff-tested,W6,E,test_draw_basic.py::test_page_copy
 game86,1000:6304,96,vram_copy_page,draw_copy_screen_to_draw_page,src/game/draw_page.c,diff-tested,W6,E,test_draw_basic.py::test_page_copy
@@ -312,7 +312,7 @@ game86,1000:e4de,23,rng_next,rng_next_byte,src/game/rng.c,diff-tested,W4,S,ctest
 game86,1000:e4f5,36,video_set_mode,gfx_set_adapter,src/engine/gfx.c,ported,W2,S,mode 0Dh = the gfx page model; on VGA the attribute registers from DS:2122 are the DAC mapping gfx_set_palette_st assumes (asserted in test_engine_palette.py); on EGA it is palette_set 2164 (gfx_set_game_palette); called only from video_init 5960 (W4 flow)
 game86,1000:e519,78,irq_install,timing_init_realtime,src/engine/timing.c,ported,W2,S,PIT divisor 0x5CEC = PIT_GAME_DIVISOR (50.159 Hz); timing_init_display for replays; INT 09 hook = platform key events -> input_keyboard_byte
 game86,1000:e567,140,irq09_keyboard,input_keyboard_byte,src/engine/input.c,diff-tested,W2,S,"test_engine_input.py: random byte streams, [586]/[587]/[588]/[b72] after every byte; port keeps a tap held until sampled (deviation, input.c)"
-game86,1000:e5f3,18,wait_vsync,wait_vsync,src/platform/,todo,W2,S,platform: end of frame
+game86,1000:e5f3,18,wait_vsync,main_sm_frame,src/game/main_sm.c,ported,W2,S,every wait_vsync / palette_set / frame_run ends a main_sm_frame (= game_frame) call; owner change to W4 pending (lead)
 game86,1000:e605,17,kbd_flush,,src/platform/,ported,W2,S,"no counterpart: host key events go straight to input_keyboard_byte, there is no BIOS buffer to drain"
 game86,1000:e616,72,rng_mix,rng_mix,src/game/rng.c,diff-tested,W4,S,BIOS tick passed per call (ctest oracle.rng incl. tick schedules; DOSBox-X == oracle == C in dosbox.probe_rng); shuffle 007b..00ab = rng_shuffle (RngTickSource); seed part of 5f6b = rng_seed
 game86,1000:e65e,46,cmp_load,cmp_load,tools/extract/,todo,W1,S,build-time extraction
@@ -321,7 +321,7 @@ game86,1000:e73d,59,lzss_getbyte,lzss_decode,tools/extract/,todo,W1,S,build-time
 game86,1000:e778,11,lzss_ungetbyte,lzss_decode,tools/extract/,todo,W1,S,build-time extraction
 game86,1000:e788,34,mem_shrink,mem_shrink,,todo,W0,S,not ported: DOS memory
 game86,1e7b:0000,315,input_poll,input_frame_read,src/engine/input.c,diff-tested,W2,F,"test_engine_input.py: keyboard path, port 201h joystick path (fake one-shot counts near the thresholds, 1 or 2 sticks, [9d3]), [7fb]/[7fc]/[7fd]; calibration 6014 = input_calibrate also diff-tested"
-game86,1e7b:013f,439,frame_run,frame_run,src/engine/timing.c,todo,W2,F,frame callback
+game86,1e7b:013f,439,frame_run,frame_run,src/game/frame.c,ported,W2,F,"frame callback; game's frame loop: input_frame_read, Q quit, draw hook dispatch with recording on, flash step = draw_flash_step (W6, draw_page.c, extra palette_set retrace reported to main_sm), gfx_flip + gfx_restore_dirty; owner change to W4 pending (lead)"
 game86,1e7b:029a,38,page_swap,gfx_flip,src/engine/gfx.c,diff-tested,W2,F,test_engine_pages.py: [39d3]/[39d5] and the CRTC start vs gfx_draw_page_id/gfx_display_page_id; CS:6733/6735 list swap implicit (one dirty list per page)
 game86,1e7b:03dc,87,restore_w1_h00,gfx_restore_rect,src/engine/gfx.c,diff-tested,W6,F,restore family: gfx_restore_rect linear spans; test_draw_basic.py::test_restore_dirty_list (whole 1e7b:0213 pass)
 game86,1e7b:0433,233,restore_w1_h06,gfx_restore_rect,src/engine/gfx.c,diff-tested,W6,F,restore family: gfx_restore_rect linear spans; test_draw_basic.py::test_restore_dirty_list (whole 1e7b:0213 pass)

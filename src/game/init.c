@@ -2,6 +2,7 @@
 #include "init.h"
 
 #include "game_data.h"
+#include "text.h"
 
 /* Every value below is what game86's data segment holds when the program is loaded. The
  * addresses are the DGROUP offsets; the comment says which code later overwrites the value,
@@ -66,6 +67,7 @@ void init_image_values(GameState *game)
  * DS:40A0. */
 void init_load_data(GameState *game)
 {
+    text_use_game_assets();                         /* the font and \\s sprites */
     const HighScoreTable *table = asset_user_scores();
     if (table == NULL || table->count != HISCORE_COUNT)
         table = asset_default_scores();

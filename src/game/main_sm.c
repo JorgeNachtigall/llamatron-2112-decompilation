@@ -512,12 +512,6 @@ static bool wave_next(GameState *game)
     return true;
 }
 
-/* DS:0619, four colour bytes. [H] Not extracted yet: a stand-in until game_data has it. */
-static unsigned warp_box_colour(unsigned index)
-{
-    return (index + 1) & 0x0F;
-}
-
 static void box_reset(void)
 {
     flow.box.x0 = 0x5E;
@@ -553,9 +547,9 @@ static bool warp_box_start(GameState *game)
 static bool warp_box(GameState *game)
 {
     (void)game;
-    box_draw(warp_box_colour(flow.box.colour));
+    box_draw(asset_levels()->warp_box_colours[flow.box.colour] & 0x0F);
     box_grow();
-    flow.box.colour = (flow.box.colour + 1) & 3;
+    flow.box.colour = (flow.box.colour + 1) % WARP_BOX_COLOUR_COUNT;
     if (flow.box.x0 >= 0)
         return false;
     box_reset();
