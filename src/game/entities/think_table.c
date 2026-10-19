@@ -13,5 +13,7 @@ const ThinkFn entity_think_handlers[THINK_HANDLER_COUNT] = {
     [0x07] = think_00,
     [0x09] = think_09,      /* 1000:4ec8 */
     [0x0a] = think_00,
+    [0x0b] = think_0b,      /* 1000:4ed7 */
+    [0x0c] = think_0c,      /* 1000:4feb */
     [0x0d] = think_0d,      /* 1000:504f */
 };

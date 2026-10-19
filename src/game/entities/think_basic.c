@@ -88,8 +88,7 @@ void player_kill(GameState *game, unsigned touched)
     }
 }
 
-/* Most handlers end their tick when they touch a ship (they jump to 1000:43f7). */
-static bool touch_check(GameState *game, const Entity *e)
+bool entity_check_touch(GameState *game, const Entity *e)
 {
     unsigned touched = entity_hits_player(game, e);
     if (touched)
@@ -113,7 +112,7 @@ void think_00(GameState *game, Entity *e)
 /* Static enemy that only kills on contact. game86 1000:43f1 */
 void think_01(GameState *game, Entity *e)
 {
-    (void)touch_check(game, e);
+    (void)entity_check_touch(game, e);
 }
 
 /* Grows for 15 ticks, then disappears. game86 1000:43c9 */
@@ -131,7 +130,7 @@ void think_03(GameState *game, Entity *e)
     game->swarm_count++;
     if (game->wave_intro_timer != 0)
         return;
-    if (touch_check(game, e))
+    if (entity_check_touch(game, e))
         return;
     if (--e->timer >= 0)
         return;
@@ -158,7 +157,7 @@ void think_09(GameState *game, Entity *e)
  * leave the open playfield. game86 1000:504f */
 void think_0d(GameState *game, Entity *e)
 {
-    if (touch_check(game, e))
+    if (entity_check_touch(game, e))
         return;
     e->sprite = (int16_t)(0x41 + ((game->tick_count >> 2) & 3));
     int16_t x = (int16_t)(uint16_t)(e->x + e->vx);

@@ -26,6 +26,7 @@ add_library(llamatron_game STATIC
     entities/spawn.c
     entities/movement.c
     entities/think_basic.c
+    entities/think_spawners.c
     entities/think_table.c
 )
 target_include_directories(llamatron_game PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}

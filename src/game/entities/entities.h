@@ -38,6 +38,10 @@ unsigned entity_hits_player(const GameState *game, const Entity *e);
  * handlers. game86 1000:43f7 */
 void entity_touch_player(GameState *game, unsigned touched);
 
+/* entity_hits_player, then entity_touch_player if a ship was touched; true if one was. Most
+ * think handlers end their tick then (they jump to 1000:43f7). */
+bool entity_check_touch(GameState *game, const Entity *e);
+
 /* The death itself, after the guards: the touched player (P2 when both) starts dying and the
  * death sound plays (with a delayed second one when few enemies are left). In single-
  * controller mode a P2-only touch does nothing. Also entered from pickup_effect_09 (37fa).
@@ -51,6 +55,9 @@ void think_02(GameState *game, Entity *e);
 void think_03(GameState *game, Entity *e);
 void think_09(GameState *game, Entity *e);
 void think_0d(GameState *game, Entity *e);
+/* think_spawners.c */
+void think_0b(GameState *game, Entity *e);
+void think_0c(GameState *game, Entity *e);
 
 /* ---- movement.c (Moss)---------------------------------------------------------------- */
 
