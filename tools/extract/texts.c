@@ -1,4 +1,5 @@
-/* Game texts from DGROUP as typed op lists (data/strings.dat, format in FORMATS.md).
+/* Game texts from DGROUP as typed op lists plus the raw bytes (data/strings.dat, format in
+ * FORMATS.md).
  *
  * text_print (game86 1000:536f) reads a byte string: NUL bytes are skipped, other bytes are
  * glyphs (with word wrap at x 0x130), and '\' starts an escape:
@@ -57,8 +58,9 @@ static bool flush_text(ByteBuf *ops, ByteBuf *pending)
     return ok;
 }
 
-/* Converts the text at DS:start into ops (ending with OP_END). */
-static bool convert_text(const ExtractContext *ctx, uint16_t start, ByteBuf *ops)
+/* Converts the text at DS:start into ops (ending with OP_END); *raw_length = original bytes up to
+ * and including the \e. */
+static bool convert_text(const ExtractContext *ctx, uint16_t start, ByteBuf *ops, size_t *raw_length)
 {
     const uint8_t *text = dgroup(ctx, start, 1);
     if (!text)
@@ -87,6 +89,7 @@ static bool convert_text(const ExtractContext *ctx, uint16_t start, ByteBuf *ops
         uint8_t code = text[pos++];
         if (code == 'e') {
             ok = bytebuf_push(ops, OP_END);
+            *raw_length = pos;
             break;
         }
         switch (code) {
@@ -155,13 +158,17 @@ bool extract_texts(ExtractContext *ctx)
         starts[text_count++] = read_u16le(record + 4);
     }
 
-    ByteBuf out = {0}, ops = {0}, messages = {0};
+    ByteBuf out = {0}, ops = {0}, messages = {0}, raw = {0}, raw_index = {0};
     bool ok = bytebuf_append(&out, (const uint8_t *)"LTXT", 4) && bytebuf_put_u16(&out, FMT_LTXT_VERSION) &&
               bytebuf_put_u16(&out, (uint16_t)text_count);
     for (size_t i = 0; ok && i < text_count; i++) {
-        size_t first = ops.size;
-        ok = convert_text(ctx, starts[i], &ops) && bytebuf_put_u16(&out, starts[i]) &&
+        size_t first = ops.size, raw_length = 0;
+        ok = convert_text(ctx, starts[i], &ops, &raw_length) && bytebuf_put_u16(&out, starts[i]) &&
              bytebuf_put_u16(&out, (uint16_t)first) && bytebuf_put_u16(&out, (uint16_t)(ops.size - first));
+        /* the original bytes as text_print reads them, plus a NUL so they can be used as a C string
+         * up to the first interior NUL (\q lines and word-wrap padding contain NULs) */
+        ok = ok && bytebuf_put_u16(&raw_index, (uint16_t)raw.size) && bytebuf_put_u16(&raw_index, (uint16_t)raw_length) &&
+             bytebuf_append(&raw, dgroup(ctx, starts[i], raw_length), raw_length) && bytebuf_push(&raw, 0);
     }
     ok = ok && bytebuf_put_u16(&out, (uint16_t)title_count);
     for (size_t i = 0; ok && i < title_count; i++)
@@ -181,7 +188,8 @@ bool extract_texts(ExtractContext *ctx)
     }
     ok = ok && bytebuf_put_u16(&out, message_count) && bytebuf_append(&out, messages.data, messages.size) &&
          bytebuf_put_u16(&out, (uint16_t)ops.size) && bytebuf_append(&out, ops.data, ops.size) &&
-         output_write(ctx->outputs, "data/strings.dat", out.data, out.size);
+         bytebuf_append(&out, raw_index.data, raw_index.size) && bytebuf_put_u16(&out, (uint16_t)raw.size) &&
+         bytebuf_append(&out, raw.data, raw.size) && output_write(ctx->outputs, "data/strings.dat", out.data, out.size);
     ok = ok && index_define(ctx, "TEXT_COUNT", text_count) &&
          index_define(ctx, "LEVEL_TITLE_COUNT", title_count) && index_define(ctx, "MESSAGE_COUNT", message_count);
     if (ok)
@@ -189,5 +197,7 @@ bool extract_texts(ExtractContext *ctx)
     bytebuf_free(&out);
     bytebuf_free(&ops);
     bytebuf_free(&messages);
+    bytebuf_free(&raw);
+    bytebuf_free(&raw_index);
     return ok;
 }

@@ -10,9 +10,11 @@ nt=struct.unpack_from('<H',d,p)[0]; p+=2; titles=[struct.unpack_from('<hH',d,p+i
 nm=struct.unpack_from('<H',d,p)[0]; p+=2; msgs=[]
 for i in range(nm):
     o,l=struct.unpack_from('<HH',d,p); msgs.append((o,d[p+4:p+4+l])); p+=4+l
-ol=struct.unpack_from('<H',d,p)[0]; p+=2; ops=d[p:p+ol]; assert p+ol==len(d)
+ol=struct.unpack_from('<H',d,p)[0]; p+=2; ops=d[p:p+ol]; p+=ol
+R=[struct.unpack_from('<2H',d,p+i*4) for i in range(n)]; p+=n*4
+rl=struct.unpack_from('<H',d,p)[0]; p+=2; raw=d[p:p+rl]; assert p+rl==len(d) and ver==2
 bad=0
-for ds,first,ln in T:
+for i,(ds,first,ln) in enumerate(T):
     q=first; out=bytearray()
     while True:
         op=ops[q]; q+=1
@@ -28,6 +30,8 @@ for ds,first,ln in T:
         elif op==11: out+=b'\\'+ops[q:q+1]; q+=1
     assert q==first+ln
     if img[B+ds:B+ds+len(out)]!=bytes(out): bad+=1; print('mismatch',hex(ds))
+    ro,rn=R[i]
+    if raw[ro:ro+rn]!=bytes(out) or raw[ro+rn]!=0: bad+=1; print('raw mismatch',hex(ds))
 for o,m in msgs:
     if img[B+o:B+o+len(m)+1]!=m+b'$': bad+=1; print('msg mismatch',hex(o))
 print(n,'texts',nt,'titles',titles,nm,'messages; mismatches',bad)

@@ -141,7 +141,7 @@ u8    flash_mode   'P' -> 1, 'Y' -> 2, else 0 (game86 [0x589])
 ## `strings.dat` (texts from DGROUP; text_print game86 1000:536f)
 ```
 char  magic[4] = "LTXT"
-u16   version = 1
+u16   version = 2
 u16   text_count
 struct { u16 ds_offset; u16 first_op; u16 op_bytes; } texts[text_count]
                          ds_offset = where the original string starts (what the code passes in SI)
@@ -151,7 +151,14 @@ u16   message_count
 struct { u16 ds_offset; u16 length; u8 text[length]; } messages[]   DOS '$' strings, '$' dropped
 u16   op_area_size
 u8    ops[op_area_size]
+struct { u16 raw_offset; u16 raw_length; } raw_texts[text_count]   (version 2)
+u16   raw_area_size
+u8    raw[raw_area_size]
 ```
+`raw` holds each text's original bytes as text_print reads them, escapes untouched, from
+`ds_offset` up to and including the `\e`; `raw_length` counts those bytes, and one extra NUL
+follows each text (not counted). The bytes can contain NULs (`\q` line ends, word-wrap padding),
+so walk them to the `\e`, not to the first NUL.
 Ops (one byte, then operands):
 | op | operands | original | meaning |
 |----|----------|----------|---------|
@@ -165,8 +172,8 @@ Ops (one byte, then operands):
 | 0x0A | u8 c | `\c` | glyph colour (low nibble) |
 | 0x0B | u8 code | `\` + other | unknown escape; the original ignores it |
 
-`ctest -R strings_roundtrip` rebuilds the original byte strings from these ops and compares them
-with game86.
+`ctest -R strings_roundtrip` rebuilds the original byte strings from these ops, compares them
+with game86 and checks the raw bytes against them.
 
 ## `levels.dat` (tbl_level_scripts DS:2BDA; interpreter game86 1000:020b)
 The table has **100** entries (up to the 0 word at DS:2CA2), not 40. A 0 entry makes the game wrap
