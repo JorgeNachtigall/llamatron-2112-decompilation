@@ -2,7 +2,7 @@ program,orig_addr,size,name,c_symbol,file,status,owner,range,notes
 game86,1000:0010,676,main,game_main,src/game/main_sm.c,todo,W4,A,
 game86,1000:0309,44,hud_refresh_if_dirty,hud_refresh_if_dirty,src/game/hud.c,todo,W6,A,
 game86,1000:0335,93,score_add,score_add,src/game/player.c,todo,W4,A,
-game86,1000:0392,10,unk_1000_0392,,,todo,W4,A,
+game86,1000:0392,10,script_op7,script_op7,src/game/script.c,todo,W4,A,
 game86,1000:039c,32,script_op6,script_op6,src/game/script.c,todo,W4,A,
 game86,1000:03bc,19,script_op5,script_op5,src/game/script.c,todo,W4,A,
 game86,1000:03cf,18,script_op4,script_op4,src/game/script.c,todo,W4,A,

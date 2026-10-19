@@ -238,9 +238,11 @@ ring[0..2] (zeros) is emitted. The "0xFF separators" seen in the raw files are s
 * `0x02 + ch*2`: u16 offset of glyph relative to the font base (0x39EE); game reads `[0x39F0 + ch*2]` then adds 0x39EE.
   Entries exist for 0x20..0x60 and lower-case a-z map to the upper-case glyphs (`b`..`z` share `B`..`Z`; `a` → glyph
   0x188).
-* Glyph: `u16 w0` (always 4, unused by the drawer), `u16 advance` (added to X at 53a0/555a/552c), `u16 rows-1`
-  (CX = rows+1 at 559f), `u16 pad`, then (rows) × u16 row bitmaps MSB-first, 1 word wide (e.g. `!` = `E0 E0 E0 F0 F0 F0 00 F0 F0`
-  with advance 5, 9 rows). Drawn via the planar VGA path 559f.. (same blitter family as sprites). Space (0x20) is a
+* Glyph: `u16 w0` (always 4, unused by the drawer), `u16 advance` (added to X at 53a0/555a/552c), `u16 rows-1`,
+  then rows × 2-byte row bitmaps in screen (byte) order, 16 px wide, top row first. The word earlier called `pad` is
+  simply row 0 [C, W1/Forge]. **The last glyph (shared by chars 7D-7F) is truncated in the file**: it needs 10 bytes
+  beyond the 1710-byte image, which the game reads from DGROUP `409C..40A5` (aim variables + start of the hi-score
+  table), so its bottom 5 rows depend on runtime data. Drawn via the planar path 559f.. (same blitter family as sprites). Space (0x20) is a
   zero-row glyph; 0x20/0x5C/0 terminate strings in 5394 (text-width routine).
 
 ### g3.cmp (18144 bytes; format partially confirmed)

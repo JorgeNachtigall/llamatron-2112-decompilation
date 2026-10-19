@@ -100,8 +100,11 @@ Two independent clocks:
   `5844` with text at `DS:14E1` / `DS:117A`).
 - `018f` NEW GAME: lives `[0x21a6]=5`, `[0x21c8]=2`, start positions `[0x2cfb..0x2d01]`, play
   sample 0x15 (`AH=3` jingle), zero score, level `[0x21aa]`.
-- `020b` LEVEL SCRIPT interpreter: `[0x21aa]` indexes **`DS:2BDA`** (40 pointers to level scripts);
-  script bytes: negative byte = opcode -> `CS:0245` table (7 handlers `039c,03bc,03cf,03e1,03f4,0421,0438`
+- `020b` LEVEL SCRIPT interpreter: `[0x21aa]` indexes **`DS:2BDA`** (**100** pointers to level
+  scripts, `2BDA..2CA1`, terminated by a 0 word at `2CA2`; a 0 pointer wraps to level 0 and
+  increments the loop count `[0x233c]`); the scripts themselves lie back to back at `244C..2AFD`
+  [C, W1/Forge, re-checked]. Script bytes: negative byte = opcode, handler `CS:[0245 + 2*(-op-1)]`,
+  i.e. **0xFF..0xF8 = 8 handlers** `0421,0438,03f4,03e1,03cf,03bc,039c,0392` (`script_op0..7`)
   set per-level parameters e.g. speeds `[0x21ac/0x21ae]` scaled by loop count `[0x233c]`, bonus
   flags, music `03f4`); positive byte = wave: `0455` sets wave type `[0x21b0]`, resets entities,
   then reads (type,count) pairs until 0xFF (`3d09`) and spawns through **`DS:2CA4`** (41 enemy-type
@@ -142,7 +145,7 @@ Two independent clocks:
   dispatch by height (`CS:8E71`, 25 entries) or by shifted position (`CS:ABD1`, 25 entries, used when
   x%8!=0 -> `aa29/ac03` shifted blitters). `42f0/42da/42cb` are wrappers (scale/mirror flags in
   `[0x39d9]/[0x39da]/[0x39dc]`, `63d2` = scaled/zoomed draw). Text: `536f` renders strings with
-  escape codes `\c<n>` colour, `\q` centre?, `\e` ?, `\r` newline, `\g`; glyphs from `f.cmp` data at
+  escape codes `\c<n>` colour, `\q` centre?, `\e` ?, `\r` newline, `\g`; glyphs from `f.cmp` data (format: `re-notes-sound-data.md` §4) at
   `DS:39EE` via `54f6/559f`.
 - The g3 segment (30EB) holds decompressed pictures: pointer table at `30EB:0000` (`ES:[0]..[0x1e]`
   used: logo, "press fire", 1/2 player labels, "yak 1992", etc.).
@@ -212,17 +215,17 @@ from `39D7` up is zero (BSS). Ranges marked [H] are inferred from usage, not ful
 | `226E-2335` | 200 | `g_player_other`: the other player's saved copy (swapped by `player_swap_state`) |
 | `2336-233F` | | `2336/2338/233a` [H], `g_loop_count` (`233c`), `g_level_flags` (`233e`) |
 | `2340-244B` | | `tbl_level_titles`: 4 records {level, 0, text ptr} + `-1`, then their texts |
-| `244C-26BF` | | level scripts (byte code; pointers in `tbl_level_scripts`) |
-| `26C0-2BD9` | | [H] not referenced by any direct operand; probably wave/text data reached through script pointers — to be followed |
-| `2BDA-2C29` | 80 | `tbl_level_scripts` (40 near ptrs) |
-| `2C2A-2CA3` | | [H] unreferenced directly |
+| `244C-2AFD` | 1714 | level scripts, back to back (byte code; pointers in `tbl_level_scripts`) |
+| `2AFE-2BD9` | 220 | zero in the image, no direct references [H: spare] |
+| `2BDA-2CA1` | 200 | `tbl_level_scripts` (100 near ptrs) |
+| `2CA2-2CA3` | 2 | 0 terminator of `tbl_level_scripts` |
 | `2CA4-2CF5` | 82 | `tbl_enemy_init` (41 near ptrs) |
 | `2CF6-2D06` | | `g_options`, player animation counters, `g_p1_x/y`, `g_p2_x/y`, `g_target_x/y` |
 | `2D07-2E96` | 400 | `tbl_row_offset`: VRAM byte offset per row (y*40) |
 | `2E97-39D2` | ~2.9 KB | [H] initialized, no direct operand references (enemy parameter tables or texts reached via pointers?) — open |
 | `39D3-39ED` | | page offsets (`g_page_front/back`, `g_draw_page`), blitter flags/scale/mirror, `g_draw_hook` (far), `g_tick_hook`, `g_tick_count`, `g_rng_index`, `g_script_ptr` |
-| `39EE-409B` | 1710 | `g_font`: decoded f.cmp |
-| `409C-409F` | | `enemy_aim_update` results [H] |
+| `39EE-409B` | 1710 | `g_font`: decoded f.cmp. Its last glyph (chars 7D-7F) is truncated in the file: its last 5 rows (10 bytes) are read from `409C-40A5`, i.e. from the variables below and the first hi-score bytes, so that glyph's look depends on runtime data |
+| `409C-409F` | | `enemy_aim_update` results [H] (also the tail of the 7D-7F glyph) |
 | `40A0-413F` | 160 | `g_hiscores` (scores.yak image) |
 | `4141-4440` | 768 | decoded s.cmp: `g_sine8` (256 x s8), `g_sine16` (256 x s16) |
 | `4441-4450` | 16 | `g_score_p1`, `g_score_p2`: 8 decimal digits each, one digit per byte, most significant first |
@@ -323,7 +326,7 @@ speeds/parameters); everything else starts at 0.
 ## 9. CS-resident data and dispatch tables (segment 1000 unless noted)
 | Address | Name | Entries | Index |
 |---|---|---|---|
-| `0245` | `tbl_script_ops` | 7 | negative script byte |
+| `0245` | `tbl_script_ops` | 8 | -op-1 for script bytes 0xFF..0xF8 |
 | `0255..0265` | `cs_saved_ds`, `cs_psp_seg`, `cs_vram_seg`, `cs_code1_seg`, `cs_sprite_seg` (218C), `cs_g3_seg` (30EB), clip temps | | |
 | `0269` | `tbl_attract_cases` | 3 | attract rotation |
 | `0c04` | `tbl_hit_handlers` | 18 | entity `+3e` |
