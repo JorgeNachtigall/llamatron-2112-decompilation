@@ -24,6 +24,22 @@ void main_sm_start(GameState *game);
 /* Run the flow up to its next wait for the vertical retrace. */
 void main_sm_frame(GameState *game);
 
+/* ---- For the oracle tests only ---- */
+
+/* The flow points a test can start from or stop at. */
+typedef enum MainSmTestState {
+    MAIN_SM_TEST_OTHER,
+    MAIN_SM_TEST_GAME_OVER,         /* 1000:08ee */
+    MAIN_SM_TEST_NAME_ENTRY,        /* 5e47: a score made the table, the name entry is next */
+    MAIN_SM_TEST_GAME_OVER_TABLE,   /* 094f: the checks are done, the table is next */
+} MainSmTestState;
+
+/* Restart the flow at `state` (only MAIN_SM_TEST_GAME_OVER; anything else starts at boot). */
+void main_sm_enter(GameState *game, MainSmTestState state);
+
+/* Where the flow is, as far as the test points tell. */
+MainSmTestState main_sm_state(void);
+
 /* The hi-score name entry's hooks, on the entry main_sm keeps. game86 1000:5b06, 5ac4 */
 void main_sm_name_entry_tick(GameState *game);
 void main_sm_name_entry_draw(GameState *game, const DrawTarget *frame);

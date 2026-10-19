@@ -55,6 +55,7 @@ typedef enum MainState {
     MS_GAME_OVER_SOUND,     /* 0924 */
     MS_GAME_OVER_SCORES,    /* 0933 */
     MS_HISCORE_CHECK,       /* hiscore_check_insert 1000:5da2 */
+    MS_NAME_ENTRY_BEGIN,    /* hiscore_name_entry 1000:59fa, called at 5e47 */
     MS_NAME_ENTRY_START,    /* 5a88 */
     MS_NAME_ENTRY,          /* 5aae */
     MS_GAME_OVER_TABLE,     /* 094f */
@@ -713,11 +714,17 @@ static bool hiscore_check(GameState *game)
 {
     flow.rank = hiscore_check_insert(game);
     if (flow.rank != HISCORE_NO_RANK) {
-        name_entry_begin(&flow.name, &game->text, game->options, hiscore_art());   /* 59fa */
-        reveal_then(MS_NAME_ENTRY_START);           /* 5a85 */
+        go(MS_NAME_ENTRY_BEGIN);                    /* 5e47 */
         return true;
     }
     return hiscore_checked(game);
+}
+
+static bool name_entry_build(GameState *game)
+{
+    name_entry_begin(&flow.name, &game->text, game->options, hiscore_art());   /* 59fa */
+    reveal_then(MS_NAME_ENTRY_START);               /* 5a85 */
+    return true;
 }
 
 static bool hiscore_checked(GameState *game)
@@ -884,6 +891,7 @@ static bool step(GameState *game)
     case MS_GAME_OVER_SOUND:        return game_over_sound(game);
     case MS_GAME_OVER_SCORES:       return game_over_scores(game);
     case MS_HISCORE_CHECK:          return hiscore_check(game);
+    case MS_NAME_ENTRY_BEGIN:       return name_entry_build(game);
     case MS_NAME_ENTRY_START:       return name_entry_start(game);
     case MS_NAME_ENTRY:             return name_entry(game);
     case MS_GAME_OVER_TABLE:        return game_over_table(game);
@@ -901,6 +909,23 @@ void main_sm_start(GameState *game)
 {
     (void)game;
     flow = (MainFlow){ .state = MS_BOOT };
+}
+
+void main_sm_enter(GameState *game, MainSmTestState state)
+{
+    main_sm_start(game);
+    if (state == MAIN_SM_TEST_GAME_OVER)
+        go(MS_GAME_OVER);
+}
+
+MainSmTestState main_sm_state(void)
+{
+    switch (flow.state) {
+    case MS_GAME_OVER:          return MAIN_SM_TEST_GAME_OVER;
+    case MS_NAME_ENTRY_BEGIN:   return MAIN_SM_TEST_NAME_ENTRY;
+    case MS_GAME_OVER_TABLE:    return MAIN_SM_TEST_GAME_OVER_TABLE;
+    default:                    return MAIN_SM_TEST_OTHER;
+    }
 }
 
 void main_sm_frame(GameState *game)
