@@ -206,6 +206,10 @@ typedef struct GameState {
     bool frame_drawn;                   /* 0429 the tick hook idles until a wave frame is drawn */
 
     HiscoreEntry hiscores[HISCORE_COUNT]; /* 40A0 */
+    /* 09DE/09E0 table row of each player's new entry, -1 = none: set by hiscore_insert
+     * (1000:5da2, which also shifts the other mark), reset at 1000:0933, drawn by 5c3c. */
+    int16_t hiscore_mark[PLAYER_COUNT];
+    bool rude_name;                     /* 0874 set by 1000:5e6d; 1000:160d then skips sample 0x11 */
 } GameState;
 
 #ifdef __cplusplus
