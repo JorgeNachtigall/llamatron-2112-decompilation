@@ -269,7 +269,7 @@ static void player_from(Player *p, Reader r, unsigned base)
     p->enemy_speed_y = gets16(r, base + 0x08);
     p->wave_type = gets16(r, base + 0x0A);
     p->swarm_reaim_period = gets16(r, base + 0x0C);
-    p->score_scale = gets16(r, base + 0x0E);
+    p->multi_shot = gets16(r, base + 0x0E);
     for (int i = 0; i < 7; i++)
         p->script_param[i] = gets16(r, base + 0x10 + 2 * (unsigned)i);
     p->powerup = gets16(r, base + 0x1E);
@@ -291,7 +291,7 @@ static void player_to(const Player *p, Writer w, unsigned base)
     put16(w, base + 0x08, (uint16_t)p->enemy_speed_y);
     put16(w, base + 0x0A, (uint16_t)p->wave_type);
     put16(w, base + 0x0C, (uint16_t)p->swarm_reaim_period);
-    put16(w, base + 0x0E, (uint16_t)p->score_scale);
+    put16(w, base + 0x0E, (uint16_t)p->multi_shot);
     for (int i = 0; i < 7; i++)
         put16(w, base + 0x10 + 2 * (unsigned)i, (uint16_t)p->script_param[i]);
     put16(w, base + 0x1E, (uint16_t)p->powerup);
