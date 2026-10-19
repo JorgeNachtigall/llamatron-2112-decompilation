@@ -1,8 +1,8 @@
 # Proprietary inputs and anything derived from them: never commit (docs/PLAN.md §9)
 original/
 unpacked/
-re/
-ghidra/
+/re/
+/ghidra/
 build/
 build-*/
 *.lst
