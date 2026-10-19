@@ -44,15 +44,16 @@ static void pickup_effect_03(GameState *game, unsigned touched)
     game->powerup_0652 = 1;
 }
 
-/* game86 1000:0fdb: one player only. With enemies left, the rest of the wave scores double
- * (score_scale 1); on an empty field it queues pickup 4 instead. */
+/* game86 1000:0fdb: one player only. With enemies left, multi-shot for the rest of the wave
+ * (3-way spread, and every score counts double); on an empty field it queues pickup 4
+ * instead. */
 static void pickup_effect_04(GameState *game, unsigned touched)
 {
     (void)touched;
     if (game->options & OPT_TWO_PLAYERS)
         return;
     if (game->enemies_alive != 0)
-        game->player.score_scale = 1;
+        game->player.multi_shot = 1;
     else
         game->player.pickup_pending = 5;
 }
