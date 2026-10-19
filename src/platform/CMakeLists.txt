@@ -22,6 +22,32 @@ target_link_libraries(llama_platform PUBLIC llama_sdl2)
 target_compile_options(llama_platform PRIVATE
     $<$<C_COMPILER_ID:Clang,AppleClang,GNU>:-Wall -Wextra>)
 
+# Asset store (pure C). Executables link exactly one implementation; see assets.h.
+option(LLAMATRON_EMBED_ASSETS "Compile the extracted data into native executables" ON)
+add_library(llama_assets_api INTERFACE)
+target_include_directories(llama_assets_api INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
+
+add_library(llama_assets_files STATIC assets.c)
+target_link_libraries(llama_assets_files PUBLIC llama_assets_api)
+if(EMSCRIPTEN)
+    target_compile_definitions(llama_assets_files PRIVATE LLAMATRON_DATA_DIR="/data")
+elseif(LLAMATRON_GENERATED_DIR)
+    target_compile_definitions(llama_assets_files PRIVATE LLAMATRON_DATA_DIR="${LLAMATRON_GENERATED_DIR}/data")
+endif()
+
+if(LLAMATRON_ASSETS_BLOB_C AND NOT EMSCRIPTEN)
+    add_library(llama_assets_embedded STATIC assets.c ${LLAMATRON_ASSETS_BLOB_C})
+    set_source_files_properties(${LLAMATRON_ASSETS_BLOB_C} PROPERTIES GENERATED TRUE)
+    target_link_libraries(llama_assets_embedded PUBLIC llama_assets_api)
+    target_compile_definitions(llama_assets_embedded PRIVATE LLAMATRON_EMBED_ASSETS)
+    add_dependencies(llama_assets_embedded llamatron_generated)
+endif()
+if(TARGET llama_assets_embedded AND LLAMATRON_EMBED_ASSETS)
+    set(LLAMA_ASSETS llama_assets_embedded)
+else()
+    set(LLAMA_ASSETS llama_assets_files)
+endif()
+
 # Test app: window + generated test pattern and palette (no original data needed).
 add_executable(platform_testpattern testapp/testpattern.c)
 target_link_libraries(platform_testpattern PRIVATE llama_platform llama_engine)
@@ -32,22 +58,19 @@ if(EMSCRIPTEN)
         "SHELL:--shell-file ${LLAMA_WEB_SHELL}")
 endif()
 
-# M1 front screen (fs.exe behaviour). Reads the extractor's title pictures at run time:
-# natively from the build tree, on the web from the preloaded /data.
+# M1 front screen (fs.exe behaviour). Native: pictures embedded in the binary; web: read from
+# the preloaded /data.
 add_executable(llamatron_title apps/title_main.c)
-target_link_libraries(llamatron_title PRIVATE llama_platform llama_engine)
+target_link_libraries(llamatron_title PRIVATE llama_platform llama_engine ${LLAMA_ASSETS})
 if(TARGET llamatron_generated)
     add_dependencies(llamatron_title llamatron_generated)
 endif()
 if(EMSCRIPTEN)
-    target_compile_definitions(llamatron_title PRIVATE LLAMATRON_DATA_DIR="/data")
     set_target_properties(llamatron_title PROPERTIES SUFFIX ".html"
         LINK_DEPENDS ${LLAMA_WEB_SHELL})
     target_link_options(llamatron_title PRIVATE -sALLOW_MEMORY_GROWTH=1
         "SHELL:--shell-file ${LLAMA_WEB_SHELL}"
         "SHELL:--preload-file ${LLAMATRON_GENERATED_DIR}/data@/data")
-else()
-    target_compile_definitions(llamatron_title PRIVATE LLAMATRON_DATA_DIR="${LLAMATRON_GENERATED_DIR}/data")
 endif()
 
 # Web smoke tests (PLAN.md §5): run in the web build tree (ctest --test-dir build-web). Local

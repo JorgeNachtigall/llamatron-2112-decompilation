@@ -9,7 +9,7 @@
  * a joystick for button 1 or 2 of stick A (the keyboard is ignored then). After that it waits
  * two vertical retraces and exits.
  *
- * The pictures come from the extractor (build/generated/data/title_*): raw indices plus the
+ * The pictures come from the extractor (data files title_*, see assets.h): raw indices plus the
  * palette values the original programmed into the hardware (6-bit DAC levels for VGA, rgbRGB
  * register values for EGA).
  */
@@ -57,9 +57,9 @@ typedef struct TitleScreen {
     GfxColor palette[GFX_PALETTE_SIZE]; /* as shown on screen */
 } TitleScreen;
 
-/* Load the picture for `adapter` from `data_dir` (the extractor's data/ directory).
- * Returns false (with a message on stderr) if a file is missing or has the wrong size. */
-bool title_load(TitleScreen *title, GfxAdapter adapter, InputDevice device, const char *data_dir);
+/* Load the picture for `adapter` through the asset store (assets.h). Returns false (with a
+ * message on stderr) if a file is missing or has the wrong size. */
+bool title_load(TitleScreen *title, GfxAdapter adapter, InputDevice device);
 void title_free(TitleScreen *title);
 
 /* Keyboard event (PC make code). Only counts in keyboard mode. */

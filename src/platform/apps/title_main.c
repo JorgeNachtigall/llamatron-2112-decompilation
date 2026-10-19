@@ -4,11 +4,15 @@
  *
  *   llamatron_title [--ega] [--joystick] [--data DIR] [--frames N] [--dump FILE.ppm]
  *
+ * The pictures are compiled into the binary (native default) or read from the data directory
+ * (--data, web /data, LLAMATRON_EMBED_ASSETS=OFF builds); see assets.h.
+ *
  * --frames N quits after N frames and prints a hash of the picture and of the rendered
  * window contents (read back before present); on the web use ?frames=N&ega. --dump writes the shown
  * picture (palette applied) as a binary PPM for local inspection. Never commit such dumps:
  * they contain the original artwork (docs/PLAN.md §9).
  */
+#include "assets.h"
 #include "input.h"
 #include "platform.h"
 #include "title.h"
@@ -19,10 +23,6 @@
 
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
-#endif
-
-#ifndef LLAMATRON_DATA_DIR
-#define LLAMATRON_DATA_DIR "data"
 #endif
 
 typedef struct App {
@@ -109,14 +109,13 @@ int main(int argc, char **argv)
     App *app = &g_app;
     GfxAdapter adapter = GFX_ADAPTER_VGA;
     InputDevice device = INPUT_DEVICE_KEYBOARD;
-    const char *data_dir = LLAMATRON_DATA_DIR;
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--ega") == 0)
             adapter = GFX_ADAPTER_EGA;
         else if (strcmp(argv[i], "--joystick") == 0)
             device = INPUT_DEVICE_JOYSTICK;
         else if (strcmp(argv[i], "--data") == 0 && i + 1 < argc)
-            data_dir = argv[++i];
+            assets_set_directory(argv[++i]);
         else if (strcmp(argv[i], "--frames") == 0 && i + 1 < argc)
             app->frames_left = strtol(argv[++i], NULL, 10);
         else if (strcmp(argv[i], "--dump") == 0 && i + 1 < argc)
@@ -135,7 +134,7 @@ int main(int argc, char **argv)
         app->frames_left = strtol(frames + 7, NULL, 10);
 #endif
 
-    if (!title_load(&app->title, adapter, device, data_dir))
+    if (!title_load(&app->title, adapter, device))
         return 1;
     PlatConfig config = { "Llamatron 2112", 3, false, true };
     if (!plat_init(&config))

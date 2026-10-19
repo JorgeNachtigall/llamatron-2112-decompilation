@@ -3,34 +3,22 @@
  */
 #include "title.h"
 
-#include <stdio.h>
+#include "assets.h"
+
 #include <stdlib.h>
 #include <string.h>
 
-enum { PATH_MAX_LEN = 1024, JOY_STICK_A_BUTTONS = 0x30 };
+enum { JOY_STICK_A_BUTTONS = 0x30 };
 
-/* Read exactly `size` bytes of data_dir/name into `out`. */
-static bool read_exact(const char *data_dir, const char *name, void *out, size_t size)
+/* A 6-bit DAC level as the 8-bit value a VGA shows. */
+static uint8_t dac6_to_8(uint8_t level)
 {
-    char path[PATH_MAX_LEN];
-    snprintf(path, sizeof path, "%s/%s", data_dir, name);
-    FILE *f = fopen(path, "rb");
-    if (!f) {
-        fprintf(stderr, "title: cannot open %s (run the build with LLAMATRON_ORIGINAL_DIR set)\n", path);
-        return false;
-    }
-    size_t got = fread(out, 1, size, f);
-    int extra = fgetc(f);
-    fclose(f);
-    if (got != size || extra != EOF) {
-        fprintf(stderr, "title: %s has the wrong size (expected %zu bytes)\n", path, size);
-        return false;
-    }
-    return true;
+    level &= 0x3f;
+    return (uint8_t)(level << 2 | level >> 4);
 }
 
 /* fs.exe 1000:01bf (picture display) */
-bool title_load(TitleScreen *title, GfxAdapter adapter, InputDevice device, const char *data_dir)
+bool title_load(TitleScreen *title, GfxAdapter adapter, InputDevice device)
 {
     memset(title, 0, sizeof *title);
     title->adapter = adapter;
@@ -47,29 +35,30 @@ bool title_load(TitleScreen *title, GfxAdapter adapter, InputDevice device, cons
 
     if (vga) {
         /* 1000:01c9: NEWTIT rows 0-199, NEWTIT2 rows 200-399, DAC from NEWTIT's CMAP >> 2. */
-        uint8_t dac[GFX_PALETTE_SIZE][3];
-        if (!read_exact(data_dir, "title_vga.idx8", title->pixels, pixel_count) ||
-            !read_exact(data_dir, "title_vga.pal", dac, sizeof dac)) {
+        const uint8_t *pixels = asset_get_exact("title_vga.idx8", pixel_count);
+        const uint8_t *dac = asset_get_exact("title_vga.pal", GFX_PALETTE_SIZE * 3);
+        if (!pixels || !dac) {
             title_free(title);
             return false;
         }
+        memcpy(title->pixels, pixels, pixel_count);
         for (int i = 0; i < GFX_PALETTE_SIZE; i++) {
-            title->palette[i].r = (uint8_t)((dac[i][0] & 0x3f) << 2 | (dac[i][0] & 0x3f) >> 4);
-            title->palette[i].g = (uint8_t)((dac[i][1] & 0x3f) << 2 | (dac[i][1] & 0x3f) >> 4);
-            title->palette[i].b = (uint8_t)((dac[i][2] & 0x3f) << 2 | (dac[i][2] & 0x3f) >> 4);
+            title->palette[i].r = dac6_to_8(dac[i * 3 + 0]);
+            title->palette[i].g = dac6_to_8(dac[i * 3 + 1]);
+            title->palette[i].b = dac6_to_8(dac[i * 3 + 2]);
         }
     } else {
         /* 1000:0216: TRONEGA, then INT 10h AX=1002h with the 17 registers built from its CMAP. */
-        uint8_t registers[TITLE_EGA_REGISTERS];
-        if (!read_exact(data_dir, "title_ega.idx4", title->pixels, pixel_count) ||
-            !read_exact(data_dir, "title_ega.pal", registers, sizeof registers)) {
+        const uint8_t *pixels = asset_get_exact("title_ega.idx4", pixel_count);
+        const uint8_t *registers = asset_get_exact("title_ega.pal", TITLE_EGA_REGISTERS);
+        if (!pixels || !registers) {
             title_free(title);
             return false;
         }
         for (int i = 0; i < GFX_GAME_COLORS; i++)
             title->palette[i] = gfx_ega_color(registers[i]);
         for (size_t i = 0; i < pixel_count; i++)
-            title->pixels[i] &= 0x0f;
+            title->pixels[i] = pixels[i] & 0x0f;
     }
     return true;
 }
