@@ -4,13 +4,18 @@
  * PROBE.SNP). Test-only (tests/, PLAN §3.3); the game itself never sees the DGROUP layout.
  *
  *   llamatron_replay --ticks N [--every K] [--ega|--vga] [--seed BIOS_TICKS]
- *                    [--keys PROBE.KEY] [--out FILE] [--data DIR]
+ *                    [--keys PROBE.KEY] [--pokes PROBE.POK] [--out FILE] [--data DIR]
  *
  * Sequencing is the shell's replay mode (src/platform/apps/llamatron_main.c): game_init, then
  * per frame of the fixed 70.086 Hz display clock the due timer ticks (each: the script bytes
  * due at that tick into the keyboard handler, then game_tick) and one game_frame. Ticks count
  * from 1 after game_init, like the probe's IRQs. After every K-th tick (as the probe, after
  * the game's handler) the GameState goes through gamestate_to_dgroup into the output.
+ *
+ * PROBE.POK (the probe's scripted state changes, {u32 tick, u16 DS offset, u16 word}) is
+ * applied before the keys of its tick, like the probe does: the GameState goes out through
+ * gamestate_to_dgroup, the word is stored, and gamestate_from_dgroup reads it back. Only
+ * offsets the adapter maps can be poked.
  *
  * Output (little endian): "LRPL", u16 version 1, u16 0, u32 every, u32 count,
  * u8 mask[65536] (dgroup_map_mask: which bytes are state), then count x
@@ -28,10 +33,19 @@
 #include <stdlib.h>
 #include <string.h>
 
+typedef struct Poke {
+    uint32_t tick;
+    uint16_t offset;
+    uint16_t value;
+} Poke;
+
 typedef struct Replay {
     GameState game;
     InputScript keys;
     bool have_keys;
+    Poke *pokes;
+    size_t poke_count;
+    size_t poke_next;
     uint32_t ticks;             /* run so far */
     uint32_t max_ticks;
     uint32_t every;
@@ -59,12 +73,61 @@ static void write_header(Replay *r)
     fseek(r->out, 0, SEEK_END);
 }
 
+static bool load_pokes(Replay *r, const char *path)
+{
+    FILE *f = fopen(path, "rb");
+    if (!f) {
+        perror(path);
+        return false;
+    }
+    uint8_t rec[8];
+    uint8_t *mask = r->image;
+    dgroup_map_mask(mask);
+    bool ok = true;
+    while (ok && fread(rec, 1, sizeof rec, f) == sizeof rec) {
+        Poke p = { (uint32_t)rec[0] | (uint32_t)rec[1] << 8 | (uint32_t)rec[2] << 16
+                       | (uint32_t)rec[3] << 24,
+                   (uint16_t)(rec[4] | rec[5] << 8), (uint16_t)(rec[6] | rec[7] << 8) };
+        if (p.offset == 0xFFFF || mask[p.offset] == DGROUP_MASK_UNMAPPED
+            || mask[p.offset + 1] == DGROUP_MASK_UNMAPPED) {
+            fprintf(stderr, "%s: DS:%04x is not mapped by the adapter\n", path, p.offset);
+            ok = false;
+        } else if (r->poke_count && p.tick < r->pokes[r->poke_count - 1].tick) {
+            fprintf(stderr, "%s: records not sorted by tick\n", path);
+            ok = false;
+        } else {
+            Poke *grown = realloc(r->pokes, (r->poke_count + 1) * sizeof *grown);
+            if (!grown) {
+                ok = false;
+                break;
+            }
+            r->pokes = grown;
+            r->pokes[r->poke_count++] = p;
+        }
+    }
+    fclose(f);
+    return ok;
+}
+
+static void apply_pokes(Replay *r)
+{
+    while (r->poke_next < r->poke_count && r->pokes[r->poke_next].tick <= r->ticks) {
+        const Poke *p = &r->pokes[r->poke_next++];
+        memset(r->image, 0, sizeof r->image);
+        gamestate_to_dgroup(&r->game, r->image);
+        r->image[p->offset] = (uint8_t)p->value;
+        r->image[p->offset + 1] = (uint8_t)(p->value >> 8);
+        gamestate_from_dgroup(&r->game, r->image);
+    }
+}
+
 static void tick_cb(void *user)
 {
     Replay *r = user;
     if (r->ticks >= r->max_ticks)
         return;
     r->ticks++;
+    apply_pokes(r);
     const InputScriptEvent *e;
     while (r->have_keys && (e = input_script_take_due(&r->keys, r->ticks)) != NULL)
         input_keyboard_byte(e->scan_code);
@@ -81,7 +144,7 @@ static void tick_cb(void *user)
 static int usage(void)
 {
     fprintf(stderr, "usage: llamatron_replay --ticks N [--every K] [--ega|--vga] [--seed T] "
-                    "[--keys PROBE.KEY] [--out FILE] [--data DIR]\n");
+                    "[--keys PROBE.KEY] [--pokes PROBE.POK] [--out FILE] [--data DIR]\n");
     return 2;
 }
 
@@ -107,6 +170,9 @@ int main(int argc, char **argv)
             if (!input_script_load(&r->keys, argv[++i]))
                 return 1;
             r->have_keys = true;
+        } else if (strcmp(a, "--pokes") == 0 && v) {
+            if (!load_pokes(r, argv[++i]))
+                return 1;
         } else if (strcmp(a, "--out") == 0 && v)
             out_path = argv[++i];
         else if (strcmp(a, "--data") == 0 && v)
@@ -150,5 +216,6 @@ int main(int argc, char **argv)
            r->dumped, game_wants_quit(&r->game) ? 1 : 0);
     if (r->have_keys)
         input_script_free(&r->keys);
+    free(r->pokes);
     return 0;
 }

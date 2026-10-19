@@ -10,6 +10,9 @@
 ;     mmmm      maximum number of snapshots (hex, at most MAX_SNAPS)
 ;   optional PROBE.KEY in the current directory: scripted keyboard input, records of
 ;   6 bytes {u32 irq number, u8 scancode, u8 0}, sorted by irq number.
+;   optional PROBE.POK: scripted state changes (scenarios that keys cannot reach, e.g. a
+;   warp), records of 8 bytes {u32 irq number, u16 DGROUP offset, u16 value}, sorted by
+;   irq number; each stores the word at DS:offset right before that IRQ's keys.
 ;
 ; What it does:
 ;  1. Masks IRQ0 and writes tttttttt to 0040:006C, so the BIOS tick word stays
@@ -22,7 +25,7 @@
 ;     (INT 21h AX=2508h from 1000:e55b) the probe installs irq08_wrapper instead and
 ;     calls the game's handler from it. For every timer IRQ (numbered from 1) the
 ;     wrapper
-;       - applies the scripted keys due at this IRQ, with the same effect as the
+;       - applies the scripted pokes, then the scripted keys due at this IRQ, with the same effect as the
 ;         game's keyboard handler (1000:e567..e5e9), BEFORE the game's tick runs;
 ;       - after the tick, every iiiiiiii IRQs copies DGROUP into XMS;
 ;       - after such a snapshot, copies VRAM (planes 0..3, offsets 0..5F3Fh = the
@@ -34,13 +37,14 @@
 ;     85h=flash, 86h=VGA, 88h=0 (keyboard), 89h=FFh (no sound driver).
 ;  5. After the game exits: PROBE.HDR, PROBE.DG and (if any snapshots) PROBE.SNP.
 ;
-; PROBE.HDR (little endian, version 2):
+; PROBE.HDR (little endian, version 3):
 ;   +0 'LTPB'  +4 u16 version  +6 u16 DGROUP segment  +8 u32 tick pinned
 ;   +12 u32 tick word at the INT 10h snapshot  +16 u8 INT 10h snapshot taken
 ;   +17 u8 game exit code  +18 u8 exit type (INT 21h/4Dh AH; FFh = EXEC failed)
 ;   +19 u8 EXEC error  +20 u16 periodic snapshots taken  +22 u8 XMS available
 ;   +23 u8 timer wrap state (0 never, 1 wrapped, 2 game restored its vector)
 ;   +24 u32 timer IRQs seen  +28 u16 scripted keys applied  +30 u16 keys loaded
+;   +32 u16 scripted pokes applied  +34 u16 pokes loaded
 ; PROBE.SNP: header {'LTSN', u16 version 1, u16 count, u32 interval, u16 flags
 ;   (bit0 VRAM present), u32 DGROUP bytes, u32 VRAM bytes}, then count x {u32 IRQ of
 ;   the DGROUP copy, u32 IRQ of the VRAM copy (0 = none)}, then per snapshot the
@@ -57,6 +61,8 @@ SLOT_LOW        equ     7D00h           ; slot size = 2 * 10000h + SLOT_LOW
 MAX_SNAPS       equ     200
 MAX_KEYS        equ     4000
 KEY_REC         equ     6
+MAX_POKES       equ     256
+POKE_REC        equ     8
 VSYNC_FIRST     equ     0E5F3h          ; game86 1000:e5f3 vsync wait, RETF at e604
 VSYNC_LAST      equ     0E604h
 KBD_LAST_RAW    equ     0587h           ; game86 DGROUP variables written by 1000:e567
@@ -67,6 +73,9 @@ KBD_BITS        equ     0588h
 start:
         mov     sp, stack_top
         cld
+        xor     ax, ax                  ; .bss is not cleared by DOS
+        mov     [key_pos], ax
+        mov     [poke_pos], ax
         mov     si, 81h                 ; our command tail
         call    skip_spaces
         call    parse_hex32
@@ -117,6 +126,7 @@ start:
         mov     [keyseg], ax
 
         call    load_keys
+        call    load_pokes
         call    setup_xms
 
         mov     ax, 3510h               ; hook INT 10h
@@ -259,6 +269,26 @@ load_keys:                              ; PROBE.KEY -> keyseg, nkeys
 .none:
         ret
 
+load_pokes:                             ; PROBE.POK -> pokes, npokes
+        mov     dx, poke_name
+        mov     ax, 3D00h
+        int     21h
+        jc      .none
+        mov     [handle], ax
+        mov     bx, ax
+        mov     dx, pokes
+        mov     cx, MAX_POKES * POKE_REC
+        mov     ah, 3Fh
+        int     21h
+        jc      .close
+        mov     cl, 3
+        shr     ax, cl                  ; / POKE_REC
+        mov     [npokes], ax
+.close:
+        call    close_file
+.none:
+        ret
+
 setup_xms:                              ; XMS block for max_snaps slots
         cmp     word [max_snaps], 0
         je      .off
@@ -375,6 +405,7 @@ irq08_wrapper:
         inc     byte [depth]
         add     word [irq_count], 1
         adc     word [irq_count+2], 0
+        call    apply_pokes
         call    apply_keys
         pushf
         call    far [game08]
@@ -428,6 +459,37 @@ apply_keys:                             ; scripted keys with irq <= irq_count
         jmp     .next
 .done:
         mov     [key_pos], si
+.ret:
+        ret
+
+apply_pokes:                            ; scripted pokes with irq <= irq_count
+        mov     ax, [dgroup_seg]
+        or      ax, ax
+        jz      .ret
+        mov     es, ax
+        mov     si, [poke_pos]
+.next:
+        cmp     si, [npokes]
+        jae     .done
+        mov     bx, si
+        mov     cl, 3
+        shl     bx, cl                  ; bx = si * POKE_REC
+        mov     ax, [pokes + bx]
+        mov     dx, [pokes + bx + 2]
+        cmp     dx, [irq_count+2]
+        ja      .done
+        jb      .apply
+        cmp     ax, [irq_count]
+        ja      .done
+.apply:
+        mov     di, [pokes + bx + 4]
+        mov     ax, [pokes + bx + 6]
+        mov     [es:di], ax
+        inc     word [pokes_applied]
+        inc     si
+        jmp     .next
+.done:
+        mov     [poke_pos], si
 .ret:
         ret
 
@@ -794,6 +856,7 @@ hdr_name:   db      "PROBE.HDR", 0
 dg_name:    db      "PROBE.DG", 0
 snp_name:   db      "PROBE.SNP", 0
 key_name:   db      "PROBE.KEY", 0
+poke_name:  db      "PROBE.POK", 0
 
 ; command tail as llama.exe passes it (copied to the child PSP:80h)
 tail:       db      0, 'l', 'm', 0Dh, 0, 0, 1, 0, 0, 0FFh, 0, 0, 0, 0
@@ -806,7 +869,7 @@ epb_fcb1:   dw      fcb, 0
 epb_fcb2:   dw      fcb, 0
 
 header:     db      "LTPB"
-            dw      2
+            dw      3
 dgroup_seg: dw      0
 ticks:      dd      0
 ticks_seen: dd      0
@@ -820,6 +883,8 @@ wrapped:    db      0
 irq_count:  dd      0
 keys_applied: dw    0
 nkeys:      dw      0
+pokes_applied: dw   0
+npokes:     dw      0
 header_end:
 
 snp_header: db      "LTSN"
@@ -857,6 +922,7 @@ xms_handle: resw    1
 max_snaps:  resw    1
 nsnaps:     resw    1
 key_pos:    resw    1
+poke_pos:   resw    1
 pic_mask:   resb    1
 vga:        resb    1
 in_game:    resb    1
@@ -867,6 +933,7 @@ gc_read_map: resb   1
 gc_mode:    resb    1
             alignb  2
 meta:       resb    MAX_SNAPS * 8
+pokes:      resb    MAX_POKES * POKE_REC
 stack:      resb    1024
 stack_top:
 prog_end:

@@ -33,9 +33,10 @@ DEFAULT_ORIGINAL = REPO_ROOT / "original"
 DEFAULT_WORKDIR = REPO_ROOT / "build-dosbox"
 MARKER = "REFRUN.TXT"
 PROBE_ASM = Path(__file__).resolve().parent / "probe.asm"
-HEADER_FMT = "<4sHHIIBBBBHBBIHH"   # PROBE.HDR version 2, see probe.asm
+HEADER_FMT = "<4sHHIIBBBBHBBIHHHH"  # PROBE.HDR version 3, see probe.asm
 SNP_FMT = "<4sHHIHII"                # PROBE.SNP header
 KEY_FMT = "<IBB"                     # PROBE.KEY record: irq, scancode, 0
+POKE_FMT = "<IHH"                    # PROBE.POK record: irq, DGROUP offset, word
 SCAN_Q = 0x10
 QUIT_REPEATS = 30
 
@@ -68,6 +69,8 @@ class ProbeResult:
     irq_count: int = 0        # timer IRQs seen while the game ran
     keys_applied: int = 0
     keys_loaded: int = 0
+    pokes_applied: int = 0
+    pokes_loaded: int = 0
     dgroup: bytes = field(default=b"", repr=False)   # 64 KB snapshot (never commit)
     snapshots: list = field(default_factory=list, repr=False)
 
@@ -178,7 +181,8 @@ def run(original: Path = DEFAULT_ORIGINAL, workdir: Path = DEFAULT_WORKDIR,
 def probe(ticks: int, original: Path = DEFAULT_ORIGINAL, workdir: Path = DEFAULT_WORKDIR,
           machine: str = "vga", flash: str = "N", cycles: int = 20000,
           time_limit: int = 60, interval: int = 0, max_snapshots: int = 0,
-          keys: list[tuple[int, int]] | None = None, quit_after: int = 0) -> ProbeResult:
+          keys: list[tuple[int, int]] | None = None, quit_after: int = 0,
+          pokes: list[tuple[int, int, int]] | None = None) -> ProbeResult:
     """Run game86 under PROBE.COM with the BIOS tick pinned to `ticks` during
     start-up. Always returns the DGROUP snapshot taken right after the RNG shuffle.
 
@@ -187,7 +191,8 @@ def probe(ticks: int, original: Path = DEFAULT_ORIGINAL, workdir: Path = DEFAULT
     game's tick for that IRQ. Without keys, q is typed via AUTOTYPE (wall-clock
     timing) until the game quits. With keys, q presses are appended from
     `quit_after` on (default: 50 IRQs after the last key) so the run ends
-    deterministically."""
+    deterministically. pokes: scripted state changes [(irq, DGROUP offset, word)], stored
+    right before that IRQ's keys (PROBE.POK)."""
     exe = find_dosbox()
     if not exe:
         raise FileNotFoundError("dosbox-x not found (brew install dosbox-x)")
@@ -207,6 +212,9 @@ def probe(ticks: int, original: Path = DEFAULT_ORIGINAL, workdir: Path = DEFAULT
         (drive / "PROBE.KEY").write_bytes(b"".join(struct.pack(KEY_FMT, irq, sc, 0)
                                                    for irq, sc in events))
         autotype = ""
+    if pokes:
+        (drive / "PROBE.POK").write_bytes(b"".join(struct.pack(POKE_FMT, irq, off, value & 0xFFFF)
+                                                   for irq, off, value in sorted(pokes)))
     vga = 1 if machine == "vga" else 0
     flash_arg = {"N": 0, "P": 1, "Y": 2}[flash]
     conf = workdir / "probe.conf"
@@ -222,15 +230,15 @@ def probe(ticks: int, original: Path = DEFAULT_ORIGINAL, workdir: Path = DEFAULT
         raise RuntimeError(f"probe wrote no PROBE.HDR (dosbox-x rc {proc.returncode}); "
                            f"see {conf}")
     (magic, version, seg, pinned, seen, taken, code, etype, err, nsnaps, xms_ok, wrapped,
-     irqs, applied, loaded) = struct.unpack(
+     irqs, applied, loaded, pokes_applied, pokes_loaded) = struct.unpack(
         HEADER_FMT, files["PROBE.HDR"].read_bytes()[:struct.calcsize(HEADER_FMT)])
-    if magic != b"LTPB" or version != 2:
+    if magic != b"LTPB" or version != 3:
         raise RuntimeError("bad PROBE.HDR")
     dgroup = files["PROBE.DG"].read_bytes() if "PROBE.DG" in files else b""
     snaps = read_snapshots(files["PROBE.SNP"]) if "PROBE.SNP" in files else []
     return ProbeResult(proc.returncode, pinned, seen, bool(taken), seg, code, etype, err,
                        str(workdir), nsnaps, bool(xms_ok), wrapped, irqs, applied, loaded,
-                       dgroup, snaps)
+                       pokes_applied, pokes_loaded, dgroup, snaps)
 
 
 def main(argv=None) -> int:
