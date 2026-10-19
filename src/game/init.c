@@ -67,7 +67,7 @@ void init_image_values(GameState *game)
  * DS:40A0. */
 void init_load_data(GameState *game)
 {
-    text_use_game_assets();                         /* the font and \\s sprites */
+    text_use_game_assets();                         /* the font and \s sprites */
     const HighScoreTable *table = asset_user_scores();
     if (table == NULL || table->count != HISCORE_COUNT)
         table = asset_default_scores();
