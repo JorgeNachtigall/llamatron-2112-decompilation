@@ -76,6 +76,14 @@ void snd_tick(void);
 size_t snd_take_output(uint8_t *out, size_t max);
 size_t snd_output_pending(void);
 
+/* Counters since snd_init, for tests: requests taken by the real driver (AH=3 while enabled)
+ * and samples started at a tick. */
+typedef struct SoundStats {
+    uint32_t requests;
+    uint32_t started;
+} SoundStats;
+SoundStats snd_stats(void);
+
 /* Duration of sample n at a rate index in microseconds (length * (256 - tc)). */
 uint64_t snd_sample_duration_us(uint8_t sample, uint8_t rate_index);
 

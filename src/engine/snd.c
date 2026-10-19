@@ -39,6 +39,7 @@ static struct {
     uint64_t voice_end;
     uint64_t units_per_source_sample;
 
+    SoundStats stats;
     uint64_t output_emitted;        /* output samples rendered since snd_init */
     uint8_t output[OUTPUT_BUFFER];
     size_t output_count;
@@ -67,6 +68,7 @@ void snd_play(uint8_t sample, uint8_t rate_index, uint8_t priority)
 {
     if (!g_snd.enabled)
         return;
+    g_snd.stats.requests++;
     g_snd.pending_sample = sample;
     /* CL > 4 would read code bytes after the table; the game never does that. */
     g_snd.time_constant = g_snd.bank->time_constants[rate_index < SND_RATE_COUNT ? rate_index : 0];
@@ -136,6 +138,7 @@ static void start_pending_sample(void)
     g_snd.current_sample = sample;
     g_snd.pending_sample = 0;
     g_snd.current_priority = g_snd.requested_priority;
+    g_snd.stats.started++;
 
     /* The 64 KB DMA page split (second half started from the IRQ) only adds microseconds; the
      * port plays the sample as one block. */
@@ -187,6 +190,11 @@ size_t snd_take_output(uint8_t *out, size_t max)
     memmove(g_snd.output, g_snd.output + n, g_snd.output_count - n);
     g_snd.output_count -= n;
     return n;
+}
+
+SoundStats snd_stats(void)
+{
+    return g_snd.stats;
 }
 
 size_t snd_output_pending(void)

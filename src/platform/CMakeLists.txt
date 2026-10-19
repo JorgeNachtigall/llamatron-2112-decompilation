@@ -163,6 +163,19 @@ if(EXISTS ${PROJECT_SOURCE_DIR}/src/game/CMakeLists.txt)
             PASS_REGULAR_EXPRESSION "scores loaded: yes hash=6abcb5eb")
         set_tests_properties(llamatron_scores_reset llamatron_scores_low llamatron_scores_play
             llamatron_scores_reload PROPERTIES RESOURCE_LOCK llamatron_scores_prefs)
+        # In-game sound (M5): a game held on fire with llama.inf sound S (lower case, as
+        # llama.exe upper-cases it) requests and plays samples through snd.c; with N none.
+        set(_sound_prefs ${CMAKE_CURRENT_BINARY_DIR}/llamatron-sound-prefs)
+        file(WRITE ${_sound_prefs}/llama.inf "V K s 0 N")
+        set(_sound_run --flash N --seed 0 --start-after 3 --tap 300:57:100000 --frames 1500)
+        add_test(NAME llamatron_game_sound COMMAND ${CMAKE_COMMAND} -E env LLAMATRON_PREF_DIR=${_sound_prefs}
+            $<TARGET_FILE:llamatron> ${_sound_run})
+        set_tests_properties(llamatron_game_sound PROPERTIES PASS_REGULAR_EXPRESSION
+            "settings V K S 0 N.*game sound requests=73 started=64 samples=470814 audible=285198 hash=4b7610d9")
+        add_test(NAME llamatron_game_sound_off COMMAND ${CMAKE_COMMAND} -E env LLAMATRON_PREF_DIR=${_sound_prefs}
+            $<TARGET_FILE:llamatron> ${_sound_run} --sound N)
+        set_tests_properties(llamatron_game_sound_off PROPERTIES PASS_REGULAR_EXPRESSION
+            "game sound requests=0 started=0 samples=470814 audible=0 ")
     endif()
 endif()
 
@@ -265,6 +278,12 @@ if(EMSCRIPTEN)
                 --expect "title 320x400 hash=c7ab74c4 canvas 1000x750 hash=0434b058")
             set_tests_properties(web_display_hidpi web_display_integer web_display_sharp PROPERTIES
                 SKIP_RETURN_CODE 77 LABELS web TIMEOUT 180)
+            # In-game sound through the wasm build (llamatron_game_sound; the tap reaches the
+            # game a frame later than natively, which gives another run).
+            add_test(NAME web_game_sound COMMAND ${Python3_EXECUTABLE} ${_game} --timeout-s 120
+                --query vga&keyboard&flash=N&seed=0&start=3&sound=S&taps=300:57:100000&frames=1500
+                --expect "game sound requests=73 started=64 samples=470814 audible=284832 hash=2fc5c0fb")
+            set_tests_properties(web_game_sound PROPERTIES SKIP_RETURN_CODE 77 LABELS web TIMEOUT 180)
             # High scores through IDBFS, three page loads on one browser profile (as
             # llamatron_scores_*): store a low table; play to a saved hi-score (the tap reaches
             # the game a frame later than natively, hence another table); reload and read it.

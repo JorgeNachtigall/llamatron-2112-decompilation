@@ -3,7 +3,7 @@
  * through its entry API (src/game/game.h). No game logic here: the shell only sequences the two
  * and connects the platform services (window, audio, input, settings, host requests).
  *
- *   llamatron [--vga|--ega] [--keyboard|--joystick] [--flash N|P|Y] [--mute] [--data DIR]
+ *   llamatron [--vga|--ega] [--keyboard|--joystick] [--flash N|P|Y] [--sound N|S|A|R] [--mute] [--data DIR]
  *             [--frames N] [--start-after K] [--tap F:SC:N,...] [--seed BIOS_TICKS]
  *             [--record FILE | --replay FILE | --keys T:SC,...] [--page-hashes T1,T2,...]
  *             [--dump-pages DIR --dump-ticks T1,T2,...] [--tick-phase F] [--start-delay N]
@@ -39,7 +39,7 @@
  * in test runs (--frames, replays) instead of one, to reach late game states quickly; taps and
  * --frames still count host frames. On the web the page URL stands in for the command
  * line:
- * ?ega&vga&joystick&keyboard&mute&frames=N&start=K&seed=T&flash=N|P|Y&keys=T:SC,...&hashes=T1,...
+ * ?ega&vga&joystick&keyboard&mute&sound=N|S|A|R&frames=N&start=K&seed=T&flash=N|P|Y&keys=T:SC,...&hashes=T1,...
  * &phase=F&delay=N&taps=F:SC:N,...&keepscores&lowscores&speed=N&scale=nearest|integer|sharp
  * --keys is an input script given inline (tick:scan byte pairs, as in PROBE.KEY), so the web
  * build can replay too. --page-hashes prints, right before each listed tick, the FNV-1a hash of
@@ -95,6 +95,10 @@ typedef struct App {
     unsigned pending_requests;      /* host requests not yet handed to a game frame */
     SoundBank bank;
     bool sound;                     /* bank loaded and not muted */
+    struct {
+        uint64_t samples, audible;  /* output fed since the game started; audible = not 0x80 */
+        uint32_t hash;
+    } game_audio;                   /* --frames report */
     bool title_sample_requested;
 
     long frames_left;               /* --frames */
@@ -301,6 +305,18 @@ static bool parse_taps(const char *text, App *app)
     }
 }
 
+/* --sound / ?sound=: the llama.inf sound letter (any card but N plays the Sound Blaster
+ * samples, DEVIATIONS #22). */
+static SettingsSound parse_sound(char letter)
+{
+    switch (letter & 0xDF) {
+    case 'A': return SETTINGS_SOUND_ADLIB;
+    case 'S': return SETTINGS_SOUND_BLASTER;
+    case 'R': return SETTINGS_SOUND_ROLAND;
+    default: return SETTINGS_SOUND_NONE;
+    }
+}
+
 /* --scale / ?scale=: a PlatScaleMode by name (stops at the first other character). */
 static bool parse_scale(const char *text, PlatScaleMode *mode)
 {
@@ -381,6 +397,12 @@ static void feed_audio(App *app)
     uint8_t buffer[4096];
     size_t n;
     while (app->sound && (n = snd_take_output(buffer, sizeof buffer)) > 0) {
+        if (app->phase == PHASE_GAME) {
+            app->game_audio.hash = fnv1a(buffer, n, app->game_audio.hash);
+            app->game_audio.samples += n;
+            for (size_t i = 0; i < n; i++)
+                app->game_audio.audible += buffer[i] != SND_SILENCE;
+        }
         if (plat_audio_queued() < AUDIO_MAX_QUEUED)
             plat_audio_queue(buffer, n);
     }
@@ -457,6 +479,8 @@ static bool start_game(App *app)
     if (app->sound) {
         snd_init(&app->bank, AUDIO_RATE);
         snd_set_enabled(app->settings.sound != SETTINGS_SOUND_NONE);
+        app->game_audio.samples = app->game_audio.audible = 0;
+        app->game_audio.hash = 2166136261u;
     }
     input_init(app->device, true);
     gfx_init();
@@ -556,6 +580,12 @@ static void print_test_report(const App *app)
         uint32_t h = fnv1a(gfx_display_pixels(), (size_t)GFX_WIDTH * GFX_HEIGHT, 2166136261u);
         h = fnv1a((const uint8_t *)gfx_palette(), sizeof(GfxColor) * GFX_PALETTE_SIZE, h);
         printf("game display hash=%08x canvas %dx%d hash=%08x\n", h, cw, ch, canvas);
+    }
+    if (app->phase == PHASE_GAME && app->sound) {
+        SoundStats st = snd_stats();
+        printf("game sound requests=%u started=%u samples=%llu audible=%llu hash=%08x\n",
+               (unsigned)st.requests, (unsigned)st.started, (unsigned long long)app->game_audio.samples,
+               (unsigned long long)app->game_audio.audible, app->game_audio.hash);
     }
     printf("llamatron phase=%s frames=%ld ticks=%llu\n", app->phase == PHASE_TITLE ? "title" : "game",
            app->frame_count, (unsigned long long)app->scheduler.ticks);
@@ -711,7 +741,9 @@ int main(int argc, char **argv)
             const char *f = argv[++i];
             app->settings.flash = f[0] == 'Y' ? SETTINGS_FLASH_ALL
                                 : f[0] == 'P' ? SETTINGS_FLASH_PULSE_ONLY : SETTINGS_FLASH_NONE;
-        } else if (strcmp(argv[i], "--mute") == 0)
+        } else if (strcmp(argv[i], "--sound") == 0 && i + 1 < argc)
+            app->settings.sound = parse_sound(argv[++i][0]);
+        else if (strcmp(argv[i], "--mute") == 0)
             mute = true;
         else if (strcmp(argv[i], "--data") == 0 && i + 1 < argc)
             assets_set_directory(argv[++i]);
@@ -772,6 +804,9 @@ int main(int argc, char **argv)
         app->settings.joystick = false;
     if (strstr(query, "mute"))
         mute = true;
+    const char *sound = strstr(query, "sound=");
+    if (sound)
+        app->settings.sound = parse_sound(sound[6]);
     const char *frames = strstr(query, "frames=");
     if (frames)
         app->frames_left = strtol(frames + 7, NULL, 10);
