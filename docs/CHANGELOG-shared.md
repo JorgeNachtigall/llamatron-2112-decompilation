@@ -32,3 +32,4 @@ Shared headers (PLAN.md §7) are owned by the integration lead (W0). Every chang
 | 2026-10-19 | src/game/state.h | ShipControl ship_control[2], fire_delay, fire_turn, started_with_stick_b (09D3), droid_aim_timer, droid_aim_votes[4], droid_quarry, chain_tail, demo_wander (player.c, W5b). | W4 Keel, for W5b Moss |
 | 2026-10-19 | src/game/state.h | Player.score_scale renamed multi_shot (21B4, also the 3-way spread level in player_fire); score_scale stays as an anonymous-union alias until player.c, pickups.c and dgroup_map.c switch. | W4 Keel, per lead/W5b |
 | 2026-10-19 | src/game/state.h | score_scale alias removed (everyone uses Player.multi_shot). | W4 Keel |
+| 2026-10-19 | src/game/state.h | TitleTune tune (0625..062D, position/restart as byte offsets into the tune list), options_default (059E), title_objects[TITLE_LETTERS = 10] (2104), title_timer (0904), title_key_latch (0906) for attract.c. | W4 Keel, for W5b Moss |

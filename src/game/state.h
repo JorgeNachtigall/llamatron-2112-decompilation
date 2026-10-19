@@ -131,6 +131,19 @@ typedef struct Point16 {
     int16_t x, y;
 } Point16;
 
+/* The title tune (1000:083b/084e): a list of notes played one per `period` ticks. */
+typedef struct TitleTune {
+    bool fire_pressed;          /* 0625 set by title_tune_tick while controls[0] fire is down;
+                                   read at 599a/5d47, cleared at 083b/597b/5d3b (symbols:
+                                   g_tune_active) */
+    int16_t period;             /* 0627 */
+    int16_t countdown;          /* 0629 -1 = silent */
+    uint16_t position;          /* 062B next note: byte offset into the tune list */
+    uint16_t restart;           /* 062D where the list starts over: byte offset */
+} TitleTune;
+
+enum { TITLE_LETTERS = 10 };
+
 /* Per-ship steering and aim, written by the play tick (1000:16c1..1a00) and player_fire. */
 typedef struct ShipControl {
     Point16 move;               /* 06BE/06C0 P1, 06B0/06B2 P2: this tick's ship velocity */
@@ -326,6 +339,19 @@ typedef struct GameState {
      * (1000:5da2, which also shifts the other mark), reset at 1000:0933, drawn by 5c3c. */
     int16_t hiscore_mark[PLAYER_COUNT];
     bool rude_name;                     /* 0874 set by 1000:5e6d; 1000:160d then skips sample 0x11 */
+
+    /* Title screen and attract mode (attract.c, W5b; the loop is main_sm's 00db..0306). The
+     * 32 bouncing title llamas, which the original keeps in the entity table's bytes, are
+     * private to attract.c. */
+    TitleTune tune;
+    uint8_t options_default;            /* 059E GameOptions the next game starts with: read at
+                                           00e7, written at 02b1 and by title_draw_hook (40de) */
+    int16_t title_objects[TITLE_LETTERS]; /* 2104..2117 per-letter countdown: 0x80 + 0x10 * i at
+                                             start, -2 per tick, -1 once landed */
+    int16_t title_timer;                /* 0904 0x50 at start; at 0 the logo goes into all pages
+                                           and it becomes -1 */
+    uint8_t title_key_latch;            /* 0906 direction last taken in the option menu, so one
+                                           press is one step */
 } GameState;
 
 #ifdef __cplusplus
