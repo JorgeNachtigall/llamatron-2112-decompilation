@@ -231,3 +231,31 @@ void think_2b(GameState *game, Entity *e)
     (void)game;
     (void)e;
 }
+
+/* Pickup drifting towards its target ship for hp ticks, moving every other tick pair. Its
+ * kind (timer) picks the effect when a ship touches it. Neither way of leaving gives the
+ * slot back to free_slots (1000:0f3a, 0f60). game86 1000:0f10 */
+void think_1c(GameState *game, Entity *e)
+{
+    Point16 here = { e->x, e->y };
+    Point16 next = line_walk(here, game->target, 0);
+    e->vx = (int16_t)(uint16_t)(next.x - here.x);
+    e->vy = (int16_t)(uint16_t)(next.y - here.y);
+
+    if (--e->hp < 0) {
+        entity_vanish(e);
+        game->enemies_alive--;
+    } else {
+        e->sprite = (int16_t)(e->aux16 + ((game->tick_count >> 3) & 1));
+        unsigned touched = entity_hits_player(game, e);
+        if (touched) {
+            game->enemies_alive--;
+            entity_vanish(e);
+            pickup_collect(game, e, touched);
+            return;
+        }
+    }
+    if ((game->tick_count >> 1) & 1)
+        return;
+    entity_move_bounce(game, e);
+}

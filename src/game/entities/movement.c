@@ -67,3 +67,48 @@ Point16 entity_aim_at_target(const GameState *game, const Entity *e, int16_t max
     vector_shrink_to(&v.x, &v.y, max_x, max_y);
     return v;
 }
+
+/* game86 1000:32fe. Bresenham along the major axis; all arithmetic in 16 bits. */
+Point16 line_walk(Point16 from, Point16 to, int16_t steps)
+{
+    bool steep = false;
+    for (;;) {
+        int16_t step = wrap16(to.x - from.x) < 0 ? -1 : 1;
+        int16_t first = step < 0 ? to.x : from.x;
+        int16_t last = step < 0 ? from.x : to.x;
+        int16_t run = wrap16(last - first);
+        int16_t rise = wrap16(to.y - from.y);
+        int16_t rise_step = 1;
+        if (rise < 0) {
+            rise = wrap16(from.y - to.y);
+            rise_step = -1;
+        }
+        if (wrap16(rise - run) > 0) {
+            /* Steeper than 45 degrees: walk along y instead (once). */
+            from = (Point16){ from.y, from.x };
+            to = (Point16){ to.y, to.x };
+            steep = true;
+            continue;
+        }
+
+        int16_t error = wrap16(2 * rise - run);
+        int16_t error_straight = wrap16(2 * rise);
+        int16_t error_diagonal = wrap16(2 * (rise - run));
+        Point16 at = from;
+        for (int16_t i = first;; i = wrap16(i + 1)) {
+            if (wrap16(i - last) >= 0)
+                return (Point16){ 1, 1 };   /* ran out of line (not transposed back) */
+            at.x = wrap16(at.x + step);
+            if (error < 0) {
+                error = wrap16(error + error_straight);
+            } else {
+                at.y = wrap16(at.y + rise_step);
+                error = wrap16(error + error_diagonal);
+            }
+            steps = wrap16(steps - 1);
+            if (steps < 0)
+                break;
+        }
+        return steep ? (Point16){ at.y, at.x } : at;
+    }
+}

@@ -4,7 +4,8 @@ think_00 hatch (43dc, also 04/07/0a), think_01 touch-only (43f1) with the player
 entity_move_bounce 4e7f, think_09 timer (4ec8), think_0b/0c/0d mother, shooter and shot
 (4ed7, 4feb with entity_aim_at_target 509b, 504f), think_10 homing (388a, mover 38a2) and
 the beam emitters think_11/12 (382d, 37fe), the other homing users 13/1f/28/2a (256e, 2d6e,
-2d5a, 2d35), bouncers 0f/14/19/1a/1b (3cea, 25f1, 20f7, 2112, 148d) and the empty think_2b."""
+2d5a, 2d35), bouncers 0f/14/19/1a/1b (3cea, 25f1, 20f7, 2112, 148d) the empty think_2b, the pickup think_1c (0f10 with line_walk 32fe) and the chargers
+think_25/29 (320a, 30f6 with the spawn callbacks 329e, 3119, 32d7, 33e3)."""
 
 import pytest
 from generators import case_rng, fuzz_cases
@@ -88,6 +89,33 @@ def homing_entity(rnd, rec):
     rec.raw[0x2f] = rnd.choice([1, 2, 0, rnd.randrange(0x40)])
 
 
+def pickup_entity(rnd, rec):
+    rec.set("timer", rnd.randrange(10))                    # pickup kind
+    rec.set("hp", rnd.choice([0, 1, rnd.randrange(0x64)]))
+    rec.set("vx", rnd.randrange(-2, 3))
+    rec.set("vy", rnd.randrange(-2, 3))
+    rec.raw[0x16:0x18] = rnd.randrange(0x200).to_bytes(2, "little")
+
+
+CALLBACKS = (0x3119, 0x32D7, 0x33E3)
+
+
+def charger_entity(rnd, rec):
+    rec.set("timer", rnd.choice([0, 1]))
+    rec.raw[0x22] = rnd.randrange(1, 0x80)                 # movement period
+    rec.raw[0x23] = rnd.choice([1, 2, rnd.randrange(256)])
+    rec.raw[0x1a] = rnd.randrange(1, 0x10)                 # spawn period
+    rec.raw[0x1b] = rnd.choice([1, 2, rnd.randrange(0x10)])
+    rec.raw[0x18] = rnd.randrange(1, 0x20)                 # charge length
+    rec.raw[0x19] = rnd.choice([1, 2, rnd.randrange(0x20)])
+    rec.raw[0x16:0x18] = rnd.choice([0, 1, 5, rnd.randrange(0x40), 0xFFFF]).to_bytes(2, "little")
+    rec.raw[0x1c:0x1e] = rnd.choice(CALLBACKS).to_bytes(2, "little")
+    rec.raw[0x20:0x22] = rnd.randrange(0x100, 0x130).to_bytes(2, "little")
+    rec.raw[0x24:0x26] = rnd.choice([0, 3, 0xFFFF]).to_bytes(2, "little")
+    rec.set("vx", rnd.randrange(-4, 5))
+    rec.set("vy", rnd.randrange(-4, 5))
+
+
 CASES = {
     0x00: hatch_entity, 0x04: hatch_entity, 0x07: hatch_entity, 0x0a: hatch_entity,
     0x01: None,
@@ -104,6 +132,8 @@ CASES = {
     0x1b: swarm_entity,
     0x13: homing_entity, 0x1f: homing_entity, 0x28: homing_entity, 0x2a: homing_entity,
     0x2b: None,
+    0x1c: pickup_entity,
+    0x25: charger_entity, 0x29: charger_entity,
 }
 
 

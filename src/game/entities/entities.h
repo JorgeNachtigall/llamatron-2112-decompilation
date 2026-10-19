@@ -60,7 +60,11 @@ void think_14(GameState *game, Entity *e);
 void think_19(GameState *game, Entity *e);
 void think_1a(GameState *game, Entity *e);
 void think_1b(GameState *game, Entity *e);
+void think_1c(GameState *game, Entity *e);
 void think_2b(GameState *game, Entity *e);
+/* think_chargers.c */
+void think_25(GameState *game, Entity *e);
+void think_29(GameState *game, Entity *e);
 /* think_spawners.c */
 void think_0b(GameState *game, Entity *e);
 void think_0c(GameState *game, Entity *e);
@@ -96,6 +100,12 @@ void vector_shrink_to(int16_t *dx, int16_t *dy, int16_t max_x, int16_t max_y);
 /* Velocity from the entity towards game->target, shrunk to the given limits.
  * game86 1000:509b (limits in [0x41b]/[0x41d]) */
 Point16 entity_aim_at_target(const GameState *game, const Entity *e, int16_t max_x, int16_t max_y);
+
+/* The point `steps` + 1 pixels along the line from `from` to `to` (Bresenham, along the
+ * longer axis). If the line is shorter than that the original returns (1, 1) as the
+ * point, which callers then turn into a velocity towards the top-left corner.
+ * game86 1000:32fe */
+Point16 line_walk(Point16 from, Point16 to, int16_t steps);
 
 /* ---- spawn.c (Thorn) ------------------------------------------------------------------ */
 
