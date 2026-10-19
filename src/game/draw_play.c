@@ -10,10 +10,16 @@
 #include "entity_dispatch.h"
 #include "game_data.h"
 #include "hud.h"
+#include "text.h"
 
 static const Point16 PAUSE_PICTURE_POS = { 0xa0, 0x46 };
+static const Point16 WAVE_HEADING_POS = { 0x9f, 0x03 };
+static const Point16 GAME_OVER_POS = { 0xa0, 0x5a };
 
 enum {
+    G3_GAME_OVER = 1,            /* g3 shapes (30EB:0000 + 2n) */
+    G3_WAVE_HEADING = 3,
+    PLAYFIELD_FRAME_COLOR = 2,
     SHIELD_RISE = 0x0f,          /* the shield is centred 15 px above the ship */
     SHIP_FRAMES = 4,             /* ship animation: (x or y) / 2 % 4 */
 };
@@ -98,4 +104,45 @@ void play_draw_hook(GameState *game, const DrawTarget *target)
         draw_ship(game, target, 1, game->player2_label_offset);
     else
         draw_companion(game, target);
+}
+
+/* ---- Wave start, warp, game over ------------------------------------------------------ */
+
+/* The dotted frame around the playfield. */
+static const struct { int16_t x0, y0, x1, y1; } PLAYFIELD_FRAME = { 0x00, 0x08, 0x13e, 0xc6 };
+
+static void print_text(const DrawTarget *target, GameState *game, const GameText *text)
+{
+    if (text != NULL)
+        text_print_home(target, &game->text, text->raw);
+}
+
+/* game86 1000:055c..05cf */
+void wave_draw_background(GameState *game)
+{
+    gfx_clear(GFX_PAGE_BACKGROUND, 0);
+    draw_rect_outline(GFX_PAGE_BACKGROUND, PLAYFIELD_FRAME.x0, PLAYFIELD_FRAME.y0,
+                      PLAYFIELD_FRAME.x1, PLAYFIELD_FRAME.y1, PLAYFIELD_FRAME_COLOR);
+    DrawTarget background = draw_target_page(GFX_PAGE_BACKGROUND);
+    draw_sprite_unrecorded(&background, title_shape(G3_WAVE_HEADING), WAVE_HEADING_POS.x,
+                           WAVE_HEADING_POS.y);
+    if (game->player.wave_type != 0)
+        print_text(&background, game, asset_text(TEXT_ID_HERD_WAVE_BANNER));
+    if (game->demo_mode != 0)
+        print_text(&background, game, asset_text(TEXT_ID_DEMO_BANNER));
+    print_text(&background, game, asset_level_title(game->player.level));
+}
+
+/* game86 1000:0640..0649 */
+void wave_draw_warp_banner(GameState *game)
+{
+    DrawTarget screen = draw_target_page(gfx_display_page_id());
+    print_text(&screen, game, asset_text(TEXT_ID_WARP_BANNER));
+}
+
+/* game86 1000:08ee..0910 */
+void game_over_draw(void)
+{
+    DrawTarget screen = draw_target_page(gfx_display_page_id());
+    draw_sprite_unrecorded(&screen, title_shape(G3_GAME_OVER), GAME_OVER_POS.x, GAME_OVER_POS.y);
 }

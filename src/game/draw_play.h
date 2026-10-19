@@ -19,6 +19,19 @@ extern "C" {
  * companion llama instead of the second ship. Sets frame_drawn. */
 void play_draw_hook(GameState *game, const DrawTarget *target);
 
+/* The playfield background of a new wave, drawn into the background page before
+ * screen_reveal_bg shows it: blank page, dotted frame, the g3 heading shape and the banners
+ * (herd wave, demo, the level's title). Leaves dirty recording off, as the original does.
+ * game86 1000:055c..05cf */
+void wave_draw_background(GameState *game);
+
+/* The "warp five levels" banner on the page on screen (wave result 4). game86 1000:0640..0649 */
+void wave_draw_warp_banner(GameState *game);
+
+/* The game-over picture on the page on screen; leaves dirty recording off.
+ * game86 1000:08ee..0910 */
+void game_over_draw(void);
+
 /* The frame loop's flash step, only with flash_mode 2: every 30th frame the game palette is
  * set again, and while a flash list runs colour 0 shows its next colour (black at its end,
  * which also clears flash_list). Whoever starts a list sets flash_pos to 0.
