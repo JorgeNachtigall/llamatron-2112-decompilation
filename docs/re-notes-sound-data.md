@@ -261,7 +261,7 @@ ring[0..2] (zeros) is emitted. The "0xFF separators" seen in the raw files are s
   0x188).
 * Glyph: `u16 w0` (always 4, unused by the drawer), `u16 advance` (added to X at 53a0/555a/552c), `u16 rows-1`,
   then rows × 2-byte row bitmaps in screen (byte) order, 16 px wide, top row first. The word earlier called `pad` is
-  simply row 0 [C, W1/Forge]. **The last glyph (shared by chars 7D-7F) is truncated in the file**: it needs 10 bytes
+  simply row 0 [C, W1/Forge]. **The last glyph (shared by chars 5D-5F `] ^ _` and 7D-7F) is truncated in the file**: it needs 10 bytes
   beyond the 1710-byte image, which the game reads from DGROUP `409C..40A5` (aim variables + start of the hi-score
   table), so its bottom 5 rows depend on runtime data. Drawn via the planar path 559f.. (same blitter family as sprites). Space (0x20) is a
   zero-row glyph; 0x20/0x5C/0 terminate strings in 5394 (text-width routine).

@@ -275,8 +275,8 @@ from `39D7` up is zero (BSS). Ranges marked [H] are inferred from usage, not ful
 | `2CF6-2D06` | | `g_options`, player animation counters, `g_p1_x/y`, `g_p2_x/y`, `g_target_x/y` |
 | `2D07-39D2` | 3276 | `tbl_row_offset`: VRAM byte offset per row, y*40 for y = 0..1637, i.e. the whole 64 KB plane as one tall canvas (used by `text_scroller`) [C, W6/Prism, re-checked against the image] |
 | `39D3-39ED` | | page offsets (`g_page_front/back`, `g_draw_page`), blitter flags/scale/mirror, `g_draw_hook` (far), `g_tick_hook`, `g_tick_count`, `g_rng_index`, `g_script_ptr` |
-| `39EE-409B` | 1710 | `g_font`: decoded f.cmp. Its last glyph (chars 7D-7F) is truncated in the file: its last 5 rows (10 bytes) are read from `409C-40A5`, i.e. from the variables below and the first hi-score bytes, so that glyph's look depends on runtime data |
-| `409C-409F` | 4 | `g_droid_aim_votes`: solid enemies per quadrant around P2 (`409e` cleared as a word at `1782`); also the tail of the 7D-7F glyph |
+| `39EE-409B` | 1710 | `g_font`: decoded f.cmp. Its last glyph (chars 5D-5F `] ^ _` and 7D-7F) is truncated in the file: its last 5 rows (10 bytes) are read from `409C-40A5`, i.e. from the variables below and the first hi-score bytes, so that glyph's look depends on runtime data |
+| `409C-409F` | 4 | `g_droid_aim_votes`: solid enemies per quadrant around P2 (`409e` cleared as a word at `1782`); also the tail of the 5D-5F/7D-7F glyph |
 | `40A0-413F` | 160 | `g_hiscores` (scores.yak image) |
 | `4141-4440` | 768 | decoded s.cmp: `g_sine8` (256 x s8), `g_sine16` (256 x s16) |
 | `4441-4450` | 16 | `g_score_p1`, `g_score_p2`: 8 decimal digits each, one digit per byte, most significant first |
