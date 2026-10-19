@@ -25,7 +25,9 @@ cmake --build build            # -> build/Llamatron.app
 - Ad-hoc signed only (`codesign --sign -`) so it runs on this Mac: no Apple account, no
   Developer ID, no notarisation.
 - SDL2 is still linked from Homebrew (`brew install sdl2`), so the app runs on a Mac with
-  Homebrew's SDL2 installed; it is not a self-contained bundle.
+  Homebrew's SDL2 installed; it is not a self-contained bundle. **TODO (M7):** copy SDL (with
+  the SDL3 library that sdl2-compat loads) into `Contents/Frameworks`, fix the install names and
+  re-sign ad hoc.
 - Settings are stored in `~/Library/Application Support/llamatron-port/llamatron/llama.inf`.
 - Test: `ctest --test-dir build -R macos_app_title`.
 
