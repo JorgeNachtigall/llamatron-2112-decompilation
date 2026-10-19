@@ -80,6 +80,9 @@ if(EMSCRIPTEN)
         "SHELL:--preload-file ${LLAMATRON_GENERATED_DIR}/data@/data")
 endif()
 
+# Personal-use packaging: Llamatron.app (LLAMATRON_MACOS_BUNDLE) and web-dist.
+include(${CMAKE_CURRENT_SOURCE_DIR}/packaging.cmake)
+
 # Settings persistence (native): save in one run, read back in the next; storage redirected
 # into the build tree so tests never touch the user's own data directory.
 if(NOT EMSCRIPTEN)

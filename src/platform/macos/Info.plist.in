@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Personal-use build only: the app contains assets extracted from the owner's original
+     game files and must never be distributed (docs/PLAN.md §0). -->
+<plist version="1.0">
+<dict>
+    <key>CFBundleDevelopmentRegion</key>
+    <string>en</string>
+    <key>CFBundleExecutable</key>
+    <string>Llamatron</string>
+    <key>CFBundleIconFile</key>
+    <string>Llamatron</string>
+    <key>CFBundleIdentifier</key>
+    <string>local.llamatron-port.personal</string>
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+    <key>CFBundleName</key>
+    <string>Llamatron</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleShortVersionString</key>
+    <string>@PROJECT_VERSION@</string>
+    <key>CFBundleVersion</key>
+    <string>@PROJECT_VERSION@</string>
+    <key>CFBundleGetInfoString</key>
+    <string>Personal-use build, do not distribute</string>
+    <key>NSHighResolutionCapable</key>
+    <true/>
+</dict>
+</plist>
