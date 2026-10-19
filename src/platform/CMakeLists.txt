@@ -28,3 +28,19 @@ if(EMSCRIPTEN)
     set_target_properties(platform_testpattern PROPERTIES SUFFIX ".html")
     target_link_options(platform_testpattern PRIVATE -sALLOW_MEMORY_GROWTH=1)
 endif()
+
+# M1 front screen (fs.exe behaviour). Reads the extractor's title pictures at run time:
+# natively from the build tree, on the web from the preloaded /data.
+add_executable(llamatron_title apps/title_main.c)
+target_link_libraries(llamatron_title PRIVATE llama_platform llama_engine)
+if(TARGET llamatron_generated)
+    add_dependencies(llamatron_title llamatron_generated)
+endif()
+if(EMSCRIPTEN)
+    target_compile_definitions(llamatron_title PRIVATE LLAMATRON_DATA_DIR="/data")
+    set_target_properties(llamatron_title PROPERTIES SUFFIX ".html")
+    target_link_options(llamatron_title PRIVATE -sALLOW_MEMORY_GROWTH=1
+        "SHELL:--preload-file ${LLAMATRON_GENERATED_DIR}/data@/data")
+else()
+    target_compile_definitions(llamatron_title PRIVATE LLAMATRON_DATA_DIR="${LLAMATRON_GENERATED_DIR}/data")
+endif()

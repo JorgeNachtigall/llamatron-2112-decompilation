@@ -3,6 +3,7 @@ add_library(llama_engine STATIC
     gfx.c
     input.c
     timing.c
+    title.c
 )
 target_include_directories(llama_engine PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_compile_options(llama_engine PRIVATE
