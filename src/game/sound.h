@@ -29,6 +29,11 @@ enum { SOUND_LOG_SIZE = 64 };
 /* Driver AH=3. */
 void game_sound_play(uint8_t sample, uint8_t rate_index, uint8_t priority);
 
+/* The S key (pause screen) and game exit: flips sound_on and swaps the driver with the stub
+ * driver. game86 1000:1514 */
+struct GameState;
+void game_sound_toggle(struct GameState *game);
+
 /* Driver AH=6: the sample playing (0 = idle) and the sticky priority of the current or last
  * sample. game86 busy-waits on it and gates re-triggers with it (1000:065d, 1540, 2477). */
 SoundStatus game_sound_status(void);

@@ -144,6 +144,8 @@ typedef struct TitleTune {
 
 enum { TITLE_LETTERS = 10 };
 
+enum { PAUSE_MESSAGES = 4 };    /* the pointers at DS:09E2 */
+
 /* Per-ship steering and aim, written by the play tick (1000:16c1..1a00) and player_fire. */
 typedef struct ShipControl {
     Point16 move;               /* 06BE/06C0 P1, 06B0/06B2 P2: this tick's ship velocity */
@@ -352,6 +354,13 @@ typedef struct GameState {
                                            and it becomes -1 */
     uint8_t title_key_latch;            /* 0906 direction last taken in the option menu, so one
                                            press is one step */
+
+    /* Continue prompt and pause screen (continue.c, pause.c, W5b). */
+    int16_t continue_seconds;           /* 0621 9 at 07d6, -1 per second; the prompt ends < 0 */
+    int16_t continue_ticks;             /* 0623 0x32 per second; -1 = fire pressed (continue) */
+    bool sound_key_latch;               /* 0686 S toggles sound once per press (1507/150e/1538) */
+    int16_t pause_message;              /* 09EC 0 = none, else 1..PAUSE_MESSAGES: the message
+                                           picked on P (1595..15ae), drawn by play_draw_hook */
 } GameState;
 
 #ifdef __cplusplus

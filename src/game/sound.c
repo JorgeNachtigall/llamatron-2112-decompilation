@@ -2,6 +2,7 @@
 #include "sound.h"
 
 #include "snd.h"
+#include "state.h"
 
 static SoundRequest log_entries[SOUND_LOG_SIZE];
 static unsigned log_count;
@@ -14,6 +15,13 @@ void game_sound_play(uint8_t sample, uint8_t rate_index, uint8_t priority)
         log_entries[log_count] = (SoundRequest){ sample, rate_index, priority };
     log_count++;
     snd_play(sample, rate_index, priority);
+}
+
+/* game86 1000:1514 */
+void game_sound_toggle(GameState *game)
+{
+    game->sound_on = !game->sound_on;
+    snd_set_enabled(game->sound_on);
 }
 
 SoundStatus game_sound_status(void)
