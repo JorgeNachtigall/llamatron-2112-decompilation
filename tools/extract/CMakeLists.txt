@@ -5,6 +5,7 @@ cmake_minimum_required(VERSION 3.20)
 project(llamatron_extract LANGUAGES C)
 
 add_executable(llamatron-extract
+    blob.c
     cmpdata.c
     common.c
     ilbm.c

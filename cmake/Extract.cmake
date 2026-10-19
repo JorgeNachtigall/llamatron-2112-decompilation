@@ -6,7 +6,9 @@
 # whenever the extractor, the manifest or an original file changes.
 #
 # Provides: LLAMATRON_EXTRACT (host executable), LLAMATRON_GENERATED_DIR, LLAMATRON_MANIFEST,
-# LLAMATRON_ORIGINAL_FILES (resolved paths) and the target `llamatron_generated`.
+# LLAMATRON_ORIGINAL_FILES (resolved paths), LLAMATRON_GENERATED_DATA (files under generated/data),
+# LLAMATRON_ASSETS_BLOB_C (generated/assets_blob.c: every data file as a C array) and the target
+# `llamatron_generated`.
 
 set(LLAMATRON_MANIFEST "${PROJECT_SOURCE_DIR}/tools/manifest/original-files.json")
 set(LLAMATRON_GENERATED_DIR "${CMAKE_BINARY_DIR}/generated")
@@ -101,6 +103,14 @@ foreach(_exe game86 fs llama install)
         "${LLAMATRON_GENERATED_DIR}/exe/${_exe}.unpacked"
         "${LLAMATRON_GENERATED_DIR}/exe/${_exe}.layout.json")
 endforeach()
+
+set(LLAMATRON_GENERATED_DATA "")
+foreach(_data title_vga.idx8 title_vga.pal title_ega.idx4 title_ega.pal font.bin sine.bin
+        sprites.bin sprite_refs.bin g3.bin)
+    list(APPEND LLAMATRON_GENERATED_DATA "${LLAMATRON_GENERATED_DIR}/data/${_data}")
+endforeach()
+set(LLAMATRON_ASSETS_BLOB_C "${LLAMATRON_GENERATED_DIR}/assets_blob.c")
+list(APPEND LLAMATRON_GENERATED_OUTPUTS ${LLAMATRON_GENERATED_DATA} "${LLAMATRON_ASSETS_BLOB_C}")
 
 file(GLOB _extract_sources CONFIGURE_DEPENDS "${_extract_src}/*.c" "${_extract_src}/*.h")
 add_custom_command(

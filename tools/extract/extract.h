@@ -28,4 +28,7 @@ bool extract_cmp_data(ExtractContext *ctx);
 /* data/sprites.bin, data/sprite_refs.bin, data/g3.bin — sprites.c */
 bool extract_sprites(ExtractContext *ctx);
 
+/* assets_blob.c with every data/ file as a C array — blob.c. Runs last. */
+bool write_assets_blob(ExtractContext *ctx);
+
 #endif
