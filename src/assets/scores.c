@@ -1,5 +1,5 @@
 /* scores.c - default_scores.dat / user_scores.dat (LSCO), config.dat (LCFG), hud_glyphs.dat (LHUD),
- * hiscore.dat (LHSC), enemies.dat (LENM). */
+ * hiscore.dat (LHSC), enemies.dat (LENM), controls.dat (LCTL). */
 #include "formats.h"
 #include "reader.h"
 
@@ -129,5 +129,29 @@ bool enemy_tables_parse(const uint8_t *data, size_t size, EnemyTables *out)
             word_tables[t][i] = (int16_t)reader_u16(&r);
     if (!r.ok || r.pos != size)
         return format_fail("LENM: %s", r.ok ? "trailing bytes" : "truncated");
+    return true;
+}
+
+bool control_tables_parse(const uint8_t *data, size_t size, ControlTables *out)
+{
+    memset(out, 0, sizeof *out);
+    Reader r = reader_open(data, size);
+    if (!reader_header(&r, "LCTL", FORMAT_LCTL_VERSION))
+        return false;
+    void *nibble_tables[] = {out->shot_vx, out->shot_vy, out->shot_direction, out->spread_a, out->spread_b,
+                             out->move_vx, out->move_vy, out->ship_facing, out->trail_flag};
+    void *quadrant_tables[] = {out->droid_shot_vx, out->droid_shot_vy, out->droid_shot_direction, out->droid_aim};
+    for (size_t i = 0; i < sizeof nibble_tables / sizeof *nibble_tables; i++) {
+        const uint8_t *bytes = reader_bytes(&r, INPUT_NIBBLES);
+        if (bytes)
+            memcpy(nibble_tables[i], bytes, INPUT_NIBBLES);
+    }
+    for (size_t i = 0; i < sizeof quadrant_tables / sizeof *quadrant_tables; i++) {
+        const uint8_t *bytes = reader_bytes(&r, DROID_QUADRANTS);
+        if (bytes)
+            memcpy(quadrant_tables[i], bytes, DROID_QUADRANTS);
+    }
+    if (!r.ok || r.pos != size)
+        return format_fail("LCTL: %s", r.ok ? "trailing bytes" : "truncated");
     return true;
 }

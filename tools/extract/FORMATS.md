@@ -225,6 +225,28 @@ s16   wander_sprite[8]        DS:1FBA, sprite offset (1000:4e21); in the origina
                               starts inside wander_vy (they share 4 words); each is stored whole
 ```
 
+## `controls.dat` (player and droid control tables, DGROUP 068C..07F2)
+```
+char  magic[4] = "LCTL"
+u16   version = 1
+                         16 bytes each, by input nibble (bit 0 up, 1 down, 2 left, 3 right):
+s8    shot_vx[16]        DS:0743   player_fire 1000:0a2a, players_tick 16ef
+s8    shot_vy[16]        DS:0753   1000:0a41, 16f7
+u8    shot_direction[16] DS:0763   0 = no direction (keep the old aim)    1000:0a58, 16e3
+u8    spread_a[16]       DS:0773   nibble of a spread volley's 2nd shot, 0 = none   1000:0a0b
+u8    spread_b[16]       DS:0783   3rd shot   1000:0a72
+s8    move_vx[16]        DS:07B3   1000:1703
+s8    move_vy[16]        DS:07C3   1000:1716
+u8    ship_facing[16]    DS:07D3   0 = keep   1000:1727
+u8    trail_flag[16]     DS:07E3   1000:1733
+                         4 bytes each, by quadrant (bit 0 = P2 x < enemy x, bit 1 = P2 y < enemy y):
+s8    droid_shot_vx[4]   DS:068C   1000:17f6
+s8    droid_shot_vy[4]   DS:0690   1000:17fe
+u8    droid_shot_direction[4]  DS:0694   1000:1806
+u8    droid_aim[4]       DS:0698   input nibble   1000:1810
+```
+DS:0793 and DS:07A3 (between spread_b and move_vx) have no reader in game86 and are not exported.
+
 ## `levels.dat` (tbl_level_scripts DS:2BDA; interpreter game86 1000:020b)
 The table has **100** entries (up to the 0 word at DS:2CA2), not 40. A 0 entry makes the game wrap
 to level 0 and increment the loop count.

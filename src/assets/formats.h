@@ -37,6 +37,7 @@ enum {
     FORMAT_LHUD_VERSION = 1,
     FORMAT_LHSC_VERSION = 1,
     FORMAT_LENM_VERSION = 2,
+    FORMAT_LCTL_VERSION = 1,
 };
 
 const char *format_error(void);
@@ -398,6 +399,33 @@ typedef struct EnemyTables {
 } EnemyTables;
 
 bool enemy_tables_parse(const uint8_t *data, size_t size, EnemyTables *out);
+
+/* ---- controls.dat (LCTL): player and droid control tables ----------------------------- */
+
+enum {
+    INPUT_NIBBLES = 16,      /* bit 0 up, 1 down, 2 left, 3 right */
+    DROID_QUADRANTS = 4,     /* bit 0 = P2 x < enemy x, bit 1 = P2 y < enemy y */
+};
+
+typedef struct ControlTables {
+    /* by input nibble (player_fire 1000:0981.., players_tick 1000:16c1..) */
+    int8_t shot_vx[INPUT_NIBBLES];          /* DS:0743 */
+    int8_t shot_vy[INPUT_NIBBLES];          /* DS:0753 */
+    uint8_t shot_direction[INPUT_NIBBLES];  /* DS:0763, 0 = no direction: keep the old aim */
+    uint8_t spread_a[INPUT_NIBBLES];        /* DS:0773, nibble of a volley's 2nd shot, 0 = none */
+    uint8_t spread_b[INPUT_NIBBLES];        /* DS:0783, 3rd shot */
+    int8_t move_vx[INPUT_NIBBLES];          /* DS:07B3 */
+    int8_t move_vy[INPUT_NIBBLES];          /* DS:07C3 */
+    uint8_t ship_facing[INPUT_NIBBLES];     /* DS:07D3, 0 = keep */
+    uint8_t trail_flag[INPUT_NIBBLES];      /* DS:07E3 */
+    /* droid aim by quadrant (1000:17f6..1810) */
+    int8_t droid_shot_vx[DROID_QUADRANTS];         /* DS:068C */
+    int8_t droid_shot_vy[DROID_QUADRANTS];         /* DS:0690 */
+    uint8_t droid_shot_direction[DROID_QUADRANTS]; /* DS:0694 */
+    uint8_t droid_aim[DROID_QUADRANTS];            /* DS:0698, input nibble */
+} ControlTables;
+
+bool control_tables_parse(const uint8_t *data, size_t size, ControlTables *out);
 
 /* ---- config.dat (LCFG): llama.inf as llama.exe parses it ------------------------------- */
 

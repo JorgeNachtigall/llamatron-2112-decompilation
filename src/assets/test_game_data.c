@@ -188,6 +188,12 @@ static void check_samples_scores_config(void)
         CHECK(enemies->seek_dir_by_quadrant[i] >= 0 && enemies->seek_dir_by_quadrant[i] < ENEMY_DIRECTIONS);
     for (int i = 0; enemies && i < 4; i++) /* the original's overlap of DS:1FB2 and DS:1FBA */
         CHECK(enemies->wander_vy[4 + i] == enemies->wander_sprite[i]);
+    const ControlTables *controls = asset_control_tables();
+    CHECK(controls && controls->shot_direction[0] == 0 && controls->move_vx[0] == 0 && controls->move_vy[0] == 0);
+    for (int i = 0; controls && i < INPUT_NIBBLES; i++) /* spread entries are input nibbles */
+        CHECK(controls->spread_a[i] < INPUT_NIBBLES && controls->spread_b[i] < INPUT_NIBBLES);
+    for (int i = 0; controls && i < DROID_QUADRANTS; i++)
+        CHECK(controls->droid_aim[i] < INPUT_NIBBLES);
     const HiscoreData *hiscore = asset_hiscore_data();
     CHECK(hiscore && strlen(hiscore->alphabet) == HISCORE_ALPHABET_SIZE);
     for (int i = 0; hiscore && i < HISCORE_RUDE_WORD_SIZE; i++)

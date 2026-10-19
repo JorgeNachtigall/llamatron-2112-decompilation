@@ -58,6 +58,7 @@ static bool parse_scores(const uint8_t *d, size_t n) { HighScoreTable t; return 
 static bool parse_config(const uint8_t *d, size_t n) { GameConfig c; return config_parse(d, n, &c); }
 static bool parse_hiscore(const uint8_t *d, size_t n) { HiscoreData h; return hiscore_data_parse(d, n, &h); }
 static bool parse_enemies(const uint8_t *d, size_t n) { EnemyTables e; return enemy_tables_parse(d, n, &e); }
+static bool parse_controls(const uint8_t *d, size_t n) { ControlTables c; return control_tables_parse(d, n, &c); }
 static bool parse_hud(const uint8_t *d, size_t n) { HudGlyphs h; return hud_glyphs_parse(d, n, &h); }
 
 static void test_sprites(void)
@@ -317,6 +318,16 @@ static void test_samples_scores_config(void)
     CHECK(enemies.seek_dir_by_quadrant[0] == 7 && enemies.seek_dir_by_quadrant[3] == 3);
     CHECK(enemies.seek_vx[0] == -16 && enemies.seek_vy[0] == -8 && enemies.wander_sprite[7] == 0x17);
     check_rejects_damage(&e, parse_enemies, "LENM");
+
+    Buf k = {0};
+    header(&k, "LCTL", FORMAT_LCTL_VERSION);
+    for (int i = 0; i < 9 * INPUT_NIBBLES + 4 * DROID_QUADRANTS; i++)
+        put8(&k, (unsigned)(i & 0xFF));
+    ControlTables controls;
+    CHECK(control_tables_parse(k.bytes, k.size, &controls));
+    CHECK(controls.shot_vx[1] == 1 && controls.shot_direction[0] == 32 && controls.trail_flag[15] == 143);
+    CHECK(controls.droid_shot_vx[0] == -112 && controls.droid_aim[3] == 159);
+    check_rejects_damage(&k, parse_controls, "LCTL");
 }
 
 int main(void)

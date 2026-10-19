@@ -9,6 +9,7 @@
  *   data/hud_glyphs.dat      HUD digit glyphs (DS:09EE) and player-life labels (DS:0A8E/0A9E)
  *   data/hiscore.dat         name-entry alphabet, table row colours, the rejected word
  *   data/enemies.dat         score awards, drop values, pickup sprites, debris templates
+ *   data/controls.dat        player shot / move tables by input nibble, droid aim by quadrant
  *
  * The only relocation inside DGROUP is DS:0406 (the stub driver's segment), so the relocated
  * image holds the original values everywhere these tables are read. */
@@ -67,7 +68,26 @@ enum {
     WANDER_VY = 0x1FB2,              /* 1000:4e1a */
     WANDER_SPRITE = 0x1FBA,          /* 1000:4e21; overlaps WANDER_VY[4..7] in the original */
     DIRECTIONS = 8,
+
+    INPUT_NIBBLES = 16,              /* bits 0/1 up/down, 2/3 left/right */
+    DROID_QUADRANTS = 4,
 };
+
+/* Player control tables, 16 bytes each by input nibble (player_fire 1000:0981.., players_tick
+ * 1000:16c1..), in file order. DS:0793 and DS:07A3 have no reader and are not exported. */
+static const uint16_t control_tables[] = {
+    0x0743, /* shot vx      1000:0a2a, 16ef */
+    0x0753, /* shot vy      1000:0a41, 16f7 */
+    0x0763, /* shot dir     1000:0a58, 16e3 */
+    0x0773, /* spread a     1000:0a0b */
+    0x0783, /* spread b     1000:0a72 */
+    0x07B3, /* move vx      1000:1703 */
+    0x07C3, /* move vy      1000:1716 */
+    0x07D3, /* ship facing  1000:1727 */
+    0x07E3, /* trail flag   1000:1733 */
+};
+/* Droid aim, 4 bytes each by quadrant (1000:17f6..1810). */
+static const uint16_t droid_tables[] = {0x068C, 0x0690, 0x0694, 0x0698};
 
 /* The entered name is compared with a 4-letter word by CMP byte ptr [SI+d], imm8 instructions
  * (game86 1000:5e52, 5e5c, 5e61, 5e67); we take the immediates from the code and check the
@@ -303,8 +323,23 @@ static bool write_enemy_tables(ExtractContext *ctx)
     return ok;
 }
 
+static bool write_control_tables(ExtractContext *ctx)
+{
+    ByteBuf out = {0};
+    bool ok = bytebuf_append(&out, (const uint8_t *)"LCTL", 4) && bytebuf_put_u16(&out, FMT_LCTL_VERSION);
+    for (size_t i = 0; ok && i < sizeof control_tables / sizeof *control_tables; i++)
+        ok = append_dgroup(ctx, &out, control_tables[i], INPUT_NIBBLES);
+    for (size_t i = 0; ok && i < sizeof droid_tables / sizeof *droid_tables; i++)
+        ok = append_dgroup(ctx, &out, droid_tables[i], DROID_QUADRANTS);
+    ok = ok && output_write(ctx->outputs, "data/controls.dat", out.data, out.size);
+    bytebuf_free(&out);
+    return ok;
+}
+
 bool extract_dgroup_tables(ExtractContext *ctx)
 {
+    if (!write_control_tables(ctx))
+        return false;
     if (!write_enemy_tables(ctx))
         return false;
     return write_palettes(ctx) && write_scores(ctx) && write_config(ctx) && write_hud_glyphs(ctx) &&
