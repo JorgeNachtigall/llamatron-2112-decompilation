@@ -134,6 +134,18 @@ Two independent clocks:
   roster `220A` is rebuilt from live entities at `1ced`, not from the list, so only the
   spawns change. The port reproduces this on purpose: `script_clobber_spawns_10b0` (W4,
   9a3bc40) and levels.dat `clobber_10b0` (W1, f86753d).
+- **Llamas** [C, W5b/Moss; the names match the port]: `think_05` entities (`4c46`) are llamas
+  waiting to be rescued. They are not eggs. When the player touches one, `llama_rescue` (`4ca3`)
+  runs, and the rescued llama becomes a `think_06` (`4bfb`) that follows its ship's trail.
+  Herders search with `herder_claim_llama` (`3a17`): it takes the first unclaimed `think_05`,
+  claims it by setting hp=1, and otherwise sets timer=-2 (none left). The llama hunter
+  `think_08` (`495f`) does the same search at `498e`. `tbl_think0e_modes` (entity `+20`):
+  0 `llama_to_timer` (`3b63`), 1 `llama_to_herder` (`3b0f`), 2 `llama_bursts` (`3b21`),
+  3 `llama_to_timer_arm_pickup` (`3b07`). `herder_drop` (`3b70`) shows the caught overlay
+  sprite 0x33 for 0x14 ticks and plays sound 0x00 (1,4). `DS:091B` `g_unhatched` counts the
+  llamas not yet rescued or caught. Also in this group: `entity_spawn_01_at` (`366f`) and the
+  snake head and segment, `think_1d`/`think_1e` (`36a0`/`36f6`). The "hatch" wording in §8.3
+  is about spawns materialising (`think_00`), not llamas.
 - Player state: `[0x2cfb/0x2cfd]` P1 x,y,
   `[0x2cff/0x2d01]` P2 x,y, clamps x in [0x0F,0x130), y in [0x12,0xBC). Direction tables
   `DS:0743/0753/0763/07B3/07C3/07D3/07E3` indexed by 4-bit joystick nibble. Bullets: ring

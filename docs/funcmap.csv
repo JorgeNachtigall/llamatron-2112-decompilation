@@ -134,6 +134,7 @@ game86,1000:3490,142,think_24,think_24,src/game/entities/think_w5a.c,diff-tested
 game86,1000:351e,150,enemy_init_19,enemy_init_19,src/game/entities/enemy_init.c,diff-tested,W5a,C,
 game86,1000:35b4,136,think_23,think_23,src/game/entities/think_w5a.c,diff-tested,W5a,C,
 game86,1000:363c,51,ent_hit_0c,ent_hit_0c,src/game/entities/hit.c,diff-tested,W5a,C,
+game86,1000:366f,,entity_spawn_01_at,entity_spawn_01_at,src/game/entities/think_orbiters.c,diff-tested,W5,C,
 game86,1000:36a0,86,think_1d,think_1d,src/game/entities/think_snake.c,diff-tested,W5,C,
 game86,1000:36f6,64,think_1e,think_1e,src/game/entities/think_snake.c,diff-tested,W5,C,
 game86,1000:3736,140,enemy_init_09,enemy_init_09,src/game/entities/enemy_init.c,diff-tested,W5a,C,
@@ -142,10 +143,12 @@ game86,1000:37fe,47,think_12,think_12,src/game/entities/think_homing.c,diff-test
 game86,1000:382d,93,think_11,think_11,src/game/entities/think_homing.c,diff-tested,W5,C,
 game86,1000:388a,351,think_10,think_10,src/game/entities/think_homing.c,diff-tested,W5,C,
 game86,1000:39e9,321,think_0e,think_0e,src/game/entities/think_herders.c,diff-tested,W5,C,
-game86,1000:3b07,8,think0e_mode_03,think0e_mode_03,src/game/entities/think_herders.c,diff-tested,W5,C,
-game86,1000:3b0f,18,think0e_mode_01,think0e_mode_01,src/game/entities/think_herders.c,diff-tested,W5,C,
-game86,1000:3b21,5,think0e_mode_02,think0e_mode_02,src/game/entities/think_herders.c,diff-tested,W5,C,
-game86,1000:3b63,47,think0e_mode_00,think0e_mode_00,src/game/entities/think_herders.c,diff-tested,W5,C,
+game86,1000:3a17,,herder_claim_llama,herder_claim_llama,src/game/entities/think_herders.c,diff-tested,W5,C,label inside a herder think handler
+game86,1000:3b07,8,llama_to_timer_arm_pickup,think_0e,src/game/entities/think_herders.c,diff-tested,W5,C,"mode 3, inline case of the think_0e switch"
+game86,1000:3b0f,18,llama_to_herder,think_0e,src/game/entities/think_herders.c,diff-tested,W5,C,"mode 1, inline case of the think_0e switch"
+game86,1000:3b21,5,llama_bursts,think_0e,src/game/entities/think_herders.c,diff-tested,W5,C,"mode 2, inline case of the think_0e switch"
+game86,1000:3b63,47,llama_to_timer,llama_to_timer,src/game/entities/think_herders.c,diff-tested,W5,C,think_0e mode 0
+game86,1000:3b70,,herder_drop,herder_drop,src/game/entities/think_herders.c,diff-tested,W5,C,label inside a herder think handler
 game86,1000:3b92,8,hit_kill_action_07,kill_action_07,src/game/entities/kill_actions.c,diff-tested,W5a,C,via ent_hit_03 (tests/oracle/test_hit.py)
 game86,1000:3bc5,17,hit_kill_action_04,kill_action_04,src/game/entities/kill_actions.c,diff-tested,W5a,C,via ent_hit_03 (tests/oracle/test_hit.py)
 game86,1000:3bd6,11,hit_kill_action_09,kill_action_09,src/game/entities/kill_actions.c,diff-tested,W5a,C,via ent_hit_03 (tests/oracle/test_hit.py)
@@ -196,12 +199,14 @@ game86,1000:4802,,anim_0d,anim_0d,src/game/entities/,todo,W5,E,
 game86,1000:480d,1,anim_11,anim_11,src/game/entities/,todo,W5,E,
 game86,1000:480e,337,companion_update,companion_update,src/game/player.c,todo,W4,E,
 game86,1000:495f,362,think_08,think_08,src/game/entities/think_llamas.c,diff-tested,W5,E,
+game86,1000:498e,,hunter_claim_llama,herder_claim_llama,src/game/entities/think_herders.c,diff-tested,W5,E,label inside think_08; port reuses herder_claim_llama
 game86,1000:4ac9,201,think_03,think_03,src/game/entities/think_basic.c,diff-tested,W5,E,
 game86,1000:4b49,98,entity_hits_player,entity_hits_player,src/game/entities/think_basic.c,diff-tested,W5,E,player-touch tail 43f7 = entity_touch_player
 game86,1000:4bab,40,anim_01,anim_01,src/game/entities/,todo,W5,E,
 game86,1000:4bd3,40,sprite_draw_to_bg,gfx_draw_sprite,src/engine/gfx.c,todo,W6,E,
 game86,1000:4bfb,75,think_06,think_06,src/game/entities/think_llamas.c,diff-tested,W5,E,
 game86,1000:4c46,569,think_05,think_05,src/game/entities/think_llamas.c,diff-tested,W5,E,
+game86,1000:4ca3,,llama_rescue,llama_rescue,src/game/entities/think_llamas.c,diff-tested,W5,E,label inside think_05
 game86,1000:4e7f,,entity_move_bounce,entity_move_bounce,src/game/entities/movement.c,diff-tested,W5,E,
 game86,1000:4ec8,15,think_09,think_09,src/game/entities/think_basic.c,diff-tested,W5,E,
 game86,1000:4ed7,188,think_0b,think_0b,src/game/entities/think_spawners.c,diff-tested,W5,E,
