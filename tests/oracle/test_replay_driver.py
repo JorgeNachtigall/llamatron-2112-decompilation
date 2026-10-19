@@ -195,7 +195,7 @@ def test_compare_one_tick_shift_at_a_hook_switch_is_timing():
     assert diffs[30].shift == 1 and diffs[30].offsets == []        # carried, no switch
     assert diffs[40].shift == 1 and diffs[40].offsets == [0x0810]  # timing + a real byte
     text = compare.report(list(diffs.values()))
-    assert "timing shifts (one tick, at hook switches): ticks 20, 30, 40" in text
+    assert "timing shifts (one tick, at hook switches / tick counter jumps): ticks 20, 30, 40" in text
     assert "first divergence at tick 40" in text
 
 
@@ -207,3 +207,16 @@ def test_compare_shift_without_a_hook_switch_is_a_divergence():
     port = {20: _image(play, 4, 20), 21: _image(play, 5, 21)}
     diffs = compare.compare(compare.PortRun(10, bytes(mask), port), ref)
     assert diffs[0].shift == 0 and compare.first_divergence(diffs) == 20
+
+
+def test_compare_shift_at_a_tick_counter_jump_is_timing():
+    """No hook switch, but the original set its tick counter (e.g. 1000:5d41 after the
+    hi-score table's draw) between two snapshots: a one-tick shift there is timing."""
+    mask = bytearray(compare.DGROUP_SIZE)
+    mask[0x0927] = 1
+    play = compare.PLAY_HOOK
+    ref = {10: _image(play, 3, 10), 20: _image(play, 5, 4)}      # counter set to 0 at 16
+    port = {10: _image(play, 3, 10), 20: _image(play, 4, 5), 21: _image(play, 5, 6)}
+    diffs = compare.compare(compare.PortRun(10, bytes(mask), port), ref)
+    assert diffs[1].shift == 1 and diffs[1].offsets == []
+    assert compare.first_divergence(diffs) is None

@@ -17,6 +17,7 @@ import hashlib
 import json
 import os
 import shutil
+import struct
 import subprocess
 import sys
 from pathlib import Path
@@ -168,6 +169,22 @@ def golden_config(run: dict) -> dict:
     return {k: v for k, v in run.items() if k not in ("summary", "time_limit")}
 
 
+def port_script(drive: Path, out: Path) -> list[str]:
+    """llamatron_replay --keys/--pokes for a reference run's drive. The keys leave out the q
+    presses refrun appends to end the run (no scenario uses q): the port would quit on the
+    last snapshot's tick and have no tick after it to check a timing shift against."""
+    import refrun
+    size = struct.calcsize(refrun.KEY_FMT)
+    data = (drive / "PROBE.KEY").read_bytes()
+    records = [data[i:i + size] for i in range(0, len(data), size)]
+    out.write_bytes(b"".join(r for r in records
+                             if struct.unpack(refrun.KEY_FMT, r)[1] & 0x7F != refrun.SCAN_Q))
+    script = ["--keys", str(out)]
+    if (drive / "PROBE.POK").exists():
+        script += ["--pokes", str(drive / "PROBE.POK")]
+    return script
+
+
 def replay_args(run: dict) -> list[str]:
     """llamatron_replay flags for the run's clock calibration."""
     return ["--tick-phase", str(run.get("tick_phase", 0)),
@@ -228,9 +245,7 @@ def test_port_replay_report(reference, tmp_path):
     last = max(s.irq for s in result.snapshots)
     out = tmp_path / f"{name}.lrpl"
     machine = "--vga" if cfg["machine"] == "vga" else "--ega"
-    script = ["--keys", str(drive / "PROBE.KEY")]
-    if (drive / "PROBE.POK").exists():
-        script += ["--pokes", str(drive / "PROBE.POK")]
+    script = port_script(drive, tmp_path / f"{name}.key")
     proc = subprocess.run([driver, "--ticks", str(last + 1), "--every", str(cfg["interval"]),
                            "--around", "1", machine, "--seed", str(cfg["ticks"]),
                            *replay_args(RUNS[name]), *script,

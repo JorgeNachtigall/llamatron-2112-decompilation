@@ -148,7 +148,7 @@ class TickDiff:
     offsets: list[int]
     ignored: list[tuple[range, str]] = field(default_factory=list)
     # +1 / -1: the port one tick behind / ahead (its tick t+shift matches the reference's
-    # tick t), at a hook switch or carried on from one;
+    # tick t), at a transition (hook switch or tick counter jump) or carried on from one;
     # `timing` holds the bytes that shift explains (not in `offsets`, which stay real)
     shift: int = 0
     timing: list[int] = field(default_factory=list)
@@ -176,15 +176,19 @@ def compare(port: PortRun, reference: dict[int, bytes], ignore=()) -> list[TickD
     Entity slots free on both sides are compared by their type word only.
 
     Timing: a differing byte that equals the port's byte one tick later (or earlier) is a
-    one-tick shift, provided a tick or draw hook switches there (in either run, or between
-    them) or the same shift was already established at the previous snapshot. Such bytes go
-    to `timing`; the rest stay in `offsets` and count as real differences. The tick counter
-    never counts as either. The port's neighbouring ticks come from llamatron_replay
+    one-tick shift, provided a transition happens there or the same shift was already
+    established at the previous snapshot. A transition is a tick or draw hook switch (in either
+    run, or between them) or a jump of the tick counter, which otherwise counts one per tick
+    (the original sets it at state changes, e.g. name entry's end 1000:5ab3 and the hi-score
+    table 1000:5d41, after CPU-heavy work the port does in zero time: DEVIATIONS #20). Such
+    bytes go to `timing`; the rest stay in `offsets` and count as real differences. The tick
+    counter never counts as either. The port's neighbouring ticks come from llamatron_replay
     --around 1."""
     ignore = set(ignore)
     out = []
     attract = False
     prev_ref_hooks = None
+    prev_tick, prev_counts = None, None
     carried = 0
     for tick in sorted(set(port.snapshots) & set(reference)):
         a, b = reference[tick], port.snapshots[tick]
@@ -197,13 +201,17 @@ def compare(port: PortRun, reference: dict[int, bytes], ignore=()) -> list[TickD
         shift, timing = 0, []
         state = [o for o in offs if o not in TICK_COUNT]
         best = []
+        counts = (_tick_count(a), _tick_count(b))
+        jump = prev_counts is not None and any(not _counted(p, c, tick - prev_tick)
+                                               for p, c in zip(prev_counts, counts))
         for s in (-1, +1):
             other = port.snapshots.get(tick + s)
             if other is None or not state:
                 continue
             prev = prev_ref_hooks if prev_ref_hooks is not None else _hooks(a)
-            switch = (_hooks(a) != prev or _hooks(a) != _hooks(b)
-                      or _hooks(b) != _hooks(other))
+            switch = (jump or _hooks(a) != prev or _hooks(a) != _hooks(b)
+                      or _hooks(b) != _hooks(other)
+                      or not _counted(_tick_count(b), _tick_count(other), s))
             explained = [o for o in state if other[o] == a[o]]
             if (switch or s == carried) and len(explained) > len(best):
                 shift, best = s, explained
@@ -213,6 +221,7 @@ def compare(port: PortRun, reference: dict[int, bytes], ignore=()) -> list[TickD
             offs = [o for o in offs if o not in explained and o not in TICK_COUNT]
         carried = shift
         prev_ref_hooks = _hooks(a)
+        prev_tick, prev_counts = tick, counts
         out.append(TickDiff(tick, offs, skipped, shift, timing))
     return out
 
@@ -220,6 +229,15 @@ def compare(port: PortRun, reference: dict[int, bytes], ignore=()) -> list[TickD
 def _hooks(image: bytes) -> tuple[int, int]:
     return (struct.unpack_from("<H", image, TICK_HOOK)[0],
             struct.unpack_from("<H", image, DRAW_HOOK)[0])
+
+
+def _tick_count(image: bytes) -> int:
+    return struct.unpack_from("<H", image, TICK_COUNT.start)[0]
+
+
+def _counted(before: int, after: int, ticks: int) -> bool:
+    """The tick counter went from `before` to `after` by just counting `ticks` ticks."""
+    return (before + ticks) & 0xFFFF == after
 
 
 def _differences(a: bytes, b: bytes, mask: bytes, ignore: set, attract: bool):
@@ -261,7 +279,7 @@ def report(diffs: list[TickDiff]) -> str:
         lines.append(f"tick {d.tick:6d}  {state}{skipped}")
     timing = [d.tick for d in diffs if d.shift]
     if timing:
-        lines.append(f"timing shifts (one tick, at hook switches): ticks "
+        lines.append(f"timing shifts (one tick, at hook switches / tick counter jumps): ticks "
                      + ", ".join(map(str, timing)))
     first = first_divergence(diffs)
     lines.append("identical on every common tick (apart from timing)" if first is None

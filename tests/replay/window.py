@@ -27,7 +27,7 @@ sys.path.insert(0, str(ROOT / "tests" / "replay"))
 
 import compare  # noqa: E402
 import refrun  # noqa: E402
-from test_reference_golden import ORIGINAL, RUNS, probe_args, replay_args  # noqa: E402
+from test_reference_golden import ORIGINAL, RUNS, port_script, probe_args, replay_args  # noqa: E402
 
 MAX_WINDOW = 60
 
@@ -61,9 +61,7 @@ def main(argv=None) -> int:
         return 1
 
     drive = workdir / "c"
-    script = ["--keys", str(drive / "PROBE.KEY")]
-    if (drive / "PROBE.POK").exists():
-        script += ["--pokes", str(drive / "PROBE.POK")]
+    script = port_script(drive, workdir / "port.key")
     out = workdir / "port.lrpl"
     machine = "--vga" if cfg["machine"] == "vga" else "--ega"
     # one extra tick either side, for the timing classification
