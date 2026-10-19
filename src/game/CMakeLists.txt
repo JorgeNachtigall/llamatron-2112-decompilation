@@ -12,6 +12,7 @@ add_library(llamatron_game STATIC
     frame.c
     sound.c
     rng.c
+    bullets.c
     draw_page.c
     draw_rect.c
     draw_target.c

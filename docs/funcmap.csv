@@ -231,7 +231,7 @@ game86,1000:54f6,65,text_draw_char,text_draw_char,src/game/text.c,diff-tested,W6
 game86,1000:5537,100,text_draw_char_alt,text_draw_centred,src/game/text.c,diff-tested,W6,E,\q escape in test_text.py
 game86,1000:559f,640,glyph_blit,text_draw_glyph,src/game/text.c,diff-tested,W6,E,"test_text.py::test_glyph_clipping (edge drift, top clip, no bottom clip)"
 game86,1000:581f,14,crtc_set_start,gfx_flip,src/engine/gfx.c,ported,W2,E,"display start = the page gfx_flip shows (frame_run 1e7b:0185 write diff-tested in test_engine_pages.py) or the scroller window (W6 draw_scroller.c, test_scroller.py)"
-game86,1000:582f,21,display_page_reset,canvas_from_vram_pages,src/game/draw_scroller.c,diff-tested,W2,E,implemented by W6 in the scroller (draw_copy_screen_to_draw_page + gfx_flip); test_scroller.py covers it
+game86,1000:582f,21,display_page_reset,canvas_from_vram_pages,src/game/draw_scroller.c,diff-tested,W6,E,implemented by W6 in the scroller (draw_copy_screen_to_draw_page + gfx_flip); test_scroller.py covers it
 game86,1000:5844,284,text_scroller,scroller_start/scroller_frame/scroller_finish,src/game/draw_scroller.c,diff-tested,W6,E,"test_scroller.py: lockstep with the original loop (plain and story runs, skip/pause input, window, canvas, pages); per-frame state machine instead of the blocking loop; own canvas buffer shown via page 0"
 game86,1000:5960,52,video_init,video_init,src/engine/gfx.c,todo,W2,E,
 game86,1000:5994,23,video_init_tail,video_init_tail,src/engine/gfx.c,todo,W2,E,
