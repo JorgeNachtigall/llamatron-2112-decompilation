@@ -1,7 +1,7 @@
 /* Data from the LZSS-packed .cmp files that game86 loads at start-up (game86 1000:60aa):
  *
  *   data/font.bin  typed proportional font from f.cmp (format in tools/extract/FORMATS.md)
- *   data/sine.bin  s.cmp: 256 x s8 sine (amplitude 126), then 256 x s16 LE sine (amplitude 0x3FFF)
+ *   data/sine.bin  s.cmp: 256 x s8 sine (amplitude 126), then 512 bytes no game86 code reads (FORMATS.md)
  *
  * g3.cmp (title shapes) uses the sprite format and is converted by sprites.c. */
 #include "extract.h"

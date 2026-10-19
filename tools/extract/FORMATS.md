@@ -32,8 +32,9 @@ high-score table). We store blank rows instead.
 
 ## `sine.bin` (s.cmp, verbatim; it is already two typed arrays)
 ```
-s8  sine8[256]    amplitude 126, used by game86 (1000:29b3, 29c3, 44fc)
-s16 sine16[256]   amplitude 0x3FFF, no reader found in game86
+s8  sine8[256]    sine, 256 steps per turn, amplitude 126, used by game86 (1000:29b3, 29c3, 44fc)
+u8  rest[512]     no reader found in game86; read as big-endian s16 it is a sine of amplitude
+                  0x3FFF in its positive half and 0x101 too high in its negative half
 ```
 
 ## Sprite frames: `sprites.bin` (game86 bank, segment 218C) and `g3.bin` (g3.cmp title shapes)
@@ -112,7 +113,9 @@ u16   flash_list_count
 struct { u16 ds_offset; u16 first_word; u16 word_count; } flash_lists[flash_list_count]
 u16   flash_word_count
 u16   flash_words[flash_word_count] ST words for colour 0, one per frame; the original's 0
-                                    terminator is not stored (word_count instead)
+                                    terminator is not stored (word_count instead). Only bits
+                                    0..11 are colour (1e7b:01cd): the lists use 0x1000 for black
+                                    because 0 would end the list
 ```
 `ds_offset` is the value the original stores in `g_flash_list` (DS:06C7) or passes in DX.
 
