@@ -172,11 +172,11 @@ game86,1000:3fde,1,hook_nop,hook_nop,,todo,W4,D,empty hook
 game86,1000:402c,621,title_draw_hook,title_draw_hook,src/game/attract.c,diff-tested,W5,D,"tests/oracle/test_attract.py::test_title_draw_hook (incl. title_menu 4081, logo row 40fc, llama draw 4603; pages + dirty lists)"
 game86,1000:40fc,,title_draw_logo_row,draw_logo_row,src/game/attract.c,diff-tested,W5,D,static in attract.c; via tests/oracle/test_attract.py::test_title_draw_hook
 game86,1000:424c,56,unk_1000_424c,,,todo,W5,D,dead code: no callers (agreed with W4)
-game86,1000:4284,56,g3_draw_all_pages,gfx_draw_sprite,src/engine/gfx.c,todo,W6,D,g3 shapes use the sprite format
-game86,1000:42bc,15,sprite_draw_nodirty,gfx_draw_sprite,src/engine/gfx.c,todo,W6,D,
-game86,1000:42cb,24,g3_draw_nodirty,gfx_draw_sprite,src/engine/gfx.c,todo,W6,D,g3 shapes use the sprite format
-game86,1000:42da,22,g3_draw,gfx_draw_sprite,src/engine/gfx.c,todo,W6,D,g3 shapes use the sprite format
-game86,1000:42f0,23,sprite_draw,gfx_draw_sprite,src/engine/gfx.c,todo,W6,D,
+game86,1000:4284,56,g3_draw_all_pages,draw_sprite_all_pages,src/game/draw_sprite.c,diff-tested,W6,D,tests/oracle/test_draw_wrappers.py::test_all_pages; attract.c (W5b) inlines the same three draws
+game86,1000:42bc,15,sprite_draw_nodirty,draw_sprite_unrecorded,src/game/draw_sprite.c,diff-tested,W6,D,unreferenced; recording left off as in the original; tests/oracle/test_draw_wrappers.py::test_unrecorded
+game86,1000:42cb,24,g3_draw_nodirty,draw_sprite_unrecorded,src/game/draw_sprite.c,diff-tested,W6,D,recording left off as in the original; tests/oracle/test_draw_wrappers.py::test_unrecorded
+game86,1000:42da,22,g3_draw,draw_sprite,src/game/draw_sprite.c,diff-tested,W6,D,register-saving wrapper of sprite_draw_core (ES from the caller); tests/oracle/test_draw_wrappers.py::test_draw
+game86,1000:42f0,23,sprite_draw,draw_sprite,src/game/draw_sprite.c,diff-tested,W6,D,register-saving wrapper of sprite_draw_core (sprite bank); tests/oracle/test_draw_wrappers.py::test_draw
 game86,1000:4307,36,entities_clear,entities_clear,src/game/entity_loop.c,diff-tested,W4,D,tests/oracle/test_entity_loop.py (original also clears 30 records past the table)
 game86,1000:432b,73,entities_think_all,entities_think_all,src/game/entity_loop.c,ported,W4,D,NULL (unported) handlers skipped
 game86,1000:4374,85,entities_animate_all,entities_animate_all,src/game/frame.c,diff-tested,W4,D,state only (tests/oracle/test_entity_animate.py); overlay pixels via W6 blitter tests
@@ -191,7 +191,7 @@ game86,1000:44d7,154,attract_llamas_init,attract_llamas_init,src/game/attract.c,
 game86,1000:4571,146,attract_llamas_tick,attract_llamas_tick,src/game/attract.c,diff-tested,W5,D,static in attract.c; via tests/oracle/test_attract.py::test_title_tick_hook
 game86,1000:4603,67,attract_llamas_draw,attract_llamas_draw,src/game/attract.c,diff-tested,W5,D,static in attract.c; via tests/oracle/test_attract.py::test_title_draw_hook
 game86,1000:4646,47,anim_04,anim_plain_then_slanted,src/game/entities/anim.c,diff-tested,W6,D,
-game86,1000:4675,1,anim_draw_current,anim_draw_current,src/game/entities/anim.c,ported,W6,E,empty routine; nothing to port
+game86,1000:4675,1,anim_draw_current,anim_draw_current,src/game/entities/anim.c,diff-tested,W6,E,empty routine; run by anim 04 in tests/oracle/test_anim.py
 game86,1000:4676,20,anim_09,anim_plain_advance,src/game/entities/anim.c,diff-tested,W6,E,
 game86,1000:468a,38,anim_10,anim_powerup_mark,src/game/entities/anim.c,diff-tested,W6,E,
 game86,1000:46b0,154,anim_03,anim_beam_vertical,src/game/entities/anim.c,diff-tested,W6,E,
@@ -205,7 +205,7 @@ game86,1000:498e,,hunter_claim_llama,herder_claim_llama,src/game/entities/think_
 game86,1000:4ac9,201,think_03,think_03,src/game/entities/think_basic.c,diff-tested,W5,E,
 game86,1000:4b49,98,entity_hits_player,entity_hits_player,src/game/entities/think_basic.c,diff-tested,W5,E,player-touch tail 43f7 = entity_touch_player
 game86,1000:4bab,40,anim_01,anim_wave_llama,src/game/entities/anim.c,diff-tested,W6,E,
-game86,1000:4bd3,40,sprite_draw_to_bg,gfx_draw_sprite,src/engine/gfx.c,todo,W6,E,
+game86,1000:4bd3,40,sprite_draw_to_bg,draw_sprite_with_background,src/game/draw_sprite.c,diff-tested,W6,E,unreferenced; at the caller's x (DEVIATIONS #18); tests/oracle/test_draw_wrappers.py::test_with_background
 game86,1000:4bfb,75,think_06,think_06,src/game/entities/think_llamas.c,diff-tested,W5,E,
 game86,1000:4c46,569,think_05,think_05,src/game/entities/think_llamas.c,diff-tested,W5,E,
 game86,1000:4ca3,,llama_rescue,llama_rescue,src/game/entities/think_llamas.c,diff-tested,W5,E,label inside think_05
@@ -225,7 +225,7 @@ game86,1000:52e7,48,hud_draw_score,hud_draw_score,src/game/hud.c,diff-tested,W6,
 game86,1000:5317,31,player_swap_state,player_swap_state,src/game/player.c,diff-tested,W5,E,
 game86,1000:5336,26,player_copy_state,player_copy_state,src/game/player.c,diff-tested,W5,E,
 game86,1000:5350,18,level_select_variant,level_select_variant,src/game/script.c,todo,W4,E,
-game86,1000:5363,12,text_print_home,text_print_home,src/game/text.c,ported,W6,E,"pen to (0,0) + text_print"
+game86,1000:5363,12,text_print_home,text_print_home,src/game/text.c,diff-tested,W6,E,"pen to (0,0) + text_print; tests/oracle/test_text.py::test_text_print_home"
 game86,1000:536f,391,text_print,text_print,src/game/text.c,diff-tested,W6,E,"test_text.py (random fonts/strings incl. \s inline sprites, whole 64 KB canvas)"
 game86,1000:54f6,65,text_draw_char,text_draw_char,src/game/text.c,diff-tested,W6,E,via test_text.py::test_text_print_*
 game86,1000:5537,100,text_draw_char_alt,text_draw_centred,src/game/text.c,diff-tested,W6,E,\q escape in test_text.py
@@ -243,7 +243,7 @@ game86,1000:5bfe,62,name_entry_cursor_pos,name_entry_cursor_pos,src/game/hiscore
 game86,1000:5c3c,289,hiscore_table_show,hiscore_table_draw + hiscore_table_scroll_frame,src/game/hiscore.c,diff-tested,W6,E,test_hiscore.py drawing 5c3c..5d16 on the scroller canvas; scroll loop 5d19 as per-frame calls; tune and wait 5d3b.. left to the state machine
 game86,1000:5d5d,69,text_draw_row_coloured,hiscore_draw_row,src/game/hiscore.c,diff-tested,W6,E,"test_hiscore.py (opaque rows, leading zeros skipped)"
 game86,1000:5da2,268,hiscore_check_insert,hiscore_find_rank/hiscore_insert/hiscore_set_name (hiscore_check_insert),src/game/hiscore.c,diff-tested,W6,E,test_hiscore.py (name entry and save stubbed; save is Keel host hook via scores_format_yak); rude word from extracted code immediates
-game86,1000:5eae,43,unk_1000_5eae,,,todo,W6,E,
+game86,1000:5eae,43,unk_1000_5eae,,,ported,W6,E,dead code: unreferenced exit path (re-notes-game86 pass 6 fall-through); no counterpart
 game86,1000:5ed9,146,game_exit,game_exit,src/game/main_sm.c,todo,W4,E,
 game86,1000:5f6b,316,config_init,config_from_options,src/game/init.c,todo,W4,E,PSP tail -> port options; RNG seed step = rng_seed (diff-tested in oracle.rng)
 game86,1000:60aa,104,data_load,assets_load,src/assets/,todo,W1,E,assets come from build/generated
@@ -254,11 +254,11 @@ game86,1000:61ff,233,screen_reveal_bg,screen_reveal_bg,src/engine/gfx.c,todo,W2,
 game86,1000:62e8,14,vram_copy_page_to_bg,draw_save_screen_as_background,src/game/draw_page.c,diff-tested,W6,E,test_draw_basic.py::test_page_copy
 game86,1000:62f6,14,vram_copy_bg_to_page,draw_show_background,src/game/draw_page.c,diff-tested,W6,E,test_draw_basic.py::test_page_copy
 game86,1000:6304,96,vram_copy_page,draw_copy_screen_to_draw_page,src/game/draw_page.c,diff-tested,W6,E,test_draw_basic.py::test_page_copy
-game86,1000:6364,31,vram_fill_setup,scroller_start/scroller_frame,src/game/draw_scroller.c,ported,W6,E,EGA write-mode/map-mask setup of the clears: no counterpart on indexed pages (folded into the clears)
+game86,1000:6364,31,vram_fill_setup,scroller_start/scroller_frame,src/game/draw_scroller.c,diff-tested,W6,E,EGA write-mode/map-mask setup of the clears: no counterpart on indexed pages (folded into the clears); run by test_scroller.py (6383) and test_draw_wrappers.py::test_clear_page (63c4)
 game86,1000:6383,12,vram_clear_from_1f40,scroller_start,src/game/draw_scroller.c,diff-tested,W6,E,folded into scroller_start (canvas after the first screen cleared); test_scroller.py
 game86,1000:638f,16,vram_clear_line,scroller_frame,src/game/draw_scroller.c,diff-tested,W6,E,folded into scroller_frame (row leaving the window cleared); test_scroller.py
 game86,1000:639f,37,vram_clear_lower,scroller_clear_below,src/game/draw_scroller.c,diff-tested,W6,E,test_hiscore.py (table draw)
-game86,1000:63c4,9,vram_clear_page,vram_clear_page,src/engine/gfx.c,todo,W6,E,renderer API (W2) semantics
+game86,1000:63c4,9,vram_clear_page,gfx_clear,src/engine/gfx.c,diff-tested,W6,E,"gfx_clear(page, 0) (all callers pass a page offset in DI); tests/oracle/test_draw_wrappers.py::test_clear_page"
 game86,1000:63d2,393,sprite_draw_wide,draw_sprite,src/game/draw_sprite.c,diff-tested,W6,E,"test_sprites.py (one column aligned/shifted, fast tables and edge paths, several columns, dirty records)"
 game86,1000:655b,2,sprite_draw_wide_ret,draw_sprite,src/game/draw_sprite.c,diff-tested,W6,E,"test_sprites.py (one column aligned/shifted, fast tables and edge paths, several columns, dirty records)"
 game86,1000:655d,9,sprite_draw_wide_clip,draw_sprite,src/game/draw_sprite.c,diff-tested,W6,E,"test_sprites.py (one column aligned/shifted, fast tables and edge paths, several columns, dirty records)"

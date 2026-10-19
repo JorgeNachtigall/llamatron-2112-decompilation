@@ -102,6 +102,22 @@ void draw_record_dirty(const DrawTarget *target, int32_t cell, int words, int ro
  * tables at 8e71 / abd1, shifted 1000:aa29, ac10), 1000:63d2 / 6566 (several columns) */
 void draw_sprite(const DrawTarget *target, const GfxSprite *sprite, int x, int y);
 
+/* Switch dirty recording off and draw. Recording stays off afterwards, as in the original
+ * (the frame loop switches it on again for the next frame). game86 1000:42bc, 42cb */
+void draw_sprite_unrecorded(const DrawTarget *target, const GfxSprite *sprite, int x, int y);
+
+/* Draw into page 0, page 1 and the background page with recording off, then restore the
+ * recording state: a picture that stays on screen whichever page is shown. game86 1000:4284
+ * (g3 shapes; 424c, the unreferenced sprite-bank twin) */
+void draw_sprite_all_pages(const GfxSprite *sprite, int x, int y);
+
+/* Draw into the background page with recording off, then into `target` as draw_sprite does
+ * (recorded if recording is on), so the sprite survives the target's dirty-list restore.
+ * The original draws into the page being drawn ([0x39d3]): `target` should be that page.
+ * Both draws are at (x, y); the original's are at x = 0x4000 and x = [0x39d3]
+ * (docs/DEVIATIONS.md #18). game86 1000:4bd3 (unreferenced) */
+void draw_sprite_with_background(const DrawTarget *target, const GfxSprite *sprite, int x, int y);
+
 /* The original's "scaled" draw (game86 1000:e135, selected by g_draw_flags >= 0): a
  * one-column sprite is drawn row by row, row r at (x0 + r * shear, y0 + r * row_step),
  * so row_step spreads (> 1) or squashes (0) it vertically and shear slants it; drawing

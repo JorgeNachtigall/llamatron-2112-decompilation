@@ -256,6 +256,39 @@ void draw_sprite(const DrawTarget *target, const GfxSprite *sprite, int x, int y
         draw_narrow(target, sprite, x, y);
 }
 
+/* ---- Unrecorded and background draws ---------------------------------------------- */
+
+/* game86 1000:42bc (sprite bank), 42cb (g3 shapes) */
+void draw_sprite_unrecorded(const DrawTarget *target, const GfxSprite *sprite, int x, int y)
+{
+    draw_set_dirty_recording(false);
+    draw_sprite(target, sprite, x, y);
+}
+
+/* game86 1000:4284 (g3 shapes), 424c (sprite bank, unreferenced) */
+void draw_sprite_all_pages(const GfxSprite *sprite, int x, int y)
+{
+    bool recording = s_dirty_recording;
+    s_dirty_recording = false;
+    static const GfxPageId pages[] = { GFX_PAGE_0, GFX_PAGE_1, GFX_PAGE_BACKGROUND };
+    for (int p = 0; p < 3; p++) {
+        DrawTarget page = draw_target_page(pages[p]);
+        draw_sprite(&page, sprite, x, y);
+    }
+    s_dirty_recording = recording;
+}
+
+/* At the caller's x, unlike the original (docs/DEVIATIONS.md #18). game86 1000:4bd3 */
+void draw_sprite_with_background(const DrawTarget *target, const GfxSprite *sprite, int x, int y)
+{
+    bool recording = s_dirty_recording;
+    s_dirty_recording = false;
+    DrawTarget background = draw_target_page(GFX_PAGE_BACKGROUND);
+    draw_sprite(&background, sprite, x, y);
+    s_dirty_recording = recording;
+    draw_sprite(target, sprite, x, y);
+}
+
 /* ---- Sheared ----------------------------------------------------------------------- */
 
 /* game86 1000:e240: one aligned row of a sheared sprite. */

@@ -265,6 +265,39 @@ def test_text_print_page(machine, ctext, case):
     assert got == want, first_diff(got, want)
 
 
+@pytest.mark.parametrize("case", fuzz_cases(8))
+def test_text_print_home(machine, ctext, case):
+    """5363: the pen goes to (0, 0) whatever it was, then text_print."""
+    rnd = case_rng("text_print_home", case)
+    page_off = rnd.choice([0x0000, 0x2000, 0x4000])
+    page_id = {0x0000: 0, 0x2000: 1, 0x4000: 2}[page_off]
+    font = Font(rnd)
+    colour = rnd.randrange(16)
+    text = random_text(rnd, tokens=rnd.randrange(1, 5))
+    while not fits_canvas(text) or max_line_breaks(text) > 6:
+        text = random_text(rnd, tokens=rnd.randrange(1, 5))
+    x, y = rnd.randrange(-50, 330), rnd.randrange(-50, 250)
+    background = indexed_page(rnd, "noise")
+    machine.ega.load_indexed(background, page=page_off)
+    setup_original(machine, font, text, x, y, colour, False, page_off, False)
+
+    machine.call("1000:5363", regs={"si": STRING_AREA}, max_insns=20_000_000)
+
+    font.to_c(ctext)
+    page = bind(ctext, "gfx_page", ctypes.c_void_p, ctypes.c_int)(page_id)
+    ctypes.memmove(page, background, len(background))
+    target = bind(ctext, "draw_target_page", DrawTarget, ctypes.c_int)(page_id)
+    state = c_state(x, y, colour, False)
+    bind(ctext, "text_print_home", ctypes.c_void_p, ctypes.POINTER(DrawTarget),
+         ctypes.POINTER(TextState), ctypes.c_char_p)(ctypes.byref(target), ctypes.byref(state), text)
+
+    want = machine.ega.rasterise(page_off)
+    got = ctypes.string_at(page, len(want))
+    assert got == want, first_diff(got, want)
+    tx, ty, margin = struct.unpack("<3h", machine.read_dgroup(TEXT_X, 6))
+    assert (state.x, state.y, state.margin) == (tx, ty, margin)
+
+
 # ---- \s inline sprites ----------------------------------------------------------------
 CS_SPRITE_SEG = 0x025F        # segment of the sprite bank (218C in the image)
 CS_DIRTY_ENABLE = 0x672F
