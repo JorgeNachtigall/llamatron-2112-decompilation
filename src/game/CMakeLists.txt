@@ -31,6 +31,9 @@ add_library(llamatron_game STATIC
 target_include_directories(llamatron_game PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
     ${PROJECT_SOURCE_DIR}/src/assets)   # W6 hud.c: HudGlyphs type from formats.h (header only)
 target_link_libraries(llamatron_game PUBLIC llama_engine)   # W6 draw_*.c use engine/gfx.h
+# Game data loaders (game_data.h); the executable still picks the asset store
+# (llama_assets_embedded or llama_assets_files).
+target_link_libraries(llamatron_game PUBLIC llamatron_assets)
 set_target_properties(llamatron_game PROPERTIES POSITION_INDEPENDENT_CODE ON)
 target_compile_options(llamatron_game PRIVATE
     $<$<C_COMPILER_ID:Clang,AppleClang,GNU>:-Wall -Wextra -Wpedantic>)
