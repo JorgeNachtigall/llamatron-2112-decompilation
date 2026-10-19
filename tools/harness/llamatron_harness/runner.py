@@ -69,6 +69,8 @@ def default_game86_path() -> Path:
     else the local RE copy in unpacked/."""
     env = os.environ.get("LLAMATRON_GAME86_IMAGE")
     if env:
+        if not Path(env).exists():
+            raise FileNotFoundError(f"LLAMATRON_GAME86_IMAGE={env} does not exist")
         return Path(env)
     for cand in (REPO_ROOT / "build/generated/exe/game86.unpacked",
                  REPO_ROOT / "unpacked/game86.exe"):
