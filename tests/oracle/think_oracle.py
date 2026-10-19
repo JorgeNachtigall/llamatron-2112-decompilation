@@ -235,26 +235,12 @@ class ThinkOracle:
             sounds.append((s.sample, s.rate_index, s.priority))
         return self.dg.to_dgroup(state, case.image), sounds
 
-    def with_sprite_frames(self, before: bytes, after: bytes) -> bytes:
-        """`after` with +2c (Entity.sprite_ref, read when sprite < 0) converted from the
-        original's sprite bank offset to the port's frame index wherever the handler set it."""
-        out = bytearray(after)
-        for slot in range(ENTITY_COUNT):
-            base = ENTITY_TABLE + ENTITY_SIZE * slot
-            ref, sprite = base + 0x2C, base + 0x0C
-            if after[ref:ref + 2] != before[ref:ref + 2] and after[sprite + 1] & 0x80:
-                frame = self.frame_of_offset(struct.unpack_from("<H", after, ref)[0])
-                if frame >= 0:
-                    out[ref:ref + 2] = w16(frame)
-        return bytes(out)
-
     def check(self, machine, case: ThinkCase, think: int | None, fixup=None, entry=None,
               stop=None, port_call=None):
         """`fixup(image) -> image` maps the original's representation of a value to the
         port's where the two differ by design; it is applied to the port's input image and to
         the original's result."""
         want, want_sounds = self.run_original(machine, case, think, entry, stop)
-        want = self.with_sprite_frames(case.image, want)
         port_case = case
         if fixup:
             want = fixup(want)
