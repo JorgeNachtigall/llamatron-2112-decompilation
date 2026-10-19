@@ -131,6 +131,26 @@ typedef struct Point16 {
     int16_t x, y;
 } Point16;
 
+/* The per-tick hook [0x39E4] and the per-frame draw hook [0x39E0]: the original stores code
+ * addresses, the port names them. */
+typedef enum TickHook {
+    TICK_HOOK_NONE,             /* 3fde hook_nop */
+    TICK_HOOK_TITLE_TUNE,       /* 084e title_tune_tick */
+    TICK_HOOK_TITLE,            /* 3f6f title_tick_hook */
+    TICK_HOOK_PLAY,             /* 1562 play_tick_hook */
+    TICK_HOOK_PAUSE,            /* 14d0 pause_tick_hook */
+    TICK_HOOK_CONTINUE,         /* 0816 continue_tick_hook */
+    TICK_HOOK_NAME_ENTRY,       /* 5b06 hi-score name entry */
+} TickHook;
+
+typedef enum DrawHook {
+    DRAW_HOOK_NONE,             /* 0000: nothing installed yet (image value) */
+    DRAW_HOOK_TITLE,            /* 402c title_draw_hook */
+    DRAW_HOOK_PLAY,             /* 1a3b play_draw_hook */
+    DRAW_HOOK_CONTINUE,         /* 0894 continue_draw_hook */
+    DRAW_HOOK_NAME_ENTRY,       /* 5ac4 hi-score name entry */
+} DrawHook;
+
 /* The title tune (1000:083b/084e): a list of notes played one per `period` ticks. */
 typedef struct TitleTune {
     bool fire_pressed;          /* 0625 set by title_tune_tick while controls[0] fire is down;
@@ -140,7 +160,10 @@ typedef struct TitleTune {
     int16_t countdown;          /* 0629 -1 = silent */
     uint16_t position;          /* 062B next note: byte offset into the tune list */
     uint16_t restart;           /* 062D where the list starts over: byte offset */
+    /* both TUNE_NO_LIST (the image's null pointers) until title_tune_begin */
 } TitleTune;
+
+enum { TUNE_NO_LIST = 0xFFFF };
 
 enum { TITLE_LETTERS = 10 };
 
@@ -203,7 +226,8 @@ typedef HighScore HiscoreEntry;
 /* Where wave spawns are read from (DS:39EB points into one of them): the level's own
  * (type, count) list, or the player's roster when a player resumes a wave (1000:07b1). Both
  * hold count = entities - 1 and end with a count of 0xFF (1000:3d0d). */
-typedef enum SpawnSource { SPAWN_FROM_LEVEL, SPAWN_FROM_ROSTER } SpawnSource;
+/* SPAWN_NONE: the original's null cursor before the first level starts. */
+typedef enum SpawnSource { SPAWN_NONE, SPAWN_FROM_LEVEL, SPAWN_FROM_ROSTER } SpawnSource;
 
 typedef struct SpawnCursor {
     SpawnSource source;
@@ -260,6 +284,10 @@ typedef struct GameState {
     int16_t respawn_timer[PLAYER_COUNT];/* 07F3 / 0634 [H] 0x64 at wave start, P1 0xFFFE = dying */
     int16_t loop_count;                 /* 233C times the level scripts wrapped to level 0 */
     int16_t level_flags;                /* 233E [H] sign selects shot sprites */
+    int16_t speedup_timer;              /* 2336 -1 per play tick (15cc); below 0 it reloads from
+                                           speedup_period (halved while > 0x10) and speed_accum
+                                           grows by 0x200. A shot hit reloads it (0d82) */
+    int16_t speedup_period;             /* 2338 [H] reload value; no code writes it */
     int16_t demo_mode;                  /* 06C4 demo waves left: 3 when a demo starts (02b9), -1 per
                                            wave (06bd); non-zero disables score_add */
 
@@ -334,6 +362,8 @@ typedef struct GameState {
     SnakeTrailPoint snake_trail[SNAKE_TRAIL_LENGTH]; /* 4481 enemy_init_10 fills it with the head */
     int16_t snake_head;                 /* 0870 newest snake_trail entry, 0..63 (think_1d 36e1) */
     uint16_t tick_count;                /* 39E6 50 Hz counter */
+    TickHook tick_hook;                 /* 39E4 what each timer tick runs */
+    DrawHook draw_hook;                 /* 39E0 what each frame draws */
     bool frame_drawn;                   /* 0429 the tick hook idles until a wave frame is drawn */
 
     HiscoreEntry hiscores[HISCORE_COUNT]; /* 40A0 */
