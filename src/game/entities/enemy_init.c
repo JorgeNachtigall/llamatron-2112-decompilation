@@ -717,10 +717,9 @@ static void enemy_init_19(GameState *game, Entity *e)
 
 /* ---- 1a, 27: type 0x24 ----------------------------------------------------------------- */
 
-/* game86 1000:33e0 */
-static void enemy_init_1a(GameState *game, Entity *e)
+/* game86 1000:33e3 (also think_25's ENTITY_CALLBACK_33E3) */
+void enemy_setup_1a(GameState *game, Entity *e)
 {
-    enemy_random_spawn_pos(game, e);
     e->sprite = 0x104;
     e->anim = 0x0d;
     stand_still(e);
@@ -734,6 +733,13 @@ static void enemy_init_1a(GameState *game, Entity *e)
     e->hit_handler = 0;
     entity_set_type(e, 0x24, 0x24);
     game->enemies_alive++;
+}
+
+/* game86 1000:33e0 */
+static void enemy_init_1a(GameState *game, Entity *e)
+{
+    enemy_random_spawn_pos(game, e);
+    enemy_setup_1a(game, e);
 }
 
 /* game86 1000:3441 */
