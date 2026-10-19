@@ -14,6 +14,7 @@ add_library(llamatron_game STATIC
     attract.c
     continue.c
     pause.c
+    palette_pulse.c
     frame.c
     sound.c
     rng.c

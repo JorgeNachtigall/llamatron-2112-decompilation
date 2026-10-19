@@ -11,6 +11,7 @@
 #include "init.h"
 #include "input.h"
 #include "main_sm.h"
+#include "palette_pulse.h"
 #include "pause.h"
 #include "tick.h"
 
@@ -47,7 +48,7 @@ void game_tick(GameState *game)
 {
     game->tick_count++;
     input_tick_fire();
-    /* 3e4e..3eb5: the colour 1 pulse is not ported yet. */
+    palette_pulse_tick(game);                       /* 3e4e..3eb5 */
     switch (game->tick_hook) {                      /* 3eb6 CALL [39E4] */
     case TICK_HOOK_TITLE_TUNE:
         title_tune_tick(game);
