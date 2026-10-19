@@ -93,6 +93,10 @@ void draw_cell_blit(const DrawTarget *target, int32_t cell, uint8_t mask, const 
 void draw_set_dirty_recording(bool on);
 bool draw_dirty_recording(void);
 
+/* While recording is on, add to the target page's dirty list the area the original records
+ * as {16-pixel words, rows, first cell}: `words` x 16 pixels by `rows` rows from `cell`. */
+void draw_record_dirty(const DrawTarget *target, int32_t cell, int words, int rows);
+
 /* Draw `sprite` with its hotspot at (x, y). One-column sprites have at most 24 rows (the
  * original dispatches on the row count through 25-entry tables; real frames have <= 23). game86 1000:8cbb (one column: 8dc9 and the
  * tables at 8e71 / abd1, shifted 1000:aa29, ac10), 1000:63d2 / 6566 (several columns) */
@@ -124,6 +128,18 @@ void draw_copy_screen_to_draw_page(void);
  * y and y+1. Each edge is drawn at least once even when x1 < x0 or y1 < y0, as in the
  * original. game86 1000:6112 */
 void draw_rect_outline(GfxPageId page, int x0, int y0, int x1, int y1, uint8_t color);
+
+/* The beams of the gate enemies (anim 02 / 03): a one-pixel line that turns its pixels
+ * colour DRAW_BEAM_COLOR whatever they were (the original's set/reset write). Neither is
+ * clipped; while dirty recording is on the line's area is recorded, as the original's
+ * {words, rows, cell} entry. */
+enum { DRAW_BEAM_COLOR = 1 };
+/* Column x, rows 10..195 (from the cell x >> 3 of row 10, so x outside the screen lands
+ * in a neighbouring row). game86 1000:46cd..4746 */
+void draw_beam_vertical(const DrawTarget *target, int x);
+/* Row y, pixels 8..311. y must be 0..299 (the original's row table); cells past the page
+ * are dropped as for any page target. game86 1000:4795..4800 */
+void draw_beam_horizontal(const DrawTarget *target, int y);
 
 #ifdef __cplusplus
 }

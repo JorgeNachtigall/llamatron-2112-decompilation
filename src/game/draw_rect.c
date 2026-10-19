@@ -1,5 +1,5 @@
 /*
- * draw_rect.c - rectangle outlines.
+ * draw_rect.c - rectangle outlines and beam lines.
  */
 #include "draw.h"
 
@@ -43,4 +43,34 @@ void draw_rect_outline(GfxPageId page_id, int x0, int y0, int x1, int y1, uint8_
         draw_dot(page, x1, y, color);
         y += 2;
     } while (y <= y1);
+}
+
+/* ---- Beams ------------------------------------------------------------------------- */
+
+enum {
+    BEAM_V_FIRST_ROW = 10,
+    BEAM_V_ROWS = 186,
+    BEAM_H_FIRST_CELL = 1,      /* 19 words from the row's second cell */
+    BEAM_H_CELLS = 38,
+    BEAM_H_RECORDED_WORDS = 20, /* the whole row */
+    ALL_PLANES = 0x0f,
+};
+
+/* game86 1000:46cd..4746 */
+void draw_beam_vertical(const DrawTarget *target, int x)
+{
+    int32_t cell = BEAM_V_FIRST_ROW * DRAW_CELLS_PER_ROW + ((int16_t)x >> 3);
+    draw_record_dirty(target, cell, 1, BEAM_V_ROWS);
+    uint8_t bit = (uint8_t)(0x80u >> (x & 7));
+    for (int row = 0; row < BEAM_V_ROWS; row++, cell += DRAW_CELLS_PER_ROW)
+        draw_cell_paint(target, cell, bit, ALL_PLANES, DRAW_BEAM_COLOR);
+}
+
+/* game86 1000:4795..4800 */
+void draw_beam_horizontal(const DrawTarget *target, int y)
+{
+    int32_t row = (int32_t)y * DRAW_CELLS_PER_ROW;
+    draw_record_dirty(target, row, BEAM_H_RECORDED_WORDS, 1);
+    for (int i = 0; i < BEAM_H_CELLS; i++)
+        draw_cell_paint(target, row + BEAM_H_FIRST_CELL + i, 0xff, ALL_PLANES, DRAW_BEAM_COLOR);
 }

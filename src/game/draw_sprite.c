@@ -127,7 +127,7 @@ static void column_shifted(const DrawTarget *target, int32_t cell, int shift,
 
 /* The original records {16-pixel words, rows, first cell}; an unaligned draw covers one
  * word more. */
-static void record_dirty(const DrawTarget *target, int32_t cell, int words, int rows)
+void draw_record_dirty(const DrawTarget *target, int32_t cell, int words, int rows)
 {
     if (!s_dirty_recording || target->page < 0)
         return;
@@ -167,7 +167,7 @@ static void draw_narrow(const DrawTarget *target, const GfxSprite *sprite, int x
         return;
     DrawCellPos pos = draw_cell_pos(x, y);
     bool aligned = draw_cell_pos_aligned(pos);
-    record_dirty(target, pos.cell, aligned ? 1 : 2, rows);
+    draw_record_dirty(target, pos.cell, aligned ? 1 : 2, rows);
 
     for (int r = 0; r < rows; r++) {
         int32_t cell = pos.cell + r * DRAW_CELLS_PER_ROW;
@@ -227,7 +227,7 @@ static void draw_wide(const DrawTarget *target, const GfxSprite *sprite, int x, 
         return;
     DrawCellPos pos = draw_cell_pos(x, y);
     bool aligned = draw_cell_pos_aligned(pos);
-    record_dirty(target, pos.cell, aligned ? columns : columns + 1, rows);
+    draw_record_dirty(target, pos.cell, aligned ? columns : columns + 1, rows);
 
     for (int r = 0; r < rows; r++) {
         int32_t cursor = pos.cell + r * DRAW_CELLS_PER_ROW;
@@ -294,7 +294,7 @@ void draw_sprite_sheared(const DrawTarget *target, const GfxSprite *sprite, int 
         if (row_x >= -COLUMN_PIXELS && row_x < SCREEN_LAST_X && row_y >= 0) {
             DrawCellPos pos = draw_cell_pos_unshifted(row_x, row_y);
             bool aligned = draw_cell_pos_aligned(pos);
-            record_dirty(target, pos.cell, aligned ? 1 : 2, 1);
+            draw_record_dirty(target, pos.cell, aligned ? 1 : 2, 1);
             SpriteCell left = sprite_cell(sprite, r, 0);
             SpriteCell right = sprite_cell(sprite, r, 1);
             int32_t cursor = pos.cell;
