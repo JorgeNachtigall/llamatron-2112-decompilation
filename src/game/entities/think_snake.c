@@ -28,8 +28,11 @@ void think_1d(GameState *game, Entity *e)
     if (spawn)
         entity_spawn_01_at(game, e);
 
-    /* The original indexes the trail with vx unmasked; it is always 0..63 after the
-     * first step (enemy_init_10 starts it at 0). */
+    /* The original indexes the trail with vx unmasked, so a vx outside 0..63 would
+     * write past DS:4481's 64 entries (below them: the score digits at 4441). Real play
+     * can't get there: only enemy_init_10 (2def) makes a head, with vx = 0, and nothing but
+     * this step ((vx + 1) & 63) writes it afterwards (hit 08/06 at 115d/11b6 and the homing
+     * mover 38a2 don't). The port wraps instead (docs/DEVIATIONS.md #21). */
     SnakeTrailPoint *point = &game->snake_trail[(uint16_t)e->vx % SNAKE_TRAIL_LENGTH];
     point->x = e->x;
     point->y = e->y;
