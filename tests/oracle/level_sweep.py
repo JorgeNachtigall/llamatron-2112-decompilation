@@ -125,6 +125,15 @@ def poke_script(level: int, ticks: int) -> list[tuple[int, int, int]]:
     return pokes
 
 
+def lockstep_script(level: int, ticks: int) -> tuple[dict[int, list[int]],
+                                                   dict[int, list[tuple[int, int]]]]:
+    """The same input for whole_game.Script: ({tick: [scan codes]}, {tick: [(DS off, word)]})."""
+    pokes: dict[int, list[tuple[int, int]]] = {}
+    for t, off, value in poke_script(level, ticks):
+        pokes.setdefault(t, []).append((off, value & 0xFFFF))
+    return key_script(level, ticks), pokes
+
+
 def write_scripts(level: int, ticks: int, keys_path: Path, pokes_path: Path) -> None:
     """The same input as PROBE.KEY / PROBE.POK (tools/harness/dosbox/refrun.py formats), for
     llamatron_replay or a DOSBox-X reference run."""
