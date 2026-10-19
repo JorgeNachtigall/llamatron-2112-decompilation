@@ -25,9 +25,10 @@ static int16_t shifted(int16_t v, int16_t shift)
 }
 
 /* game86 1000:3c09..3c81: `count` fragments from the debris templates first..first+count-1,
- * taken from the last one down, flying at the template velocity << script_param[2]. */
-static void spawn_debris_group(GameState *game, const Entity *e, int first, int count,
-                               int search_limit)
+ * taken from the last one down, flying at the template velocity << script_param[2].
+ * Returns the slot after the last one the search looked at (see kill_after_debris). */
+static int spawn_debris_group(GameState *game, const Entity *e, int first, int count,
+                              int search_limit)
 {
     const EnemyTables *tables = asset_enemy_tables();
     int16_t shift = game->player.script_param[2];
@@ -39,7 +40,7 @@ static void spawn_debris_group(GameState *game, const Entity *e, int first, int 
         Entity *d = &game->entities[i];
         if (!entity_is_free(d)) {
             if (--left < 0)
-                return;
+                return i + 1;
             continue;
         }
         d->x = e->x;
@@ -62,8 +63,23 @@ static void spawn_debris_group(GameState *game, const Entity *e, int first, int 
         d->hit_handler = 0x10;
         entity_set_type(d, 0x0f, 0);
         if (--next < 0)
-            return;
+            return i + 1;
     }
+    return ENTITY_COUNT;
+}
+
+/* game86 1000:3c81: the common kill after the debris. The search walked the slots with the
+ * register that held the shot, so ent_hit_00 picks the pickup drop from the vx of the slot
+ * after the last one searched instead of the shot direction. Past the table (only possible
+ * with kill action 04's longer search) the port keeps the shot direction. */
+static void kill_after_debris(GameState *game, Entity *e, const EntityHit *hit, int walker)
+{
+    Shot shot = *hit->shot;
+    EntityHit after = *hit;
+    if (walker < ENTITY_COUNT)
+        shot.direction = game->entities[walker].vx;
+    after.shot = &shot;
+    entity_kill(game, e, &after);
 }
 
 /* game86 1000:3bf6 */
@@ -71,7 +87,9 @@ static void kill_action_01(GameState *game, Entity *e, const EntityHit *hit)
 {
     if (game->level_flags < 0) {
         game->debris_alt = 0;
-        spawn_debris_group(game, e, DEBRIS_GROUP_0878, 4, DEBRIS_SEARCH_LIMIT);
+        kill_after_debris(game, e, hit,
+                          spawn_debris_group(game, e, DEBRIS_GROUP_0878, 4, DEBRIS_SEARCH_LIMIT));
+        return;
     }
     entity_kill(game, e, hit);
 }
@@ -81,7 +99,9 @@ static void kill_action_02(GameState *game, Entity *e, const EntityHit *hit)
 {
     if (game->level_flags < 0) {
         game->debris_alt = 0;
-        spawn_debris_group(game, e, DEBRIS_GROUP_0898, 4, DEBRIS_SEARCH_LIMIT);
+        kill_after_debris(game, e, hit,
+                          spawn_debris_group(game, e, DEBRIS_GROUP_0898, 4, DEBRIS_SEARCH_LIMIT));
+        return;
     }
     entity_kill(game, e, hit);
 }
@@ -126,8 +146,9 @@ static void kill_action_03(GameState *game, Entity *e, const EntityHit *hit)
 static void kill_action_04(GameState *game, Entity *e, const EntityHit *hit)
 {
     game->debris_alt = 1;
-    spawn_debris_group(game, e, DEBRIS_GROUP_0898, 4, DEBRIS_SEARCH_LIMIT_INHERITED);
-    entity_kill(game, e, hit);
+    kill_after_debris(game, e, hit,
+                      spawn_debris_group(game, e, DEBRIS_GROUP_0898, 4,
+                                         DEBRIS_SEARCH_LIMIT_INHERITED));
 }
 
 /* game86 1000:1416: with level_flags < 0, leaves a crawler (type 0x1b) moving one pixel per
@@ -204,8 +225,8 @@ static void kill_action_08(GameState *game, Entity *e, const EntityHit *hit)
 static void kill_action_09(GameState *game, Entity *e, const EntityHit *hit)
 {
     game->debris_alt = 0;
-    spawn_debris_group(game, e, DEBRIS_GROUP_08B8, 8, DEBRIS_SEARCH_LIMIT);
-    entity_kill(game, e, hit);
+    kill_after_debris(game, e, hit,
+                      spawn_debris_group(game, e, DEBRIS_GROUP_08B8, 8, DEBRIS_SEARCH_LIMIT));
 }
 
 /* game86 1000:3d71 / 3dac: meant to fill slots with type 0x24 records at phases first,
