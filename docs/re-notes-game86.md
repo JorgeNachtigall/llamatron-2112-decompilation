@@ -147,6 +147,23 @@ Two independent clocks:
   `[0x39d9]/[0x39da]/[0x39dc]`, `63d2` = scaled/zoomed draw). Text: `536f` renders strings with
   escape codes `\c<n>` colour, `\q` centre?, `\e` ?, `\r` newline, `\g`; glyphs from `f.cmp` data (format: `re-notes-sound-data.md` §4) at
   `DS:39EE` via `54f6/559f`.
+- Text details [C, W6/Prism, instructions re-checked]:
+  - Colour: `\c` writes the map mask byte `CS:559c` (= colour). `CS:559e` (= `~colour & 15`, the
+    planes to clear) is only set while `smc_text_flag` (`CS:5362`) is 1, which happens only in name
+    entry (`5a53`/`5a5c`); otherwise it is 0, so text ORs its colour into the existing pixels and is
+    opaque only in name entry. The image starts with colour 0 (nothing is drawn until a `\c`).
+  - `glyph_blit` (`559f`) has no bottom clip, and its left/right clipping makes the cell cursor
+    drift one byte per row (aligned x = -8 or x >= 312, any unaligned x < 0): clipped glyph rows
+    land shifted left into the previous row. W6 reproduces this in `src/game/text.c`.
+  - The `\s` escape sets `cs_dirty_enable` = 0 (`5458`) and does not restore it, so later sprite
+    draws in the same frame are neither dirty-recorded nor clipped until `frame_run` sets it to 1
+    again (`1e7b:0166`).
+- `text_scroller` (`5844`) [C, W6/Prism]: uses all 64 KB of a plane as one 320 x 1638.4-row
+  canvas. It clears from `0x1F40` up (page 0 stays as the first screen), prints at y >= 206, moves
+  the CRTC start 40 bytes per frame (`g_scroll_vram_off`, 64 KB wrap) and clears the line that left
+  the top (`638f`). Since 65536 mod 40 = 16, rows are 16 bytes off after the wrap; with
+  `g_scroll_mode` >= 2 `vram_addr_from_xy` subtracts 0x10 (`e0fa..e101`). `g_scroll_mode` is reset
+  at `02ee`.
 - The g3 segment (30EB) holds decompressed pictures: pointer table at `30EB:0000` (`ES:[0]..[0x1e]`
   used: logo, "press fire", 1/2 player labels, "yak 1992", etc.).
 
@@ -221,8 +238,7 @@ from `39D7` up is zero (BSS). Ranges marked [H] are inferred from usage, not ful
 | `2CA2-2CA3` | 2 | 0 terminator of `tbl_level_scripts` |
 | `2CA4-2CF5` | 82 | `tbl_enemy_init` (41 near ptrs) |
 | `2CF6-2D06` | | `g_options`, player animation counters, `g_p1_x/y`, `g_p2_x/y`, `g_target_x/y` |
-| `2D07-2E96` | 400 | `tbl_row_offset`: VRAM byte offset per row (y*40) |
-| `2E97-39D2` | ~2.9 KB | [H] initialized, no direct operand references (enemy parameter tables or texts reached via pointers?) — open |
+| `2D07-39D2` | 3276 | `tbl_row_offset`: VRAM byte offset per row, y*40 for y = 0..1637, i.e. the whole 64 KB plane as one tall canvas (used by `text_scroller`) [C, W6/Prism, re-checked against the image] |
 | `39D3-39ED` | | page offsets (`g_page_front/back`, `g_draw_page`), blitter flags/scale/mirror, `g_draw_hook` (far), `g_tick_hook`, `g_tick_count`, `g_rng_index`, `g_script_ptr` |
 | `39EE-409B` | 1710 | `g_font`: decoded f.cmp. Its last glyph (chars 7D-7F) is truncated in the file: its last 5 rows (10 bytes) are read from `409C-40A5`, i.e. from the variables below and the first hi-score bytes, so that glyph's look depends on runtime data |
 | `409C-409F` | | `enemy_aim_update` results [H] (also the tail of the 7D-7F glyph) |
