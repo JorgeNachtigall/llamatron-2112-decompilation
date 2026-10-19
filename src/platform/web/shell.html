@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Llamatron 2112</title>
+<!--
+  Llamatron port web shell (Emscripten --shell-file). The canvas is fitted to the window at
+  4:3 with black letterboxing and nearest-neighbour scaling. SDL resizes its backbuffer from the
+  canvas CSS size (external size + high-DPI), so the engine itself scales crisply.
+  The canvas id must be "canvas": SDL2's Emscripten backend addresses it by that selector.
+  Program output goes to the hidden <pre id="output"> (read by src/platform/tools/web_smoke.py).
+-->
+<style>
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+  #canvas { position: absolute; display: block; outline: none; background: #000;
+            image-rendering: pixelated; image-rendering: crisp-edges; }
+  #output { display: none; }
+  #status { position: absolute; left: 0; right: 0; top: 45%; text-align: center;
+            color: #888; font: 14px/1.4 monospace; }
+</style>
+</head>
+<body>
+<canvas id="canvas" tabindex="-1" oncontextmenu="event.preventDefault()"></canvas>
+<div id="status">Loading…</div>
+<pre id="output"></pre>
+<script>
+  (function () {
+    var ASPECT_W = 4, ASPECT_H = 3;
+    var canvas = document.getElementById('canvas');
+    function fit() {
+      var w = window.innerWidth, h = window.innerHeight;
+      var cw = Math.min(w, Math.floor(h * ASPECT_W / ASPECT_H));
+      var ch = Math.floor(cw * ASPECT_H / ASPECT_W);
+      canvas.style.width = cw + 'px';
+      canvas.style.height = ch + 'px';
+      canvas.style.left = Math.floor((w - cw) / 2) + 'px';
+      canvas.style.top = Math.floor((h - ch) / 2) + 'px';
+    }
+    /* Registered before the Emscripten runtime, so SDL sees the new CSS size on resize. */
+    window.addEventListener('resize', fit);
+    fit();
+    canvas.addEventListener('click', function () { canvas.focus(); });
+
+    var output = document.getElementById('output');
+    var status = document.getElementById('status');
+    function print(text) {
+      output.textContent += text + '\n';
+      console.log(text);
+    }
+    window.Module = {
+      canvas: canvas,
+      print: print,
+      printErr: function (text) { output.textContent += text + '\n'; console.error(text); },
+      setStatus: function (text) { status.textContent = text; status.style.display = text ? '' : 'none'; },
+      monitorRunDependencies: function () {},
+    };
+    window.Module.setStatus('Loading…');
+    window.addEventListener('error', function () { window.Module.setStatus('Error - see the browser console'); });
+  })();
+</script>
+{{{ SCRIPT }}}
+</body>
+</html>

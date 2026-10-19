@@ -4,7 +4,8 @@
  *
  *   llamatron_title [--ega] [--joystick] [--data DIR] [--frames N] [--dump FILE.ppm]
  *
- * --frames N quits after N frames and prints a hash of the picture; --dump writes the shown
+ * --frames N quits after N frames and prints a hash of the picture and of the rendered
+ * window contents (read back before present); on the web use ?frames=N&ega. --dump writes the shown
  * picture (palette applied) as a binary PPM for local inspection. Never commit such dumps:
  * they contain the original artwork (docs/PLAN.md §9).
  */
@@ -15,6 +16,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
 
 #ifndef LLAMATRON_DATA_DIR
 #define LLAMATRON_DATA_DIR "data"
@@ -88,7 +93,10 @@ static bool frame(void *user)
     if (app->frames_left > 0 && --app->frames_left == 0) {
         uint32_t h = fnv1a(app->title.pixels, (size_t)app->title.width * (size_t)app->title.height, 2166136261u);
         h = fnv1a((const uint8_t *)app->title.palette, sizeof app->title.palette, h);
-        printf("title %dx%d hash=%08x\n", app->title.width, app->title.height, h);
+        int cw = 0, ch = 0;
+        uint32_t canvas = plat_captured_frame_hash(&cw, &ch);
+        printf("title %dx%d hash=%08x canvas %dx%d hash=%08x\n", app->title.width, app->title.height, h,
+               cw, ch, canvas);
         running = false;
     }
     if (!running)
@@ -115,12 +123,25 @@ int main(int argc, char **argv)
             app->dump_path = argv[++i];
     }
 
+#ifdef __EMSCRIPTEN__
+    /* The page URL stands in for the command line: ?ega&joystick&frames=N */
+    const char *query = emscripten_run_script_string("location.search");
+    if (strstr(query, "ega"))
+        adapter = GFX_ADAPTER_EGA;
+    if (strstr(query, "joystick"))
+        device = INPUT_DEVICE_JOYSTICK;
+    const char *frames = strstr(query, "frames=");
+    if (frames)
+        app->frames_left = strtol(frames + 7, NULL, 10);
+#endif
+
     if (!title_load(&app->title, adapter, device, data_dir))
         return 1;
     PlatConfig config = { "Llamatron 2112", 3, false, true };
     if (!plat_init(&config))
         return 1;
     input_init(device, true);
+    plat_set_frame_capture(app->frames_left > 0);
     /* TODO(W7): snd_request(TITLE_SAMPLE, TITLE_SAMPLE_RATE_INDEX, TITLE_SAMPLE_PRIORITY) */
     plat_run_main_loop(frame, app);
     return 0;

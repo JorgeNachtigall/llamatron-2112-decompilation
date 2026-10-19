@@ -46,6 +46,11 @@ void plat_present(const uint8_t *pixels, int width, int height, int pitch,
 
 void plat_toggle_fullscreen(void);
 
+/* Regression support: when enabled, every plat_present() reads the rendered frame back
+ * (scaled, before presenting) and keeps its FNV-1a hash and size. Off by default (slow). */
+void plat_set_frame_capture(bool enabled);
+uint32_t plat_captured_frame_hash(int *width, int *height);
+
 /* ---- Input --------------------------------------------------------------------------- */
 
 /* Called for every key press/release with the PC set-1 make code (0x01..0x7f) of the key.

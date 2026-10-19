@@ -34,6 +34,9 @@ static struct {
     SDL_GameController *pads[PLAT_MAX_GAMEPADS];
     SDL_AudioDeviceID audio;
     uint32_t rgb_buffer[MAX_IMAGE_W * MAX_IMAGE_H];
+    bool capture;
+    uint32_t capture_hash;
+    int capture_w, capture_h;
 } g_plat;
 
 bool plat_init(const PlatConfig *config)
@@ -141,6 +144,29 @@ static SDL_Rect display_rect(void)
     return r;
 }
 
+/* Read back the frame being rendered (before present, so WebGL still has it) and hash the
+ * RGB bytes of every pixel. */
+static void capture_frame(void)
+{
+    int w = 0, h = 0;
+    SDL_GetRendererOutputSize(g_plat.renderer, &w, &h);
+    uint32_t *frame = w > 0 && h > 0 ? SDL_malloc((size_t)w * (size_t)h * sizeof *frame) : NULL;
+    if (!frame)
+        return;
+    if (SDL_RenderReadPixels(g_plat.renderer, NULL, SDL_PIXELFORMAT_ARGB8888, frame, w * (int)sizeof *frame) == 0) {
+        uint32_t hash = 2166136261u;
+        for (size_t i = 0; i < (size_t)w * (size_t)h; i++) {
+            uint8_t rgb[3] = { (uint8_t)(frame[i] >> 16), (uint8_t)(frame[i] >> 8), (uint8_t)frame[i] };
+            for (int c = 0; c < 3; c++)
+                hash = (hash ^ rgb[c]) * 16777619u;
+        }
+        g_plat.capture_hash = hash;
+        g_plat.capture_w = w;
+        g_plat.capture_h = h;
+    }
+    SDL_free(frame);
+}
+
 void plat_present(const uint8_t *pixels, int width, int height, int pitch,
                   const PlatColor palette[256])
 {
@@ -165,7 +191,23 @@ void plat_present(const uint8_t *pixels, int width, int height, int pitch,
     SDL_RenderClear(g_plat.renderer);
     SDL_Rect dst = display_rect();
     SDL_RenderCopy(g_plat.renderer, g_plat.texture, NULL, &dst);
+    if (g_plat.capture)
+        capture_frame();
     SDL_RenderPresent(g_plat.renderer);
+}
+
+void plat_set_frame_capture(bool enabled)
+{
+    g_plat.capture = enabled;
+}
+
+uint32_t plat_captured_frame_hash(int *width, int *height)
+{
+    if (width)
+        *width = g_plat.capture_w;
+    if (height)
+        *height = g_plat.capture_h;
+    return g_plat.capture_hash;
 }
 
 void plat_toggle_fullscreen(void)
