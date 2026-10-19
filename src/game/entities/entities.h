@@ -232,6 +232,10 @@ void pickup_collect(GameState *game, Entity *e, unsigned touched);
  * game86 1000:37c2 */
 void deadly_touch(GameState *game, unsigned touched);
 
+/* Start screen-flash list `id` from its first word, replacing any flash still running (the
+ * original stores the list address in [0x6C7], which is also its read position). */
+void entity_start_flash(GameState *game, FlashListId id);
+
 #ifdef __cplusplus
 }
 #endif

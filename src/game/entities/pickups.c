@@ -63,7 +63,7 @@ static void pickup_effect_05(GameState *game, unsigned touched)
 {
     (void)touched;
     game->smart_bomb = true;
-    game->flash_list = asset_flash_list(FLASH_LIST_SMART_BOMB);
+    entity_start_flash(game, FLASH_LIST_SMART_BOMB);
     game_sound_play(0x10, 1, 0x0a);
 }
 
@@ -95,7 +95,7 @@ void deadly_touch(GameState *game, unsigned touched)
 {
     if (game->wave_result == WAVE_CLEARED || game->shield_timer != 0 || game->demo_mode != 0)
         return;
-    game->flash_list = asset_flash_list(FLASH_LIST_DEADLY_TOUCH);
+    entity_start_flash(game, FLASH_LIST_DEADLY_TOUCH);
     if (game->smart_bomb)
         return;
     game_sound_play(0x1d, 3, 0x1e);

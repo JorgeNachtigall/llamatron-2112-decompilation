@@ -61,6 +61,8 @@ SEGMENT_SPRITE = 0x0824
 UNHATCHED = 0x091B
 DEBRIS_ALT = 0x0876
 RNG_TABLE, RNG_TABLE_SIZE, RNG_INDEX = 0x6AC9, 512, 0x39E9
+FLASH_LIST = 0x06C7         # pointer into the list being shown
+FLASH_LISTS = (0x06C9, 0x06CD, 0x06FD, 0x0707, 0x0713, 0x0721, 0x0729, 0x072D)
 
 # The enemy shot template is scratch for the port (EnemyShot parameters).
 W5A_SCRATCH = SCRATCH | frozenset(range(0x0419, 0x0423))
@@ -75,6 +77,18 @@ class Point16(ctypes.Structure):
 
 class EntityHit(ctypes.Structure):
     _fields_ = [("shot", ctypes.c_void_p), ("smart_bomb", ctypes.c_bool), ("at", Point16)]
+
+
+def flash_in_progress(rnd, image: bytes) -> int:
+    """[0x6C7]: none, or a flash list part-way through (from its start to its 0 terminator),
+    so a handler that starts a new flash must also restart the read position."""
+    if rnd.random() < 0.4:
+        return 0
+    start = rnd.choice(FLASH_LISTS)
+    length = 0
+    while u16(image, start + 2 * length) != 0:
+        length += 1
+    return start + 2 * rnd.choice([0, length, rnd.randrange(length + 1)])
 
 
 def u16(image: bytes, off: int) -> int:
@@ -146,6 +160,7 @@ class W5aOracle(ThinkOracle):
         rnd.shuffle(table)
         image[RNG_TABLE:RNG_TABLE + RNG_TABLE_SIZE] = bytes(table)
         image[RNG_INDEX:RNG_INDEX + 2] = w16(rnd.randrange(RNG_TABLE_SIZE))
+        image[FLASH_LIST:FLASH_LIST + 2] = w16(flash_in_progress(rnd, image))
         return Case(self.dg.canonical(bytes(image)), base.slot, {})
 
     # ---- running ----------------------------------------------------------------------

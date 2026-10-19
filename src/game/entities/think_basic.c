@@ -61,7 +61,7 @@ void entity_touch_player(GameState *game, unsigned touched)
 {
     if (game->wave_result == WAVE_CLEARED || game->shield_timer != 0 || game->demo_mode)
         return;
-    game->flash_list = asset_flash_list(FLASH_LIST_KILL);
+    entity_start_flash(game, FLASH_LIST_KILL);
     if (game->smart_bomb)
         return;
     player_kill(game, touched);
