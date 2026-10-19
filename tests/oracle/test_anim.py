@@ -102,6 +102,8 @@ def entity_record(rnd, anim, numbers, offsets):
     rec = bytearray(rnd.randbytes(ENTITY_SIZE))
     rec[0:2] = bytes([rnd.randrange(0x2E), rnd.randrange(0x40)])
     x, y = position(rnd)
+    if anim == 0x10 and rnd.random() < 0.7:     # the mark is drawn 10 px above: keep it visible
+        x, y = rnd.randrange(0, 320), rnd.randrange(10, 200)
     if anim == 0x02:
         # The horizontal beam's row: below row 203 the original writes into the next page,
         # which the port's page target drops (draw.h).
@@ -182,7 +184,8 @@ def run_anim(machine, dg, port, bank, rnd, anim):
         img[base:base + 2] = b"\xff\xff"
     img[ENTITY_TABLE:ENTITY_TABLE + ENTITY_SIZE] = entity_record(rnd, anim, numbers, offsets)
     struct.pack_into("<H", img, WAVE, rnd.randrange(12))
-    struct.pack_into("<h", img, POWERUP, rnd.choice([0, 1, -1, rnd.randrange(-0x8000, 0x8000)]))
+    # anim 10 tests the sign of the power-up state: 0 and -1 are its edges
+    struct.pack_into("<h", img, POWERUP, rnd.choice([0, 0, 1, -1, -1, rnd.randrange(-0x8000, 0x8000)]))
     struct.pack_into("<HH", img, PAGES, page, back)
     struct.pack_into("<H", img, DRAW_PAGE, page)
     img[SCROLL_MODE] = 0
