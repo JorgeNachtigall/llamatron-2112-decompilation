@@ -41,23 +41,12 @@ ENTITY_AT(child_velocity, 0x08);
 
 /* +12..+31: the general names */
 ENTITY_AT(raw.words, 0x12);
-ENTITY_AT(aux12, 0x12);
 ENTITY_AT(timer, 0x14);
-ENTITY_AT(aux16, 0x16);
 ENTITY_AT(hp, 0x18);
-ENTITY_AT(aux1a, 0x1a);
-ENTITY_AT(aux1c, 0x1c);
 ENTITY_AT(kill_action, 0x1e);
 ENTITY_AT(sub_mode, 0x20);
-ENTITY_AT(reload, 0x22);
-ENTITY_AT(countdown, 0x23);
-ENTITY_AT(aux24, 0x24);
-ENTITY_AT(aux26, 0x26);
 ENTITY_AT(anim_toggle, 0x28);
-ENTITY_AT(aux2a, 0x2a);
 ENTITY_AT(sprite_ref, 0x2c);
-ENTITY_AT(aux2e, 0x2e);
-ENTITY_AT(aux30, 0x30);
 
 /* +12..+31: the views (docs/entity-fields.md §5) */
 ENTITY_AT(llama.turn_timer, 0x14);

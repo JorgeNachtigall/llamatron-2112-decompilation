@@ -69,22 +69,20 @@ typedef struct Entity {
     int16_t scale;              /* +0e draw scale / hatch countdown */
     int16_t solid;              /* +10 shots and players collide only when non-zero */
     union {                     /* +12..+31 handler-specific (entity_views.h) */
-        struct {                /* the general names */
-            int16_t aux12;              /* +12 handler-specific */
+        struct {                /* the general names, for the types no view covers */
+            int16_t unused_12;          /* +12 */
             int16_t timer;              /* +14 general timer; pickup kind for think_1c */
-            int16_t aux16;              /* +16 handler-specific (projectile parameter) */
+            int16_t unused_16;          /* +16 */
             int16_t hp;                 /* +18 hit points; < 0 after a hit -> kill action (ent_hit_03) */
-            int16_t aux1a;              /* +1a handler-specific (projectile parameter) */
-            int16_t aux1c;              /* +1c handler-specific: callback id (3119/32d7) or accumulator low */
-            int16_t kill_action;        /* +1e tbl_hit_kill_actions index (accumulator high for some types) */
-            int16_t sub_mode;           /* +20 think_0e sub-mode */
-            uint8_t reload, countdown;  /* +22/+23 think_25 */
-            int16_t aux24, aux26;       /* +24/+26 handler-specific accumulators */
+            int16_t unused_1a_1c[2];    /* +1a, +1c */
+            int16_t kill_action;        /* +1e tbl_hit_kill_actions index */
+            int16_t sub_mode;           /* +20 type 01 (enemy_setup_01, tuning.init01_mode) */
+            int16_t unused_22_26[3];    /* +22..+26 */
             int16_t anim_toggle;        /* +28 anim_01 */
-            int16_t aux2a;              /* +2a */
+            int16_t unused_2a;          /* +2a */
             SpriteBankRef sprite_ref;   /* +2c the frame drawn while sprite < 0 (formats.h; why it
                                            stays a bank offset: docs/entity-fields.md 7.4) */
-            int16_t aux2e, aux30;       /* +2e/+30 */
+            int16_t unused_2e_30[2];    /* +2e, +30 */
         };
         LlamaView llama;
         HunterView hunter;
