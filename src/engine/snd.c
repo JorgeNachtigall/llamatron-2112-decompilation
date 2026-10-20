@@ -6,10 +6,14 @@
 
 #include <string.h>
 
-/* Time is counted in units of 1/315 microsecond: one game tick (23788 PIT cycles at
- * 315/264 MHz) is then exactly 23788 * 264 units and every sample duration is an integer. */
-enum { UNITS_PER_US = 315 };
-#define TICK_UNITS ((uint64_t)0x5CEC * 264u)
+/* Time is counted in units of 1/315 microsecond: one game tick (GAME_PIT_DIVISOR PIT cycles
+ * at 315/264 MHz) is then exactly GAME_PIT_DIVISOR * 264 units and every sample duration is an
+ * integer. */
+enum {
+    UNITS_PER_US = 315,
+    GAME_PIT_DIVISOR = 0x5CEC,      /* game86 timer reload, set with the INT 08 hook 1000:e519 */
+};
+#define TICK_UNITS ((uint64_t)GAME_PIT_DIVISOR * 264u)
 #define UNITS_PER_SECOND ((uint64_t)UNITS_PER_US * 1000000u)
 
 enum {
@@ -109,13 +113,20 @@ uint64_t snd_sample_duration_us(uint8_t sample, uint8_t rate_index)
     return (uint64_t)g_snd.bank->samples[sample - 1].length * (256u - g_snd.bank->time_constants[rate_index]);
 }
 
-/* sblaster.bin 0x553: end-of-transfer IRQ clears busy and the current sample. */
-static void finish_if_ended(void)
+/* sblaster.bin 0x553: the end-of-transfer IRQ clears busy and the current sample, at the
+ * sample's own end time, between ticks. */
+static void finish_if_ended(uint64_t time)
 {
-    if (g_snd.voice_active && g_snd.now >= g_snd.voice_end) {
+    if (g_snd.voice_active && time >= g_snd.voice_end) {
         g_snd.voice_active = false;
         g_snd.current_sample = 0;
     }
+}
+
+void snd_set_phase(uint16_t phase)
+{
+    if (g_snd.now >= TICK_UNITS)        /* nothing plays before the first tick */
+        finish_if_ended(g_snd.now - TICK_UNITS + (uint64_t)phase * TICK_UNITS / 65536u);
 }
 
 /* sblaster.bin 0x171 */
@@ -174,7 +185,7 @@ static void render_tick(void)
  * was already playing still runs to its end (its DMA and IRQ are independent of the tick). */
 void snd_tick(void)
 {
-    finish_if_ended();
+    finish_if_ended(g_snd.now);
     if (g_snd.enabled) {
         apply_pending_stop();
         start_pending_sample();
@@ -195,6 +206,12 @@ size_t snd_take_output(uint8_t *out, size_t max)
 SoundStats snd_stats(void)
 {
     return g_snd.stats;
+}
+
+SoundDriverState snd_driver_state(void)
+{
+    return (SoundDriverState){ g_snd.pending_sample, g_snd.pending_stop, g_snd.current_sample,
+                               g_snd.time_constant, g_snd.current_priority, g_snd.requested_priority };
 }
 
 size_t snd_output_pending(void)

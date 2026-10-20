@@ -658,6 +658,9 @@ static bool frame(void *user)
             run_retrace_ticks(app);
             GameHostInput host = { app->pending_requests, plat_has_focus() };
             app->pending_requests = 0;
+            /* The frame calls the driver between ticks: a sample that ended in the meantime is
+             * over, as the card's IRQ made it (snd.h). */
+            snd_set_phase(timing_tick_phase(&app->scheduler));
             game_frame(&app->game, &host);
             release_held_breaks(app);
             if (game_wants_quit(&app->game))

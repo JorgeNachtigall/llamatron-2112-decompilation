@@ -158,9 +158,9 @@ if(EXISTS ${PROJECT_SOURCE_DIR}/src/game/CMakeLists.txt)
         set_tests_properties(llamatron_scores_low PROPERTIES DEPENDS llamatron_scores_reset
             PASS_REGULAR_EXPRESSION "scores loaded: yes hash=6b258e45")
         set_tests_properties(llamatron_scores_play PROPERTIES DEPENDS llamatron_scores_low TIMEOUT 300
-            PASS_REGULAR_EXPRESSION "scores loaded: yes hash=6b258e45.*scores saved: yes hash=6abcb5eb")
+            PASS_REGULAR_EXPRESSION "scores loaded: yes hash=6b258e45.*scores saved: yes hash=05d3be9c")
         set_tests_properties(llamatron_scores_reload PROPERTIES DEPENDS llamatron_scores_play
-            PASS_REGULAR_EXPRESSION "scores loaded: yes hash=6abcb5eb")
+            PASS_REGULAR_EXPRESSION "scores loaded: yes hash=05d3be9c")
         set_tests_properties(llamatron_scores_reset llamatron_scores_low llamatron_scores_play
             llamatron_scores_reload PROPERTIES RESOURCE_LOCK llamatron_scores_prefs)
         # In-game sound (M5): a game held on fire with llama.inf sound S (lower case, as

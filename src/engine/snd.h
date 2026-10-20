@@ -12,7 +12,8 @@
  *     stays armed until then (driver quirk). snd_stop_all() stops whatever plays at the next tick.
  *   - snd_status() reports the sample playing (0 = idle) and the priority of the current or last
  *     sample (not cleared when it ends). Sample length / rate decides when it ends; the end is
- *     seen at the first tick at or after it (the original's DMA IRQ came in between ticks).
+ *     seen at the first tick at or after it, or between ticks once snd_set_phase() says the
+ *     time has passed it (the original's DMA IRQ came in between ticks).
  * With sound disabled (sound type FFh: game86's stub driver 1000:e785) every call returns 0
  * and nothing plays; game86 1000:1514 toggles between the two at run time.
  *
@@ -72,6 +73,12 @@ SoundStatus snd_status(void);                                        /* driver A
 /* Driver AH=2: call once per game tick (game86 1000:3e02, first thing in the timer handler). */
 void snd_tick(void);
 
+/* The time since the last tick, as a fraction 0..65535 of a tick (timing_tick_phase()), before
+ * the game calls the driver between ticks: a sample whose end has passed is finished then, as
+ * the card's IRQ did on time, so a status call sees it idle and a request does not arm a stop
+ * for it. */
+void snd_set_phase(uint16_t phase);
+
 /* Move up to `max` rendered output samples into `out`; returns how many. */
 size_t snd_take_output(uint8_t *out, size_t max);
 size_t snd_output_pending(void);
@@ -83,6 +90,18 @@ typedef struct SoundStats {
     uint32_t started;
 } SoundStats;
 SoundStats snd_stats(void);
+
+/* The driver's variables as sblaster.bin keeps them (tests/oracle/test_snd_driver.py compares
+ * them with the original driver's bytes). */
+typedef struct SoundDriverState {
+    uint8_t pending_sample;     /* [0xB2] */
+    uint8_t pending_stop;       /* [0xB3] */
+    uint8_t current_sample;     /* [0xB8] */
+    uint8_t time_constant;      /* [0x2AE] */
+    uint8_t current_priority;   /* [0x2AF] */
+    uint8_t requested_priority; /* [0x2B0] */
+} SoundDriverState;
+SoundDriverState snd_driver_state(void);
 
 /* Duration of sample n at a rate index in microseconds (length * (256 - tc)). */
 uint64_t snd_sample_duration_us(uint8_t sample, uint8_t rate_index);
