@@ -139,6 +139,14 @@ static void run_frame(GameState *game)
         flow.extra_wait = true;
 }
 
+/* The frame_run loops (0136, 0616, 07ee, 5aae) test their exit after frame_run's wait_vsync,
+ * so they see the ticks raised during it; here that test opens the next frame. False on a
+ * state's first call (no frame_run yet), true from then on. */
+static bool after_frame_run(void)
+{
+    return flow.phase++ != 0;
+}
+
 /* screen_reveal_bg (1000:61ff), then `after`. */
 static void reveal_then(MainState after)
 {
@@ -350,27 +358,25 @@ static bool attract_cycle(GameState *game)
 
 static bool title(GameState *game)
 {
-    run_frame(game);                                /* 0136 */
-    if (game->quit)
-        return false;
-    if ((int16_t)game->tick_count >= ATTRACT_TIMEOUT_TICKS) {
-        attract_cycle(game);
-        return false;
+    if (after_frame_run()) {
+        if ((int16_t)game->tick_count >= ATTRACT_TIMEOUT_TICKS)     /* 013b */
+            return attract_cycle(game);
+        const uint8_t *controls = input_state()->controls;
+        bool second = (controls[1] & 0x80) &&
+                      (!(game->options & OPT_TWO_PLAYERS) ||
+                       (game->options & OPT_DOUBLE_CONTROLLER));
+        bool first = controls[0] & 0x80;
+        if (second || first) {
+            game->started_with_stick_b = second;    /* 015b / 016a */
+            game->score[0] = game->score[1] = 0;    /* 0170 */
+            game->loop_count = game->options & OPT_TWO_PLAYERS;
+            game->player.level = 0;
+            go(MS_NEW_GAME);
+            return true;
+        }
     }
-    const uint8_t *controls = input_state()->controls;
-    bool second = (controls[1] & 0x80) &&
-                  (!(game->options & OPT_TWO_PLAYERS) || (game->options & OPT_DOUBLE_CONTROLLER));
-    if (second)
-        game->started_with_stick_b = true;          /* 015b */
-    else if (controls[0] & 0x80)
-        game->started_with_stick_b = false;         /* 016a */
-    else
-        return false;
-    game->score[0] = game->score[1] = 0;            /* 0170 */
-    game->loop_count = game->options & OPT_TWO_PLAYERS;
-    game->player.level = 0;
-    go(MS_NEW_GAME);
-    return false;                                   /* the frame_run above was this frame's */
+    run_frame(game);                                /* 0136 */
+    return false;
 }
 
 static bool attract_scroll(GameState *game)
@@ -484,13 +490,16 @@ static bool wave_show(GameState *game)
 
 static bool wave(GameState *game)
 {
-    run_frame(game);                                /* 0616 */
-    hud_refresh_if_dirty(game);
-    if (game->wave_result != WAVE_RUNNING) {
-        game->flash_list = NULL;                    /* 0625 */
-        game->flash_pos = 0;
-        set_palette_then(PALETTE_ID_GAME, MS_WAVE_OVER);
+    if (after_frame_run()) {
+        hud_refresh_if_dirty(game);                 /* 061b */
+        if (game->wave_result != WAVE_RUNNING) {
+            game->flash_list = NULL;                /* 0625 */
+            game->flash_pos = 0;
+            set_palette_then(PALETTE_ID_GAME, MS_WAVE_OVER);
+            return true;
+        }
     }
+    run_frame(game);                                /* 0616 */
     return false;
 }
 
@@ -676,17 +685,22 @@ static bool continue_show(GameState *game)
 
 static bool continue_wait(GameState *game)
 {
-    run_frame(game);                                /* 07ee */
-    if (game->continue_ticks < 0) {                 /* 0807: fire pressed */
-        game->player.lives = CONTINUE_LIVES;
-        game->player_other.lives = CONTINUE_LIVES;
-        game->flash_list = NULL;
-        game->flash_pos = 0;
-        set_palette_then(PALETTE_ID_GAME, MS_RESPAWN);
-    } else if (game->continue_seconds < 0) {
-        draw_show_background();                     /* 0801 */
-        go(MS_GAME_OVER);
+    if (after_frame_run()) {
+        if (game->continue_ticks < 0) {             /* 07f3 -> 0807: fire pressed */
+            game->player.lives = CONTINUE_LIVES;
+            game->player_other.lives = CONTINUE_LIVES;
+            game->flash_list = NULL;
+            game->flash_pos = 0;
+            set_palette_then(PALETTE_ID_GAME, MS_RESPAWN);
+            return true;
+        }
+        if (game->continue_seconds < 0) {           /* 07fa */
+            draw_show_background();                 /* 0801 */
+            go(MS_GAME_OVER);
+            return true;
+        }
     }
+    run_frame(game);                                /* 07ee */
     return false;
 }
 
@@ -778,17 +792,17 @@ static void save_hiscores(const GameState *game)
 
 static bool name_entry(GameState *game)
 {
-    run_frame(game);                                /* 5aae */
-    if (!name_entry_done(game->tick_count))
+    if (!after_frame_run() || !name_entry_done(game->tick_count)) {    /* 5ab3 */
+        run_frame(game);                            /* 5aae */
         return false;
+    }
     game->tick_hook = flow.saved_tick_hook;         /* 5abb */
     game->draw_hook = flow.saved_draw_hook;
     const HiscoreArt *art = hiscore_art();          /* 5e4b..5e85 */
     hiscore_set_name(&game->hiscores[flow.rank], flow.name.name, art->data->rude_word,
                      &game->rude_name);
     save_hiscores(game);                            /* 5e89 */
-    hiscore_checked(game);
-    return false;
+    return hiscore_checked(game);
 }
 
 void main_sm_name_entry_tick(GameState *game)      /* tick hook 1000:5b06 */
