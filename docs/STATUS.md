@@ -3,12 +3,12 @@
 Where the port stands against the milestones in `docs/PLAN.md` §6.
 
 **What was checked, and how** (2026-10-19):
-- I built commit `1fa2f75` from a clean export (`git archive`) and ran:
-  - all 97 native tests: 97 passed;
-  - all 34 web tests (Emscripten build, headless Chrome): 34 passed;
-  - the DOSBox-X reference runs: 33 passed, 2 failed, 1 skipped (the skipped one has no VRAM capture to compare). The 2 failures are in the new warped-level runs (M6 below).
+- I built commit `911295c` from a clean export (`git archive`) and ran:
+  - the 99 native tests outside the DOSBox label: 99 passed;
+  - the DOSBox-X reference runs: 35 passed, 1 skipped (the skipped one has no VRAM capture to compare).
+- The web tests were last run on `1fa2f75`: 34 of 34 passed.
 - Anything else below is quoted from a commit message and marked *(unverified)*.
-- Commits after `1fa2f75` have not been run here.
+- Commits after `911295c` have not been run here.
 
 Words used below:
 - **diff-tested**: the port's function is run side by side with the original machine code on the same inputs, and the results must match.
@@ -24,7 +24,7 @@ Words used below:
 | M3 State machine, scripts, player, first waves | done |
 | M4 All enemies, all 100 levels, game over, hi-scores | done |
 | M5 Sound | done |
-| M6 Reference runs against the original | in progress: the 7 original runs match; of 5 new warped-level runs, 2 match, 3 have open differences, and 2 of the recorded hashes do not reproduce here |
+| M6 Reference runs against the original | in progress: all 12 recorded runs reproduce; the port matches 10 of them, 2 warped-level runs have open differences |
 | M7 Polish | mostly done: the macOS app bundle is not self-contained yet |
 
 ## M0: repo skeleton, extraction, symbols: done
@@ -66,15 +66,12 @@ The original game ran in DOSBox-X for 12 scripted sessions, and the port replaye
 | Run | Original matches its recorded hashes | Port replay |
 |---|---|---|
 | attract, walk_vga, walk_ega, warp, death_continue, game_over_hiscore, two_player | yes | identical on every compared tick, apart from known one-tick timing shifts (DEVIATIONS #20) |
-| level_10 | **no**: the snapshot at IRQ 1850 differs (reported to Sentinel) | identical apart from timing |
-| level_25 | yes | identical apart from timing |
-| level_50 | **no**: the snapshot at IRQ 650 differs (reported to Sentinel) | differs from tick 1100 |
-| level_75 | yes | differs from tick 750 |
-| level_99 | yes | differs from tick 700 |
+| level_10, level_25, level_75 | yes | identical apart from timing |
+| level_50 | yes | differs from tick 1150: the port kills entity 2, which is still alive in the original (Keel, open) |
+| level_99 | yes | differs from tick 700: an entity's overlay frame count, 12 in the original (Prism and Keel, open) |
 
 - The 7 original runs: the earlier differences (the continue a tick late, the two-player start, the warp positions, the title llamas' leftovers) are gone since Keel's `379b7ab` and `7b4ed95`.
-- The 5 warped-level runs are new in `1fa2f75` (Sentinel and Prism). Both the level_10 and level_50 mismatches came out the same on a second run, so they are deterministic here.
-- Sentinel's uncommitted work changes the levels' tick timing and adds triage rows: level_50 is a kill at 1150 (Keel), level_99 is an overlay frame count at 700 (Prism, Keel).
+- The 5 warped-level runs are new in `1fa2f75` (Sentinel and Prism). On `1fa2f75`, level_10's and level_50's recorded hashes did not reproduce here. The cause was the blitter's mode bytes DS:39D9..39DD: they are left over from the last draw call, so their value depends on where in the frame the snapshot was taken. Since `911295c` the hash leaves them out, as it already did for the page bookkeeping at 39D3..39D8 (Sentinel).
 - The differences that are still open are listed in `tests/dosbox/test_reference_golden.py` (TRIAGE).
 - Native and web parity: `web_llamatron_parity` passes.
 
