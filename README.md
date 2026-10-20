@@ -20,8 +20,10 @@ uploaded or published**. Details: `src/platform/README.md`.
   `llatron.spl`, `newtit.lbm`, `newtit2.lbm`, `tronega.lbm` and `sblaster.bin`. The build
   checks each one's hash (`tools/manifest/original-files.json`). `llama.inf` (settings) and
   `scores.yak` (high scores) are optional: they are read if present.
-  Either put the folder's files in `<repo>/original/` (the default, gitignored) or pass
-  `-DLLAMATRON_ORIGINAL_DIR=/path/to/llamatron` to every configure.
+  Either put the folder's files in `<repo>/original/` (the default, gitignored), or name the
+  folder with `-DLLAMATRON_ORIGINAL_DIR=/path/to/llamatron` on every configure. Instead of `-D`,
+  you can set the environment variable once (`export LLAMATRON_ORIGINAL_DIR=/path/to/llamatron`);
+  every configure and preset reads it.
 - Xcode's command line tools, CMake, Ninja, Python 3 and Homebrew's `sdl2`.
 - For the web build: Emscripten (Homebrew's `emscripten` or emsdk), and Google Chrome or
   Chromium for the web tests (they report *Skipped* without it).
@@ -63,14 +65,14 @@ How to play: `docs/PLAYING.md`. What is verified and how: `docs/STATUS.md`.
 ### The macOS app, in one command
 
 ```sh
-cmake --workflow --preset macos-app        # -> build-app/Llamatron.app
+LLAMATRON_ORIGINAL_DIR=/path/to/llamatron cmake --workflow --preset macos-app   # -> build-app/Llamatron.app
 ```
 
 This configures `build-app/` (Release, `LLAMATRON_MACOS_BUNDLE=ON`), builds a self-contained
 `Llamatron.app` and runs its checks: SDL is bundled, so the app runs without Homebrew; the
 signature verifies; and the icon is drawn from the title picture. A workflow preset takes no
-`-D` options, so this one command only works with the game files in `<repo>/original/`. For
-another folder, run the three steps by hand:
+`-D` options, so it finds the game files through the environment variable, or in
+`<repo>/original/` when the variable is not set. The same three steps by hand:
 
 ```sh
 cmake --preset macos-app -DLLAMATRON_ORIGINAL_DIR=/path/to/llamatron
