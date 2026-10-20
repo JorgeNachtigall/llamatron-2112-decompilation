@@ -70,7 +70,7 @@ Consequences:
   Long runs (`long` in RUNS: levels 20/30/40/60/70/80/90, `level_25_ega`,
   `level_40_two_player`) run only with `LLAMATRON_GOLDEN_SET=long` (or `all`; default
   `core`), and in ctest as `dosbox.reference_golden_long` (labels `dosbox;dosbox_long`, so
-  `ctest -L dosbox -LE dosbox_long` leaves them out). Keys cannot reach a warp or a quick game over, so a run can also
+  `ctest -L dosbox -LE dosbox_long` leaves them out). The whole-game lockstep sample is opt-in the same way (`-DLLAMATRON_ORACLE_LONG=ON`) and carries only the label `oracle_long`, so `ctest -L oracle` stays the fast set (see the lockstep section below). Keys cannot reach a warp or a quick game over, so a run can also
   poke words into DGROUP (PROBE.POK `{u32 irq, u16 DS offset, u16 word}`, applied before
   that IRQ's keys). `llamatron_replay --pokes` applies the same words through the adapter,
   so only mapped offsets can be poked.
@@ -129,3 +129,34 @@ Consequences:
   (`llamatron_replay --frames FILE`, LRPF), to tell frame phase from a real difference.
   `tools/harness/dosbox/refrun.py pages --snp .../c/PROBE.SNP --vram-irq M --out DIR`
   writes one VRAM snapshot as three pages of indexed pixels (never commit them).
+
+## Whole-game lockstep against the original (unicorn)
+
+`tests/oracle/whole_game.py` runs the original game86 as a whole program in the unicorn
+harness next to the port, on the port's own retrace and tick schedule (INT 08/09 injected at
+the entry of each wait), and compares the mapped DGROUP after every tick and frame, plus the
+drawn pages with `--pages` (`whole_game_pages.py`). Known differences are skipped as in
+compare.py (P2's loaded trail head, the follower trail address vs index, DEVIATIONS #14's
+chain_tail). One scenario: `oracle/whole_game.py walk_vga`; one warped level:
+`oracle/whole_game.py sweep --one 25 --ticks 3000 --pages`.
+
+`tests/oracle/lockstep_check.py` is the regression guard on top. It first configures and
+builds its own testlib and game86 image from the current tree (`--build-dir`, default
+`build-lockstep/`; targets `llamatron_generated` and `llamatron_game_testlib`), so a
+library from an older build can never produce the result, then runs every level or scenario
+as a child process of its own, `-j` at a time:
+
+- Sample, in ctest as `oracle_long.lockstep_sample` (opt-in: configure with
+  `-DLLAMATRON_ORACLE_LONG=ON`; label `oracle_long`, RUN_SERIAL, 6 jobs; about 5 min on a 10-core machine, first build included):
+
+      ../tools/harness/.venv/bin/python oracle/lockstep_check.py --sample -j 6
+
+  levels 0, 11, 22, ..., 99 x 1500 ticks with pages, plus the reference runs
+  `level_40_two_player` and `level_25_ega` (DGROUP only).
+- Release check: all 100 levels x 3000 ticks with pages (about 3.5 h at -j 6 on a 10-core
+  machine; 100/100 on 2026-10-20):
+
+      ../tools/harness/.venv/bin/python oracle/lockstep_check.py --all -j 6 --json all.json
+
+Each line names the first divergence and its fields (compare.py's names); the exit code is
+0 only if everything matches.

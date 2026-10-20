@@ -116,6 +116,22 @@ if(LLAMATRON_DOSBOX_TESTS)
     SKIP_REGULAR_EXPRESSION "\n[0-9]+ skipped in ")
 endif()
 
+# Whole-game lockstep sample (tests/oracle/lockstep_check.py --sample: 10 spread levels, the
+# two-player and EGA warps, the original against the port every frame). It builds its own
+# testlib and game image from the current tree in lockstep-build/ first, then runs 6 levels
+# at a time, so it is opt-in: -DLLAMATRON_ORACLE_LONG=ON (label oracle_long). The full
+# 100-level release check is the same script with --all (tests/README.md).
+option(LLAMATRON_ORACLE_LONG "Register the long whole-game lockstep check" OFF)
+if(LLAMATRON_ORACLE_LONG)
+  add_test(NAME oracle_long.lockstep_sample
+           COMMAND "${LLAMATRON_HARNESS_PYTHON}" "${CMAKE_CURRENT_SOURCE_DIR}/oracle/lockstep_check.py"
+                   --sample -j 6 --build-dir "${CMAKE_CURRENT_BINARY_DIR}/lockstep-build"
+           WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")
+  set_tests_properties(oracle_long.lockstep_sample PROPERTIES
+    ENVIRONMENT "PYTHONDONTWRITEBYTECODE=1;LLAMATRON_ORIGINAL_DIR=${_original_dir}"
+    LABELS "oracle_long" TIMEOUT 3600 RUN_SERIAL TRUE SKIP_RETURN_CODE 77)
+endif()
+
 file(GLOB _oracle_tests CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/oracle/test_*.py")
 foreach(_test IN LISTS _oracle_tests)
   get_filename_component(_name "${_test}" NAME_WE)
