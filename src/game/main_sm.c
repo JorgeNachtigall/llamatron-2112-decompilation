@@ -393,6 +393,9 @@ static bool attract_scroll(GameState *game)
 
 static bool new_game(GameState *game)
 {
+    /* Reached only from the title (0170) and the demo (0287): the title llamas' bytes stay
+     * in slots 0..8, and fields a spawn does not set read them (DEVIATIONS #26). */
+    attract_end(game);
     game->tick_hook = TICK_HOOK_NONE;               /* 018f */
     game->game_started = 0;
     game->wave_start_delay = WAVE_START_DELAY;
