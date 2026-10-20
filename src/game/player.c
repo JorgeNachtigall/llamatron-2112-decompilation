@@ -33,6 +33,7 @@ enum {
     DROID_TRAIL_LEFT = 0, DROID_TRAIL_RIGHT = 6,
     DROID_SEARCH = -1, DROID_TO_COMPANION = -2,
     DEMO_WANDER_PERIOD = 0x3f,          /* tick mask */
+    DEMO_WANDER_X = 0xa0, DEMO_WANDER_Y = 0x64,     /* centre of the demo droid's random goals */
     THINK_LLAMA = 0x05,
 };
 
@@ -102,8 +103,9 @@ void companion_update(GameState *game)
         game->companion.y = game->chain_tail.y;
         if (game->demo_mode) {
             if ((game->tick_count & DEMO_WANDER_PERIOD) == 0) {
-                game->demo_wander.x = (int16_t)((int8_t)rng_next_byte(&game->rng) + 0xa0);
-                game->demo_wander.y = (int16_t)(((int8_t)rng_next_byte(&game->rng) >> 1) + 0x64);
+                game->demo_wander.x = (int16_t)((int8_t)rng_next_byte(&game->rng) + DEMO_WANDER_X);
+                game->demo_wander.y =
+                    (int16_t)(((int8_t)rng_next_byte(&game->rng) >> 1) + DEMO_WANDER_Y);
             }
             game->companion.x = game->demo_wander.x;
             game->companion.y = game->demo_wander.y;
@@ -199,8 +201,8 @@ static void p2_from_stick(GameState *game, const ControlTables *t)
         aim_at(c, t, n);
     /* (1000:170f doubles the move without a second stick; this code only runs with one) */
     c->move = (Point16){ t->move_vx[n], t->move_vy[n] };
-    /* 1000:1727 tests the facing byte together with the sign-extended move_vy above it, so
-     * an upward move without a facing sets facing 0. */
+    /* The original's facing test (1000:1727) also takes in the move's sign, so an upward
+     * direction without a facing of its own sets facing 0. */
     if (t->ship_facing[n] != 0 || t->move_vy[n] < 0)
         c->facing = (int8_t)t->ship_facing[n];
     c->trail_flag = (int8_t)t->trail_flag[n];
@@ -208,9 +210,9 @@ static void p2_from_stick(GameState *game, const ControlTables *t)
 }
 
 /* Entry `index` counted from the start of P1's trail: the original adds follower_lag to the
- * head without masking, running on into P2's trail. Past P2's (head + lag >= 256, i.e. more
- * than ~25 llamas rescued with the head near the end) it reads whatever follows; the port
- * wraps to P1's start instead. game86 1000:1947..195e */
+ * head without masking, running on into P2's trail. Past P2's (index >= 256, i.e. about 25
+ * llamas rescued with the head near the end) it reads memory that is not game state; the
+ * port wraps to P1's start instead (DEVIATIONS #14). game86 1000:1947..195e */
 static const TrailPoint *trail_entry(const GameState *game, unsigned index)
 {
     index %= PLAYER_COUNT * TRAIL_LENGTH;
