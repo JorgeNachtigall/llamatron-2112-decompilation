@@ -30,7 +30,11 @@ Run (from the top-level native build, which does add_subdirectory(tests)):
   `<repo>/original`); without them the oracle tests report *Skipped*.
 - DOSBox-X suite: also needs `dosbox-x` and `nasm` on PATH. Configure with
   `-DLLAMATRON_DOSBOX_TESTS=ON`, then `ctest --preset macos-native -L dosbox -LE dosbox_long`
-  (core golden set, ~25 min) or `-L dosbox_long` (the long warps, ~10 min).
+  (core golden set, ~25 min) or `-L dosbox_long` (the long warps, ~10 min). A reference
+  run that differs from `tests/golden/reference_runs.json` is run once more and that run is
+  checked; the rerun shows as a `RerunWarning` in pytest's warnings summary (`ctest -V`, or
+  `Testing/Temporary/LastTest.log`). Frame-phase differences (capture IRQ, shown page,
+  hidden page) are printed there too, but do not fail.
 - A cross build (the `web-emscripten` preset) registers none of these tests; its ctest runs
   only the C tests under node.
 - Standalone: `cmake -S tests -B build-tests && ctest --test-dir build-tests`.
