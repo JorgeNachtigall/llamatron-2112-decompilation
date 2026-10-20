@@ -88,6 +88,7 @@ class C:
                    for name in ("title_tune_start", "title_tune_begin", "title_tune_tick",
                                 "title_tick_hook")}
         self.llamas_init = bind(lib, "attract_llamas_init", None)
+        self.attract_end = bind(lib, "attract_end", None, ctypes.c_void_p)
         self.title_draw = bind(lib, "title_draw", None, ctypes.c_void_p, ctypes.POINTER(AttractArt))
         self.draw_hook = bind(lib, "title_draw_hook", None, ctypes.c_void_p,
                               ctypes.POINTER(DrawTarget), ctypes.POINTER(AttractArt))
@@ -225,6 +226,24 @@ def test_title_tick_hook(machine, oracle, c, sound, case):
     compare(oracle, want, got)
     assert got_sounds == want_sounds
     check_llamas(want, c)
+
+
+@pytest.mark.parametrize("case", fuzz_cases(64))
+def test_attract_end(machine, oracle, c, case):
+    """attract_end: after a title tick, the port's slots 0..8 hold the original's llama bytes."""
+    rnd = case_rng("attract_end", case)
+    img = base_image(oracle, machine, rnd, c)
+    img[SOUND_ON] = 1                       # the oracle's driver, not the sound-off stub
+    put_llamas(img, c, llama_records(rnd, c))
+    case_ = finish(oracle, img, rnd)
+    want, _ = oracle.run_original(machine, case_, None, "1000:3f6f")
+
+    def run(state):
+        port_call(c, case_, c.fn["title_tick_hook"])(state)
+        c.attract_end(ctypes.addressof(state))
+    got, _ = oracle.run_port(case_, None, run)
+    bad = oracle.dg.mismatches(want, got, ignore=set(SCRATCH) | DRAW_STATE)
+    assert not bad, f"DGROUP differs at {[(hex(o), want[o], got[o]) for o in bad[:16]]}"
 
 
 @pytest.mark.parametrize("case", fuzz_cases(8))

@@ -73,6 +73,11 @@ typedef struct AttractLlama {
 /* For tests: the llamas' state. */
 AttractLlama *attract_llamas(void);
 
+/* Leaving the title (new_game 018f, from the title or the demo): the title llamas stay in
+ * entity slots 0..8 as the original's 18-byte llama records leave those bytes, so fields
+ * that a later spawn does not set keep that residue as in the original. */
+void attract_end(GameState *game);
+
 #ifdef __cplusplus
 }
 #endif

@@ -340,3 +340,82 @@ void title_draw_hook(GameState *game, const DrawTarget *frame, const AttractArt 
         draw_logo_row(frame, art, timer, true);
     }
 }
+
+/* ---- residue in the entity table ---------------------------------------------------------- */
+
+/* The original's title llamas are 32 records of 18 bytes at the start of the entity table
+ * (written by attract_llamas_init 1000:44d7, the tick 4571 and read by the draw 4603, while
+ * title_draw 3ee0..3f6b runs the title): x, height, vx, vy as 16.16 longs (low word first),
+ * then sprite_base. 32 x 18 bytes are exactly the 9 x 64-byte records of slots 0..8, so the
+ * records' 288 words fall on those slots' 288 words in order. */
+enum { LLAMA_RECORD_WORDS = 9, ENTITY_RECORD_WORDS = 32, RESIDUE_SLOTS = 9 };
+_Static_assert(ATTRACT_LLAMAS * LLAMA_RECORD_WORDS == RESIDUE_SLOTS * ENTITY_RECORD_WORDS,
+               "the llama records cover slots 0..8 exactly");
+
+static uint16_t low_word(int32_t v) { return (uint16_t)((uint32_t)v & 0xffff); }
+static uint16_t high_word(int32_t v) { return (uint16_t)((uint32_t)v >> 16); }
+
+/* Word `n` of a llama record. */
+static uint16_t llama_record_word(const AttractLlama *l, unsigned n)
+{
+    switch (n) {
+    case 0: return low_word(l->x);
+    case 1: return high_word(l->x);
+    case 2: return low_word(l->height);
+    case 3: return high_word(l->height);
+    case 4: return low_word(l->vx);
+    case 5: return high_word(l->vx);
+    case 6: return low_word(l->vy);
+    case 7: return high_word(l->vy);
+    default: return (uint16_t)l->sprite_base;
+    }
+}
+
+/* Stores `v` as word `n` (at +2n) of an entity record (state.h Entity field offsets). */
+static void entity_record_word_set(Entity *e, unsigned n, uint16_t v)
+{
+    uint8_t lo = (uint8_t)(v & 0xff), hi = (uint8_t)(v >> 8);
+    int16_t w = (int16_t)v;
+    switch (n) {
+    case 0x00: e->think = (int8_t)lo; e->hatch_into = (int8_t)hi; break;
+    case 0x01: e->x = w; break;
+    case 0x02: e->y = w; break;
+    case 0x03: e->anim = w; break;
+    case 0x04: e->vx = w; break;
+    case 0x05: e->vy = w; break;
+    case 0x06: e->sprite = w; break;
+    case 0x07: e->scale = w; break;
+    case 0x08: e->solid = w; break;
+    case 0x09: e->aux12 = w; break;
+    case 0x0a: e->timer = w; break;
+    case 0x0b: e->aux16 = w; break;
+    case 0x0c: e->hp = w; break;
+    case 0x0d: e->aux1a = w; break;
+    case 0x0e: e->aux1c = w; break;
+    case 0x0f: e->kill_action = w; break;
+    case 0x10: e->sub_mode = w; break;
+    case 0x11: e->reload = lo; e->countdown = hi; break;
+    case 0x12: e->aux24 = w; break;
+    case 0x13: e->aux26 = w; break;
+    case 0x14: e->anim_toggle = w; break;
+    case 0x15: e->aux2a = w; break;
+    case 0x16: e->sprite_ref = w; break;
+    case 0x17: e->aux2e = w; break;
+    case 0x18: e->aux30 = w; break;
+    case 0x19: e->overlay.x = w; break;
+    case 0x1a: e->overlay.y = w; break;
+    case 0x1b: e->overlay.sprite = w; break;
+    case 0x1c: e->overlay.frames = w; break;
+    case 0x1d: e->kind = w; break;
+    case 0x1e: e->death_sample = lo; e->death_rate = hi; break;
+    default: e->hit_handler = w; break;
+    }
+}
+
+void attract_end(GameState *game)
+{
+    for (unsigned n = 0; n < ATTRACT_LLAMAS * LLAMA_RECORD_WORDS; n++)
+        entity_record_word_set(&game->entities[n / ENTITY_RECORD_WORDS], n % ENTITY_RECORD_WORDS,
+                               llama_record_word(&llamas[n / LLAMA_RECORD_WORDS],
+                                                 n % LLAMA_RECORD_WORDS));
+}
