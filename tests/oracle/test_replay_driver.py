@@ -337,6 +337,10 @@ def test_compare_follower_trail_address_is_the_player_index():
         port = compare.PortRun(10, bytes(mask), {10: img(think, mine)})
         diffs = compare.compare(port, {10: img(think, ref)})
         assert bool(diffs[0].offsets) == real, (think, ref, mine)
+    # the slot reused by another type keeps the follower's stale trail on both sides
+    port = compare.PortRun(10, bytes(mask), {10: img(6, 1), 20: img(4, 1), 30: img(4, 1)})
+    diffs = compare.compare(port, {10: img(6, 0x70C9), 20: img(4, 0x70C9), 30: img(4, 0x1234)})
+    assert [bool(d.offsets) for d in diffs] == [False, False, True]
 
 
 def test_port_script_shifts_keys_in_segments(tmp_path):

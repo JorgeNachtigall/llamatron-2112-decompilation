@@ -56,8 +56,9 @@ LEFTOVER_REASON = ("title llama leftovers in play (slots 0..8, fields +02..+3f b
 # A follower (think_06, 1000:4bfb) keeps the trail it walks in kill_action (+1e): the original
 # as the trail's DS address (stored by think_05 1000:4d04..4d97), the port as the player index
 # (think_llamas.c FOLLOW_P1/P2). Same value, two representations (Moss; test_think_llamas.py
-# follower_fixup). Only where the reference slot is a follower: once it stops being one, the
-# original keeps the address and the port the index, and the adapter cannot tell them apart.
+# follower_fixup). Where the reference slot is a follower, and after it stops being one while
+# the reference keeps that address there (a reused slot keeps the stale trail: warp 625); the
+# adapter cannot do it, since the slot's type no longer says what the word is.
 THINK_FOLLOWER, FOLLOWER_TRAIL = 0x06, 0x1E
 TRAIL_ADDRESS = {0x6CC9: 0, 0x70C9: 1}
 
@@ -253,6 +254,7 @@ def compare(port: PortRun, reference: dict[int, bytes], ignore=()) -> list[TickD
     prev_tick, prev_counts = None, None
     carried = 0
     play_start = None                       # reference at the first play snapshot
+    trails: dict[int, int] = {}             # slot: trail address it held as a follower
     for tick in sorted(set(port.snapshots) & set(reference)):
         a, b = reference[tick], port.snapshots[tick]
         hook = struct.unpack_from("<H", a, TICK_HOOK)[0]
@@ -261,6 +263,12 @@ def compare(port: PortRun, reference: dict[int, bytes], ignore=()) -> list[TickD
         elif hook == PLAY_HOOK:
             attract = False
             play_start = play_start or a
+        for i in range(ENTITY_COUNT):
+            trail = struct.unpack_from("<H", a, ENTITIES + ENTITY_SIZE * i + FOLLOWER_TRAIL)[0]
+            if a[ENTITIES + ENTITY_SIZE * i] == THINK_FOLLOWER and trail in TRAIL_ADDRESS:
+                trails[i] = trail
+            elif trails.get(i) != trail:
+                trails.pop(i, None)
         counts = (_tick_count(a), _tick_count(b))
         jump = prev_counts is not None and any(not _counted(p, c, tick - prev_tick)
                                                for p, c in zip(prev_counts, counts))
@@ -276,7 +284,7 @@ def compare(port: PortRun, reference: dict[int, bytes], ignore=()) -> list[TickD
                       or not _counted(_tick_count(b), _tick_count(other), s))
             if s and not (switch or s == carried):
                 continue
-            offs_s, skipped_s = _differences(a, other, port.mask, ignore, attract)
+            offs_s, skipped_s = _differences(a, other, port.mask, ignore, attract, trails)
             offs_s, skipped_s = _leftover(a, other, play_start, offs_s, skipped_s)
             candidates[s] = (offs_s, skipped_s)
         offs, skipped = candidates[0]
@@ -345,7 +353,8 @@ def _counted(before: int, after: int, ticks: int) -> bool:
     return (before + ticks) & 0xFFFF == after
 
 
-def _differences(a: bytes, b: bytes, mask: bytes, ignore: set, attract: bool):
+def _differences(a: bytes, b: bytes, mask: bytes, ignore: set, attract: bool,
+                 trails: dict[int, int] = {}):
     """Compared offsets where reference `a` and port `b` differ, and what was skipped."""
     skipped = [(ATTRACT_LLAMAS, "attract llamas")] if attract else []
     if struct.unpack_from("<H", a, P2_TRAIL_HEAD)[0] == P2_TRAIL_HEAD_LOADED:
@@ -358,11 +367,9 @@ def _differences(a: bytes, b: bytes, mask: bytes, ignore: set, attract: bool):
     for i in free:
         base = ENTITIES + ENTITY_SIZE * i
         skip.update(range(base + 2, base + ENTITY_SIZE))
-    for i in range(ENTITY_COUNT):
+    for i, address in trails.items():
         trail = ENTITIES + ENTITY_SIZE * i + FOLLOWER_TRAIL
-        if a[ENTITIES + ENTITY_SIZE * i] == THINK_FOLLOWER and \
-                TRAIL_ADDRESS.get(struct.unpack_from("<H", a, trail)[0], -1) == \
-                struct.unpack_from("<h", b, trail)[0]:
+        if TRAIL_ADDRESS[address] == struct.unpack_from("<h", b, trail)[0]:
             skip.update((trail, trail + 1))
     offs = [i for i in range(DGROUP_SIZE)
             if mask[i] and a[i] != b[i] and i not in ignore and i not in skip]
