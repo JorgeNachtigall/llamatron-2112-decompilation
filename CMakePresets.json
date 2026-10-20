@@ -22,6 +22,18 @@
       "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Darwin" }
     },
     {
+      "name": "macos-app",
+      "displayName": "macOS Llamatron.app (self-contained, personal use only)",
+      "inherits": "base",
+      "binaryDir": "${sourceDir}/build-app",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "LLAMATRON_TARGET": "native",
+        "LLAMATRON_MACOS_BUNDLE": "ON"
+      },
+      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Darwin" }
+    },
+    {
       "name": "linux-native",
       "displayName": "Linux native (SDL2)",
       "inherits": "base",
@@ -45,12 +57,26 @@
   ],
   "buildPresets": [
     { "name": "macos-native", "configurePreset": "macos-native" },
+    { "name": "macos-app", "configurePreset": "macos-app", "targets": ["llamatron_macos_app"] },
     { "name": "linux-native", "configurePreset": "linux-native" },
     { "name": "web-emscripten", "configurePreset": "web-emscripten" }
   ],
   "testPresets": [
     { "name": "macos-native", "configurePreset": "macos-native", "output": { "outputOnFailure": true } },
+    { "name": "macos-app", "configurePreset": "macos-app", "output": { "outputOnFailure": true },
+      "filter": { "include": { "name": "^(macos_app_|app_icon_from_title$)" } } },
     { "name": "linux-native", "configurePreset": "linux-native", "output": { "outputOnFailure": true } },
     { "name": "web-emscripten", "configurePreset": "web-emscripten", "output": { "outputOnFailure": true } }
+  ],
+  "workflowPresets": [
+    {
+      "name": "macos-app",
+      "displayName": "Build and check build-app/Llamatron.app",
+      "steps": [
+        { "type": "configure", "name": "macos-app" },
+        { "type": "build", "name": "macos-app" },
+        { "type": "test", "name": "macos-app" }
+      ]
+    }
   ]
 }

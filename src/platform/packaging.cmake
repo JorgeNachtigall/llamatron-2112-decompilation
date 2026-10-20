@@ -4,8 +4,9 @@
 # files. They must never be distributed, uploaded or published (docs/PLAN.md §0, goal 3).
 #
 #   native macOS, -DLLAMATRON_MACOS_BUNDLE=ON: target llamatron_macos_app builds
-#     <build>/Llamatron.app (assets embedded, generic placeholder icon, ad-hoc signed only:
-#     no Apple account, no notarisation). The SDL2 dylib (and, for Homebrew's sdl2-compat, the
+#     <build>/Llamatron.app (assets embedded, ad-hoc signed only: no Apple account, no
+#     notarisation). The icon is the title picture's llama, drawn at build time from the
+#     extracted data (tools/make_icon.py); no game pixels are in the repository. The SDL2 dylib (and, for Homebrew's sdl2-compat, the
 #     SDL3 it loads at run time) is copied into Contents/Frameworks (macos/bundle_dylibs.cmake),
 #     so the app runs without Homebrew.
 #   web: target web-dist gathers the page into <build-web>/dist/ (index.html, js, wasm, data).
@@ -48,10 +49,12 @@ function(llama_add_macos_bundle)
 
     add_custom_command(OUTPUT ${work}/Llamatron.icns
         COMMAND ${CMAKE_COMMAND} -E rm -rf ${work}/Llamatron.iconset
-        COMMAND ${Python3_EXECUTABLE} ${LLAMA_PACKAGING_DIR}/tools/make_icon.py ${work}/Llamatron.iconset
+        COMMAND ${Python3_EXECUTABLE} ${LLAMA_PACKAGING_DIR}/tools/make_icon.py
+            --data ${LLAMATRON_GENERATED_DIR}/data --iconset ${work}/Llamatron.iconset
         COMMAND ${LLAMA_ICONUTIL} -c icns ${work}/Llamatron.iconset -o ${work}/Llamatron.icns
-        DEPENDS ${LLAMA_PACKAGING_DIR}/tools/make_icon.py
-        COMMENT "Placeholder icon for Llamatron.app")
+        DEPENDS ${LLAMA_PACKAGING_DIR}/tools/make_icon.py ${LLAMATRON_GENERATED_DIR}/data/title_vga.idx8
+            ${LLAMATRON_GENERATED_DIR}/data/title_vga.pal
+        COMMENT "Llamatron.app icon from the extracted title picture")
     add_custom_command(OUTPUT ${work}/bundle.stamp
         COMMAND ${CMAKE_COMMAND} -E rm -rf ${app}
         COMMAND ${CMAKE_COMMAND} -E make_directory ${app}/Contents/MacOS ${app}/Contents/Resources
@@ -67,6 +70,7 @@ function(llama_add_macos_bundle)
             ${LLAMA_PACKAGING_DIR}/macos/bundle_dylibs.cmake
         COMMENT "Llamatron.app from ${target} (personal use only, ad-hoc signed)")
     add_custom_target(llamatron_macos_app ALL DEPENDS ${work}/bundle.stamp)
+    add_dependencies(llamatron_macos_app llamatron_generated)
     if(target STREQUAL "llamatron" OR target STREQUAL "llamatron_title")
         # The bundled binary runs from anywhere: no data directory, assets embedded.
         add_test(NAME macos_app_title COMMAND ${app}/Contents/MacOS/Llamatron --frames 2 --vga --mute

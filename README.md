@@ -20,3 +20,24 @@ ctest --preset macos-native
 ```
 
 Web: `emcmake cmake --preset web-emscripten && cmake --build build-web`.
+
+### The macOS app, in one command
+
+```sh
+cmake --workflow --preset macos-app        # -> build-app/Llamatron.app
+```
+
+This configures `build-app/` (Release, `LLAMATRON_MACOS_BUNDLE=ON`), builds a self-contained
+`Llamatron.app` and runs its checks: SDL is bundled, so the app runs without Homebrew; the
+signature verifies; and the icon is drawn from the title picture. The workflow reads the game
+files from `original/`. For another folder, run the steps by hand:
+
+```sh
+cmake --preset macos-app -DLLAMATRON_ORIGINAL_DIR=/path/to/llamatron
+cmake --build --preset macos-app
+ctest --preset macos-app
+```
+
+Building needs Xcode's command line tools, Ninja, Python 3 and Homebrew's `sdl2`; running the
+app does not. The app is ad-hoc signed for this Mac only (no Apple account, no notarisation).
+Like every build it contains the original's assets: personal use only (above).

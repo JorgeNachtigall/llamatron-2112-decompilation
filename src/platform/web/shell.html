@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Llamatron 2112</title>
+<link rel="icon" type="image/png" href="favicon.png">
 <!--
   Llamatron port web shell (Emscripten --shell-file). The canvas fills the page at 4:3 with
   black letterboxing. SDL sizes its backbuffer from the canvas CSS size times the device pixel
@@ -11,6 +12,8 @@
   F11, Alt+Enter or a double click put the page in full screen (the canvas still at 4:3).
   The canvas id must be "canvas": SDL2's Emscripten backend addresses it by that selector.
   Program output goes to the hidden <pre id="output"> (read by src/platform/tools/web_smoke.py).
+  favicon.png is the app icon, drawn at build time from the extracted title picture
+  (tools/make_icon.py), next to the page.
 -->
 <style>
   html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }

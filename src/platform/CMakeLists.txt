@@ -184,6 +184,29 @@ endif()
 # Personal-use packaging: Llamatron.app (LLAMATRON_MACOS_BUNDLE) and web-dist.
 include(${CMAKE_CURRENT_SOURCE_DIR}/packaging.cmake)
 
+# The app icon (tools/make_icon.py: the title picture's llama, drawn from the extracted data).
+# The web pages get it as favicon.png beside them; app_icon_from_title fails if the tool fell
+# back to its placeholder (the llama not found in the extracted title).
+if(TARGET llamatron_generated)
+    find_package(Python3 COMPONENTS Interpreter)
+    if(Python3_Interpreter_FOUND)
+        set(_icon_tool ${CMAKE_CURRENT_SOURCE_DIR}/tools/make_icon.py)
+        set(_icon_data ${LLAMATRON_GENERATED_DIR}/data)
+        if(EMSCRIPTEN)
+            add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/favicon.png
+                COMMAND ${Python3_EXECUTABLE} ${_icon_tool} --data ${_icon_data}
+                    --favicon ${CMAKE_CURRENT_BINARY_DIR}/favicon.png
+                DEPENDS ${_icon_tool} ${_icon_data}/title_vga.idx8 ${_icon_data}/title_vga.pal
+                COMMENT "Web favicon from the extracted title picture")
+            add_custom_target(llamatron_favicon ALL DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/favicon.png)
+            add_dependencies(llamatron_favicon llamatron_generated)
+        endif()
+        add_test(NAME app_icon_from_title COMMAND ${Python3_EXECUTABLE} ${_icon_tool}
+            --data ${_icon_data} --favicon ${CMAKE_CURRENT_BINARY_DIR}/app_icon_test.png)
+        set_tests_properties(app_icon_from_title PROPERTIES FAIL_REGULAR_EXPRESSION "placeholder")
+    endif()
+endif()
+
 # Settings persistence (native): save in one run, read back in the next; storage redirected
 # into the build tree so tests never touch the user's own data directory.
 if(NOT EMSCRIPTEN)

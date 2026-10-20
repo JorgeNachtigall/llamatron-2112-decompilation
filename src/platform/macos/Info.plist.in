@@ -16,6 +16,8 @@
     <string>6.0</string>
     <key>CFBundleName</key>
     <string>Llamatron</string>
+    <key>CFBundleDisplayName</key>
+    <string>Llamatron 2112</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
@@ -23,7 +25,11 @@
     <key>CFBundleVersion</key>
     <string>@PROJECT_VERSION@</string>
     <key>CFBundleGetInfoString</key>
-    <string>Personal-use build, do not distribute</string>
+    <string>Llamatron 2112 port @PROJECT_VERSION@, personal-use build, do not distribute</string>
+    <key>NSHumanReadableCopyright</key>
+    <string>Llamatron 2112 (c) 1991-1992 Jeff Minter / Llamasoft. This is a personal-use port build containing data extracted from the owner's own copy of the game; do not distribute.</string>
+    <key>LSApplicationCategoryType</key>
+    <string>public.app-category.arcade-games</string>
     <key>NSHighResolutionCapable</key>
     <true/>
 </dict>
