@@ -12,6 +12,15 @@
 #include "rng.h"
 #include "script.h"
 
+/* Sprites: the dropped bomb; entity_burst_four's children, left to right. */
+enum {
+    SPRITE_BOMB = 0x91,
+    SPRITE_BURST_FAR_LEFT = 0xeb,
+    SPRITE_BURST_LEFT = 0xec,
+    SPRITE_BURST_RIGHT = 0xed,
+    SPRITE_BURST_FAR_RIGHT = 0xee,
+};
+
 static int16_t word(int value)
 {
     return (int16_t)(uint16_t)value;
@@ -65,7 +74,7 @@ void enemy_random_spawn_pos(GameState *game, Entity *e)
 /* game86 1000:1232 */
 void enemy_shot_init(GameState *game, Entity *shot, const Entity *from, const EnemyShot *tmpl)
 {
-    shot->death_sample = 0x0f;
+    shot->death_sample = SAMPLE_ID_SHOT_DEATH;
     shot->death_rate = 0;
     shot->anim = 0x0d;
     shot->scale = 2;
@@ -114,12 +123,12 @@ Entity *enemy_shot_drop(GameState *game, const Entity *from)
         return NULL;
     shot->anim = ANIM_IDLE;
     shot->scale = 0;
-    const EnemyShot bomb = { .aim_y = 0, .aim_x = 0, .sprite = 0x91, .speed = 0xa00,
+    const EnemyShot bomb = { .aim_y = 0, .aim_x = 0, .sprite = SPRITE_BOMB, .speed = 0xa00,
                              .hit_handler = 0 };
     enemy_shot_init(game, shot, from, &bomb);
     script_clobber_spawns_10b0(game);
     shot->kind = -1;
-    shot->death_sample = 0x0c;
+    shot->death_sample = SAMPLE_ID_RELEASE;
     shot->death_rate = 0;
     return shot;
 }
@@ -138,7 +147,7 @@ void entity_init_child(GameState *game, Entity *child, const Entity *parent, int
     child->vy = vy;
     child->scale = 0;
     child->solid = 1;
-    child->death_sample = 0x07;
+    child->death_sample = SAMPLE_ID_POP;
     child->death_rate = 3;
     child->hit_handler = 0;
     child->overlay.x = 0;
@@ -170,10 +179,10 @@ void entity_burst_four(GameState *game, const Entity *parent)
 {
     /* The two middle children fly up or down towards P1 (not the current target). */
     int16_t towards_p1 = word(game->ship[0].y - parent->y) < 0 ? -1 : 1;
-    entity_spawn_child_if(game, parent, 0xeb, -3, 0);
-    entity_spawn_child(game, parent, 0xec, -2, towards_p1);
-    entity_spawn_child(game, parent, 0xed, 2, towards_p1);
-    entity_spawn_child(game, parent, 0xee, 3, 0);
+    entity_spawn_child_if(game, parent, SPRITE_BURST_FAR_LEFT, -3, 0);
+    entity_spawn_child(game, parent, SPRITE_BURST_LEFT, -2, towards_p1);
+    entity_spawn_child(game, parent, SPRITE_BURST_RIGHT, 2, towards_p1);
+    entity_spawn_child(game, parent, SPRITE_BURST_FAR_RIGHT, 3, 0);
 }
 
 /* game86 1000:4f93 */
@@ -189,7 +198,7 @@ Entity *entity_spawn_debris(GameState *game, const Entity *at)
     d->vy = 0;
     d->scale = 0;
     d->solid = 1;
-    d->death_sample = 0x09;
+    d->death_sample = SAMPLE_ID_ENEMY_DEATH;
     d->death_rate = 0;
     d->hit_handler = 0;
     d->anim = 0x0d;

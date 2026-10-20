@@ -18,7 +18,7 @@ static void pickup_effect_00(GameState *game, unsigned touched)
 {
     (void)touched;
     game->player.powerup = 0x320;
-    game_sound_play(0x1c, 2, 8);
+    game_sound_play(SAMPLE_ID_PICKUP, 2, 8);
 }
 
 /* game86 1000:0ff7: warp ahead. */
@@ -33,7 +33,7 @@ static void pickup_effect_02(GameState *game, unsigned touched)
 {
     (void)touched;
     game->player.lives++;
-    game_sound_play(0x19, 2, 8);
+    game_sound_play(SAMPLE_ID_EXTRA_LIFE, 2, 8);
 }
 
 /* game86 1000:0fce */
@@ -64,7 +64,7 @@ static void pickup_effect_05(GameState *game, unsigned touched)
     (void)touched;
     game->smart_bomb = true;
     entity_start_flash(game, FLASH_LIST_SMART_BOMB);
-    game_sound_play(0x10, 1, 0x0a);
+    game_sound_play(SAMPLE_ID_SMART_BOMB, 1, 0x0a);
 }
 
 /* game86 1000:0fa2: shield for 500 ticks. */
@@ -72,7 +72,7 @@ static void pickup_effect_06(GameState *game, unsigned touched)
 {
     (void)touched;
     game->shield_timer = 500;
-    game_sound_play(0x19, 2, 0x0a);
+    game_sound_play(SAMPLE_ID_EXTRA_LIFE, 2, 0x0a);
 }
 
 /* game86 1000:0f92: shots bounce off the edges. */
@@ -98,7 +98,7 @@ void deadly_touch(GameState *game, unsigned touched)
     entity_start_flash(game, FLASH_LIST_DEADLY_TOUCH);
     if (game->smart_bomb)
         return;
-    game_sound_play(0x1d, 3, 0x1e);
+    game_sound_play(SAMPLE_ID_DEADLY_TOUCH, 3, 0x1e);
     game->death_sound_timer = 0x14;
     player_kill(game, touched);
 }

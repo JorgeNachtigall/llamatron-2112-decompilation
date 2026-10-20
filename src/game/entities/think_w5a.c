@@ -27,7 +27,7 @@ enum {
 /* think_26's fall: state in aux1c. */
 enum { DROPPER_FALLING, DROPPER_RISING, DROPPER_WAITING };
 
-static const SoundRequest SOUND_DROPPER_LANDS = { 0x11, 3, 5 };     /* 1000:30b6 */
+static const SoundRequest SOUND_DROPPER_LANDS = { SAMPLE_ID_EXPLOSION, 3, 5 };     /* 1000:30b6 */
 
 static uint8_t high_byte(int16_t w) { return (uint8_t)((uint16_t)w >> 8); }
 static uint8_t low_byte(int16_t w) { return (uint8_t)w; }

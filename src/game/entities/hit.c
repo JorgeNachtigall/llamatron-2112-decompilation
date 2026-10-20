@@ -16,6 +16,8 @@
 enum { KILLS_PER_BONUS = 200 };
 /* Below this level the bonus pickup can be the warp (1000:0e7f). */
 enum { LAST_WARP_LEVEL = 0x5a };
+/* Sprites: the pickup-chance overlay; the fire-back shots (as enemy types 06 and 07). */
+enum { SPRITE_PICKUP_CHANCE = 0x46, SPRITE_SHOT_MEDIUM = 0x7f, SPRITE_SHOT_FAST = 0x83 };
 
 static int16_t word(int value)
 {
@@ -48,7 +50,7 @@ static void become_pickup(GameState *game, Entity *e)
     e->aux16 = e->sprite;
     e->solid = 0;
     game->enemies_alive++;
-    game_sound_play(0x1a, 3, 4);
+    game_sound_play(SAMPLE_ID_ALERT, 3, 4);
 }
 
 /* ent_hit_00, game86 1000:0dfe */
@@ -96,7 +98,7 @@ void entity_kill(GameState *game, Entity *e, const EntityHit *hit)
 /* game86 1000:0dbf: a chance of queueing a pickup before the kill. */
 static void ent_hit_02(GameState *game, Entity *e, const EntityHit *hit)
 {
-    e->overlay.sprite = 0x46;
+    e->overlay.sprite = SPRITE_PICKUP_CHANCE;
     e->overlay.frames = 0x14;
     e->overlay.x = e->x;
     e->overlay.y = e->y;
@@ -120,7 +122,7 @@ static void ent_hit_01(GameState *game, Entity *e, const EntityHit *hit)
     if (y >= 0x18 && y < 0xb8)
         e->y = y;
     e->aux16 = 5;
-    game_sound_play(0x0d, 1, 3);
+    game_sound_play(SAMPLE_ID_KNOCK, 1, 3);
 }
 
 /* game86 1000:105f: hit points; at < 0 the record's kill action runs. */
@@ -159,7 +161,7 @@ static void fire_back(GameState *game, Entity *e, const EntityHit *hit, EnemySho
 static void ent_hit_04(GameState *game, Entity *e, const EntityHit *hit)
 {
     if (game->level_flags < 0) {
-        EnemyShot tmpl = { .sprite = 0x7f, .speed = 0x400, .hit_handler = 5 };
+        EnemyShot tmpl = { .sprite = SPRITE_SHOT_MEDIUM, .speed = 0x400, .hit_handler = 5 };
         static const bool flip_y[] = { false, true }, flip_x[] = { false, true };
         fire_back(game, e, hit, &tmpl, 6, flip_y, flip_x, 2);
     }
@@ -170,7 +172,7 @@ static void ent_hit_04(GameState *game, Entity *e, const EntityHit *hit)
 static void ent_hit_05(GameState *game, Entity *e, const EntityHit *hit)
 {
     if (game->level_flags < 0) {
-        EnemyShot tmpl = { .sprite = 0x83, .speed = 0x600, .hit_handler = 0 };
+        EnemyShot tmpl = { .sprite = SPRITE_SHOT_FAST, .speed = 0x600, .hit_handler = 0 };
         static const bool flip_y[] = { false, true, false, true };
         static const bool flip_x[] = { false, false, true, false };
         fire_back(game, e, hit, &tmpl, 7, flip_y, flip_x, 4);
@@ -185,13 +187,13 @@ static void ent_hit_06(GameState *game, Entity *e, const EntityHit *hit)
     e->aux16 = word(hit->shot->vx * 4);
     e->aux1a = word(hit->shot->vy * 4);
     e->aux30 = 5;
-    game_sound_play(0x0d, 1, 3);
+    game_sound_play(SAMPLE_ID_KNOCK, 1, 3);
 }
 
 /* game86 1000:1022 */
 static void ent_hit_07(GameState *game, Entity *e, const EntityHit *hit)
 {
-    game_sound_play(0x0d, 0, 3);
+    game_sound_play(SAMPLE_ID_KNOCK, 0, 3);
     if (--e->hp < 0) {
         entity_kill(game, e, hit);
         return;
@@ -206,7 +208,7 @@ static void ent_hit_07(GameState *game, Entity *e, const EntityHit *hit)
 static void ent_hit_08(GameState *game, Entity *e, const EntityHit *hit)
 {
     entity_start_flash(game, FLASH_LIST_HIT);
-    game_sound_play(0x17, 0, 4);
+    game_sound_play(SAMPLE_ID_RESCUE, 0, 4);
     uint8_t reload = (uint8_t)(e->aux24 & 0xff);
     int8_t left = (int8_t)((uint16_t)e->aux24 >> 8);
     left--;
@@ -254,7 +256,7 @@ static void ent_hit_0a(GameState *game, Entity *e, const EntityHit *hit)
     e->reload = 0;
     e->countdown = 0;
     e->aux24 = 0x14;
-    game_sound_play(0x07, 1, 3);
+    game_sound_play(SAMPLE_ID_POP, 1, 3);
 }
 
 /* game86 1000:2ae1 */
@@ -266,7 +268,7 @@ static void ent_hit_0b(GameState *game, Entity *e, const EntityHit *hit)
         entity_kill(game, e, hit);
         return;
     }
-    game_sound_play(0x04, 1, 3);
+    game_sound_play(SAMPLE_ID_HIT_0B, 1, 3);
 }
 
 /* game86 1000:363c: aux24's high byte counts the hits left; no kill, no score. */
@@ -277,13 +279,13 @@ static void ent_hit_0c(GameState *game, Entity *e, const EntityHit *hit)
     e->aux24 = (int16_t)((uint16_t)left << 8 | (e->aux24 & 0xff));
     if (left != 0) {
         entity_start_flash(game, FLASH_LIST_HIT_0C);
-        game_sound_play(0x1e, 3, 4);
+        game_sound_play(SAMPLE_ID_GAME_OVER, 3, 4);
         return;
     }
     entity_vanish(e);
     game->enemies_alive--;
     entity_start_flash(game, FLASH_LIST_KILL_0C);
-    game_sound_play(0x1e, 1, 6);
+    game_sound_play(SAMPLE_ID_GAME_OVER, 1, 6);
 }
 
 /* game86 1000:31d8: only killed once the intro is over and its timer is running. */
@@ -296,7 +298,7 @@ static void ent_hit_0d(GameState *game, Entity *e, const EntityHit *hit)
     e->aux24 = 0x0a;
     e->vx = hit->shot->vx >> 1;
     e->vy = hit->shot->vy >> 1;
-    game_sound_play(0x07, 3, 4);
+    game_sound_play(SAMPLE_ID_POP, 3, 4);
 }
 
 /* game86 1000:12ed: leaves a segment of the current segment family behind (type 0x28). */
@@ -309,7 +311,7 @@ static void ent_hit_0e(GameState *game, Entity *e, const EntityHit *hit)
     if (s) {
         s->x = e->x;
         s->y = e->y;
-        s->death_sample = 0x07;
+        s->death_sample = SAMPLE_ID_POP;
         s->death_rate = 0;
         s->sprite = game->segment_sprite;
         s->scale = 0;
@@ -347,7 +349,7 @@ static void ent_hit_0f(GameState *game, Entity *e, const EntityHit *hit)
         entity_kill(game, e, hit);
         return;
     }
-    game_sound_play(0x20, 3, 4);
+    game_sound_play(SAMPLE_ID_HIT_0F, 3, 4);
 }
 
 /* game86 1000:270a: after enough hits it turns into think 2c (and starts over). */
@@ -355,7 +357,7 @@ static void ent_hit_11(GameState *game, Entity *e, const EntityHit *hit)
 {
     (void)hit;
     entity_start_flash(game, FLASH_LIST_HIT_ALT);
-    game_sound_play(0x1e, 4, 4);
+    game_sound_play(SAMPLE_ID_GAME_OVER, 4, 4);
     if (--e->aux16 >= 0)
         return;
     e->anim = ANIM_IDLE;

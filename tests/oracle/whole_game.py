@@ -69,8 +69,9 @@ DRAW_HOOK, TICK_HOOK = 0x39E0, 0x39E4    # [39E0] frame draw hook, [39E4] tick h
 DRAW_HOOK_TITLE = 0x402C
 ENTITY_TABLE, ENTITY_SIZE = 0x48C1, 0x40
 # Known differences, as tests/replay/compare.py treats them:
-# DEVIATIONS #10: the loaded image has trail_head[1] = 2 until P2's first trail write; the
-# port starts at entry 0. Skipped while the original still holds 2.
+# The loaded image has P2's trail head [2CF9] = 2, which wave_start zeroes at 1000:04ef
+# before any play tick reads it (DEVIATIONS #10, withdrawn); the port starts at 0. Skipped
+# while the original still holds the loaded 2 (only before the first wave).
 P2_TRAIL_HEAD, P2_TRAIL_HEAD_LOADED = 0x2CF9, 2
 # Title llama leftovers in play: fields +02..+3f of slots 0..8 that entities_clear (4307)
 # leaves behind and the original never reads before writing (tests/dosbox/llama_residue.py);

@@ -17,6 +17,10 @@ enum { KILL_ACTION_COUNT = 12 };
  * (1000:3c0f). Kill action 04 jumps past that load and inherits DX = 0x60 from
  * shots_update (1000:0c55), the only way the hit handlers are reached. */
 enum { DEBRIS_SEARCH_LIMIT = 0x3b, DEBRIS_SEARCH_LIMIT_INHERITED = 0x60 };
+/* Sprites of kill action 03's rocks and 04's crawlers. */
+enum { SPRITE_ROCK = 0xb7, SPRITE_CRAWLER = 0xbf };
+/* Hit points of a seeker piece from split_into_type24: two byte counters. */
+enum { SEEKER_HP_PIECE = 0x2004 };
 
 static int16_t shifted(int16_t v, int16_t shift)
 {
@@ -58,7 +62,7 @@ static int spawn_debris_group(GameState *game, const Entity *e, int first, int c
         d->scale = 0;
         d->solid = 1;
         d->kind = -1;
-        d->death_sample = 0x06;
+        d->death_sample = SAMPLE_ID_WARP;
         d->death_rate = 4;
         d->hit_handler = 0x10;
         entity_set_type(d, 0x0f, 0);
@@ -124,9 +128,9 @@ static void kill_action_03(GameState *game, Entity *e, const EntityHit *hit)
             vx = (int16_t)((rng_next_byte(&game->rng) & 3) - 1);
         } while (vx == 0);
         r->vx = vx;
-        r->sprite = 0xb7;
+        r->sprite = SPRITE_ROCK;
         r->vy = (int16_t)-(rng_next_byte(&game->rng) & 3);
-        r->death_sample = 0x0c;
+        r->death_sample = SAMPLE_ID_RELEASE;
         r->death_rate = 0;
         r->scale = 1;
         r->solid = 1;
@@ -171,7 +175,7 @@ static void kill_action_05(GameState *game, Entity *e, const EntityHit *hit)
         int16_t step = (roll & 2) ? -1 : 1;
         c->vx = (roll & 4) ? step : 0;
         c->vy = (roll & 4) ? 0 : step;
-        c->sprite = 0xbf;
+        c->sprite = SPRITE_CRAWLER;
         c->scale = 0;
         c->solid = 0;
         c->kind = 1;
@@ -239,7 +243,7 @@ static void split_into_type24(GameState *game, Entity *e, const EntityHit *hit, 
         s->x = e->x;
         s->y = e->y;
         s->kind = -1;
-        enemy_setup_type24(game, s, phase, 0x2004);
+        enemy_setup_type24(game, s, phase, SEEKER_HP_PIECE);
     }
     entity_kill(game, e, hit);
 }
