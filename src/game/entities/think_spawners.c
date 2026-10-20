@@ -1,9 +1,7 @@
 /*
  * think_spawners.c - the three-stage family: a wandering mother (think_0b) that drops
  * shooters (think_0c), which fire aimed shots (think_0d, think_basic.c).
- *
- * Both stages keep a period/countdown byte pair in one 16-bit field (low byte = period,
- * high byte = countdown), like the original's byte accesses to it.
+ * The fields are MotherView's (entity_views.h).
  */
 #include "entities.h"
 #include "sound.h"
@@ -20,17 +18,14 @@ enum {
 
 static const SoundRequest SOUND_DROP_SHOOTER = { SAMPLE_ID_BEAM, 1, 3 };   /* 1000:4f2e */
 
-/* Counts the high byte down; when it passes zero it restarts at the low byte (the period)
- * and the call returns true. */
-static bool pair_count_down(int16_t *pair)
+/* Counts down; when it passes zero (the count is signed) it restarts at the period and the
+ * call returns true. */
+static bool counter_passed_zero(ByteCounter *c)
 {
-    uint8_t period = (uint8_t)*pair;
-    int8_t countdown = (int8_t)((uint16_t)*pair >> 8);
-    bool elapsed = --countdown < 0;
-    if (elapsed)
-        countdown = (int8_t)period;
-    *pair = (int16_t)(uint16_t)((uint16_t)(uint8_t)countdown << 8 | period);
-    return elapsed;
+    if ((int8_t)--c->left >= 0)
+        return false;
+    c->left = c->period;
+    return true;
 }
 
 /* A random step of -1, 1 or 2 (rng & 3, minus 1, zero redrawn). */
@@ -49,26 +44,27 @@ static int16_t wrap16(int value)
 }
 
 /* Mother: wanders in random directions without bouncing (a step that would leave the
- * playfield is not taken). After a start delay (aux16, counting down while >= 0) it drops
- * aux1a shooters, one every period of its hp byte pair. game86 1000:4ed7 */
+ * playfield is not taken). After a start delay it drops drops_left shooters, one per
+ * period of drop. game86 1000:4ed7 */
 void think_0b(GameState *game, Entity *e)
 {
     if (entity_check_touch(game, e))
         return;
-    e->sprite = (int16_t)(((game->tick_count >> 1) & 3) + e->aux1c);
+    e->sprite = (int16_t)(((game->tick_count >> 1) & 3) + e->mother.sprite_base);
     if (game->wave_intro_timer != 0)
         return;
 
-    if (e->aux16 >= 0) {
-        e->aux16--;
+    if (e->mother.start_delay >= 0) {
+        e->mother.start_delay--;
     } else {
-        if (pair_count_down(&e->hp) && e->aux1a != 0) {
-            e->aux1a--;
+        if (counter_passed_zero(&e->mother.drop) && e->mother.drops_left != 0) {
+            e->mother.drops_left--;
             Entity *shooter = entity_spawn_debris(game, e);
             if (shooter) {
                 shooter->sprite = SHOOTER_SPRITE;
-                shooter->timer = 0;
-                shooter->aux16 = SHOOTER_FIRE_PERIOD;   /* countdown 0: fires next tick */
+                shooter->mother.turn_timer = 0;
+                /* left 0: it fires on its next tick */
+                shooter->mother.fire = (ByteCounter){ .period = SHOOTER_FIRE_PERIOD, .left = 0 };
                 entity_set_type(shooter, THINK_SHOOTER, 0);
                 game->enemies_alive++;
                 game_sound_play(SOUND_DROP_SHOOTER.sample, SOUND_DROP_SHOOTER.rate_index,
@@ -77,10 +73,10 @@ void think_0b(GameState *game, Entity *e)
         }
     }
 
-    if (--e->timer < 0) {
+    if (--e->mother.turn_timer < 0) {
         e->vx = random_step(game);
         e->vy = random_step(game);
-        e->timer = (int16_t)((rng_next_byte(&game->rng) & 0x1f) + 0x1f);
+        e->mother.turn_timer = (int16_t)((rng_next_byte(&game->rng) & 0x1f) + 0x1f);
     }
     int16_t x = wrap16(e->x + e->vx);
     if (x > BOUNCE_X_MIN && x < BOUNCE_X_MAX)
@@ -90,14 +86,14 @@ void think_0b(GameState *game, Entity *e)
         e->y = y;
 }
 
-/* Shooter: bounces around, fires an aimed shot every period of its aux16 byte pair, and
+/* Shooter: bounces around, fires an aimed shot every period of fire, and
  * every 0x20..0x9f ticks turns towards its target ship. game86 1000:4feb */
 void think_0c(GameState *game, Entity *e)
 {
     if (entity_check_touch(game, e))
         return;
 
-    if (pair_count_down(&e->aux16)) {
+    if (counter_passed_zero(&e->mother.fire)) {
         Entity *shot = entity_spawn_debris(game, e);
         if (shot) {
             shot->sprite = SHOT_SPRITE;
@@ -109,11 +105,11 @@ void think_0c(GameState *game, Entity *e)
         }
     }
 
-    if (--e->timer >= 0) {
+    if (--e->mother.turn_timer >= 0) {
         entity_move_bounce(game, e);
         return;
     }
-    e->timer = (int16_t)((rng_next_byte(&game->rng) & 0x7f) + 0x20);
+    e->mother.turn_timer = (int16_t)((rng_next_byte(&game->rng) & 0x7f) + 0x20);
     Point16 v = entity_aim_at_target(game, e, SHOT_AIM_MAX_X, SHOT_AIM_MAX_Y);
     e->vx = v.x;
     e->vy = v.y;
