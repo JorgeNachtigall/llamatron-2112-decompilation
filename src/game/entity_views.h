@@ -150,6 +150,7 @@ typedef struct HomingView {         /* the mover: think 10..13, 1d, 1f, 23, 28, 
         int16_t hits_left;      /*     1f / 28 */
         int16_t segment_family; /*     1f segments */
         ByteCounter fire;       /*     2a: between children */
+        int16_t unused_2e;      /*     1d, 23: cleared at init, never read */
     };
     int16_t start_delay;        /* +30 no steering while >= 0 */
 } HomingView;

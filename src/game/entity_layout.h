@@ -103,6 +103,7 @@ ENTITY_AT(homing.drops_left, 0x2e);
 ENTITY_AT(homing.hits_left, 0x2e);
 ENTITY_AT(homing.segment_family, 0x2e);
 ENTITY_AT(homing.fire, 0x2e);
+ENTITY_AT(homing.unused_2e, 0x2e);
 ENTITY_AT(homing.start_delay, 0x30);
 
 ENTITY_AT(chaser.steer, 0x12);
