@@ -115,7 +115,7 @@ Entity *enemy_shot_alloc(GameState *game, const Entity *from, const EnemyShot *t
 
 /* game86 1000:10b0. Its enemy_shot_init call (1000:10ea) runs with think_13's code offset
  * in SI, so the "parent" words it clears are two spawn pairs of a level script; the script
- * side reproduces that (script_clobber_spawns_10b0). */
+ * side reproduces that (script_clobber_spawns). */
 Entity *enemy_shot_drop(GameState *game, const Entity *from)
 {
     Entity *shot = first_free_slot(game);
@@ -126,7 +126,7 @@ Entity *enemy_shot_drop(GameState *game, const Entity *from)
     const EnemyShot bomb = { .aim_y = 0, .aim_x = 0, .sprite = SPRITE_BOMB, .speed = 0xa00,
                              .hit_handler = 0 };
     enemy_shot_init(game, shot, from, &bomb);
-    script_clobber_spawns_10b0(game);
+    script_clobber_spawns(game);
     shot->kind = -1;
     shot->death_sample = SAMPLE_ID_RELEASE;
     shot->death_rate = 0;

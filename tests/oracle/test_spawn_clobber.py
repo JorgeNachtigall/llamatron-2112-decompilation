@@ -1,4 +1,4 @@
-"""The 10b0 spawn-list clobber (script_clobber_spawns_10b0, src/game/script.c) vs game86.
+"""The 10b0 spawn-list clobber (script_clobber_spawns, src/game/script.c) vs game86.
 
 In the original a think_13 entity that drops a shot (1000:2594 -> 10b0 -> enemy_shot_init)
 clears [SI+8] and [SI+0A] with SI = think_13's code offset, which zeroes two spawn pairs of
@@ -6,7 +6,7 @@ the level script stored at that DS offset (levels.dat clobber_10b0). The test ru
 drop through the think loop (1000:432b) in unicorn, checks which pairs it zeroed against
 clobber_10b0, then walks that level's spawn list with 1000:3d09 and compares each pair with
 script_next_spawn_pair, on the dropped image and on a fresh one (the adapter maps the zeroed
-bytes to spawns_clobbered_10b0), and checks that script_clobber_spawns_10b0 writes back the
+bytes to spawn_pairs_clobbered), and checks that script_clobber_spawns writes back the
 same bytes as the drop.
 """
 
@@ -45,7 +45,7 @@ def port(cgame):
         dg = DgroupMap(cgame)
         next_pair = bind(cgame, "script_next_spawn_pair", ctypes.c_bool,
                          ctypes.c_void_p, ctypes.c_void_p)
-        clobber = bind(cgame, "script_clobber_spawns_10b0", None, ctypes.c_void_p)
+        clobber = bind(cgame, "script_clobber_spawns", None, ctypes.c_void_p)
         levels = bind(cgame, "asset_levels", ctypes.c_void_p)()
 
         @staticmethod
@@ -113,7 +113,7 @@ def walk_list(machine, port, img, level):
         machine.call("1000:3d09", max_insns=MAX_INSNS)
         orig = machine.read_dgroup(0, DGROUP_SIZE)
 
-        state = port.dg.from_dgroup(bytes(img))   # the adapter derives spawns_clobbered_10b0
+        state = port.dg.from_dgroup(bytes(img))   # the adapter derives spawn_pairs_clobbered
         more = port.next_pair(state, port.levels)
         mine = port.dg.to_dgroup(state, bytes(img))
 
@@ -150,7 +150,7 @@ def test_spawn_list_after_drop(machine, port, clobbered):
 
 
 def test_clobber_call_matches_drop(machine, port):
-    """script_clobber_spawns_10b0 on a clean state writes back the same bytes as a drop."""
+    """script_clobber_spawns on a clean state writes back the same bytes as a drop."""
     img = clean_image(machine, port.dg)
     dropped = drop_shot(machine, bytearray(img))
     state = port.dg.from_dgroup(bytes(img))

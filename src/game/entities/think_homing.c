@@ -226,7 +226,7 @@ void think_1f(GameState *game, Entity *e)
 {
     if (entity_check_touch(game, e))
         return;
-    uint16_t growth = (uint16_t)game->tuning.p0826;
+    uint16_t growth = (uint16_t)game->tuning.growth_step;
     HomingAxis x = axis_x(e), y = axis_y(e);
     x.accel = add32(x.accel, growth);
     y.accel = add32(y.accel, growth);

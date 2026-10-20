@@ -10,7 +10,7 @@
  *    ([0x06C7]) are DS addresses into data the port loads from the extracted files: they are
  *    mapped only when game_data_load() succeeds (dgroup_map_has_data), and a cursor address
  *    outside every spawn list (0 before the first wave) leaves spawn as it was.
- *    spawns_clobbered_10b0 is the state of the level-script bytes levels.dat names
+ *    spawn_pairs_clobbered is the state of the level-script bytes levels.dat names
  *    (clobber_10b0): set when they are all zero; to_dgroup zeroes them when set and leaves
  *    them otherwise (they still count as mapped in the mask).
  *  - gamestate_to_dgroup writes exactly the bytes dgroup_map_mask marks and leaves all

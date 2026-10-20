@@ -151,7 +151,7 @@ static void fire_back(GameState *game, Entity *e, const EntityHit *hit, EnemySho
         Entity *shot = enemy_shot_alloc(game, e, tmpl);
         if (shot) {
             hit->shot->direction = 0;
-            hit->shot->aux0a = 0;
+            hit->shot->unused_0a = 0;
             shot->kind = kind;
         }
     }

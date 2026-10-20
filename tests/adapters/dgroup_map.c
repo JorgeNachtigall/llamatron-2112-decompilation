@@ -306,7 +306,7 @@ static void player_from(Player *p, Reader r, unsigned base)
     p->powerup = gets16(r, base + 0x1E);
     p->pickup_pending = gets16(r, base + 0x20);
     p->bonus_countdown = gets16(r, base + 0x22);
-    p->param_21ca = gets16(r, base + 0x24);
+    p->level_loops = gets16(r, base + 0x24);
     for (int i = 0; i < ROSTER_SIZE; i++) {
         p->roster[i].kind = (int8_t)get8(r, base + PLAYER_ROSTER + 2 * (unsigned)i);
         p->roster[i].count = get8(r, base + PLAYER_ROSTER + 2 * (unsigned)i + 1);
@@ -328,7 +328,7 @@ static void player_to(const Player *p, Writer w, unsigned base)
     put16(w, base + 0x1E, (uint16_t)p->powerup);
     put16(w, base + 0x20, (uint16_t)p->pickup_pending);
     put16(w, base + 0x22, (uint16_t)p->bonus_countdown);
-    put16(w, base + 0x24, (uint16_t)p->param_21ca);
+    put16(w, base + 0x24, (uint16_t)p->level_loops);
     zero(w, base + PLAYER_UNUSED, PLAYER_UNUSED_SIZE);   /* never referenced */
     for (int i = 0; i < ROSTER_SIZE; i++) {
         put8(w, base + PLAYER_ROSTER + 2 * (unsigned)i, (uint8_t)p->roster[i].kind);
@@ -622,7 +622,7 @@ void gamestate_from_dgroup(GameState *g, const uint8_t *dgroup)
     g->wave_start_delay = gets16(r, DS_WAVE_START_DELAY);
     g->player_label_offset = gets16(r, DS_PLAYER_LABEL_OFFSET);
     g->spawn_delay = gets16(r, DS_SPAWN_DELAY);
-    g->play_flag_0617 = gets16(r, DS_PLAY_FLAG_0617);
+    g->play_ticked = gets16(r, DS_PLAY_FLAG_0617);
     g->level_default = gets16(r, DS_LEVEL_DEFAULT);
     g->pulse_enable = getflag16(r, DS_PULSE_ENABLE);
     g->pulse_index = gets16(r, DS_PULSE_INDEX);
@@ -649,9 +649,9 @@ void gamestate_from_dgroup(GameState *g, const uint8_t *dgroup)
         s->vx = gets16(r, b + 0x4);
         s->vy = gets16(r, b + 0x6);
         s->direction = gets16(r, b + 0x8);
-        s->aux0a = gets16(r, b + 0xA);
+        s->unused_0a = gets16(r, b + 0xA);
         s->bounce_life = gets16(r, b + 0xC);
-        s->aux0e = gets16(r, b + 0xE);
+        s->unused_0e = gets16(r, b + 0xE);
     }
     g->shots_bounce = getflag16(r, DS_SHOTS_BOUNCE);
     for (int p = 0; p < PLAYER_COUNT; p++) {
@@ -671,7 +671,7 @@ void gamestate_from_dgroup(GameState *g, const uint8_t *dgroup)
     if (have_data()) {
         spawn_from(&g->spawn, get16(r, DS_SPAWN_CURSOR));
         flash_from(g, get16(r, DS_FLASH_LIST));
-        g->spawns_clobbered_10b0 = clobber_from(r);
+        g->spawn_pairs_clobbered = clobber_from(r);
     }
     g->spawn_remaining = gets16(r, DS_SPAWN_REMAINING);
     g->spawn_type = gets16(r, DS_SPAWN_TYPE);
@@ -681,11 +681,11 @@ void gamestate_from_dgroup(GameState *g, const uint8_t *dgroup)
     g->tuning.init0d_hp = gets16(r, DS_TUNING_INIT0D_HP);
     g->tuning.segment_family = gets16(r, DS_TUNING_SEGMENT_FAMILY);
     g->tuning.orbit_phase_step = gets16(r, DS_TUNING_ORBIT_PHASE_STEP);
-    g->tuning.p0826 = gets16(r, DS_TUNING_P0826);
+    g->tuning.growth_step = gets16(r, DS_TUNING_P0826);
     g->tuning.accum_start = get32(r, DS_TUNING_ACCUM_START);
-    g->tuning.p082c = gets16(r, DS_TUNING_P082C);
-    g->tuning.p082e = gets16(r, DS_TUNING_P082E);
-    g->tuning.p0830 = gets16(r, DS_TUNING_P0830);
+    g->tuning.runner_fire = gets16(r, DS_TUNING_P082C);
+    g->tuning.runner_hits = gets16(r, DS_TUNING_P082E);
+    g->tuning.dropper_creep_mask = gets16(r, DS_TUNING_P0830);
     g->tuning.init19_vx = gets16(r, DS_TUNING_INIT19_VX);
 
     g->shield_timer = gets16(r, DS_SHIELD_TIMER);
@@ -694,7 +694,7 @@ void gamestate_from_dgroup(GameState *g, const uint8_t *dgroup)
     g->swarm_count = gets16(r, DS_SWARM_COUNT);
 
     g->spawn_sprite = gets16(r, DS_SPAWN_SPRITE);
-    g->spawn_count_0804 = gets16(r, DS_SPAWN_COUNT_0804);
+    g->eggs_spawned = gets16(r, DS_SPAWN_COUNT_0804);
     g->unhatched = gets16(r, DS_UNHATCHED);
     g->spawn_phase = gets16(r, DS_SPAWN_PHASE);
     g->orbit_angle = get32(r, DS_ORBIT_ANGLE);
@@ -702,7 +702,7 @@ void gamestate_from_dgroup(GameState *g, const uint8_t *dgroup)
     g->segment_sprite = gets16(r, DS_SEGMENT_SPRITE);
     g->speed_accum = get32(r, DS_SPEED_ACCUM);
     g->kills_toward_bonus = gets16(r, DS_KILLS_TOWARD_BONUS);
-    g->powerup_0652 = gets16(r, DS_POWERUP_0652);
+    g->shot_power_kept = gets16(r, DS_POWERUP_0652);
     g->debris_alt = gets16(r, DS_DEBRIS_ALT);
     g->snake_head = gets16(r, DS_SNAKE_HEAD);
     for (int i = 0; i < PLAYER_COUNT; i++) {
@@ -807,7 +807,7 @@ static void write_state(const GameState *g, Writer w)
     put16(w, DS_WAVE_START_DELAY, (uint16_t)g->wave_start_delay);
     put16(w, DS_PLAYER_LABEL_OFFSET, (uint16_t)g->player_label_offset);
     put16(w, DS_SPAWN_DELAY, (uint16_t)g->spawn_delay);
-    put16(w, DS_PLAY_FLAG_0617, (uint16_t)g->play_flag_0617);
+    put16(w, DS_PLAY_FLAG_0617, (uint16_t)g->play_ticked);
     put16(w, DS_LEVEL_DEFAULT, (uint16_t)g->level_default);
     putflag16(w, DS_PULSE_ENABLE, g->pulse_enable);
     put16(w, DS_PULSE_INDEX, (uint16_t)g->pulse_index);
@@ -834,9 +834,9 @@ static void write_state(const GameState *g, Writer w)
         put16(w, b + 0x4, (uint16_t)s->vx);
         put16(w, b + 0x6, (uint16_t)s->vy);
         put16(w, b + 0x8, (uint16_t)s->direction);
-        put16(w, b + 0xA, (uint16_t)s->aux0a);
+        put16(w, b + 0xA, (uint16_t)s->unused_0a);
         put16(w, b + 0xC, (uint16_t)s->bounce_life);
-        put16(w, b + 0xE, (uint16_t)s->aux0e);
+        put16(w, b + 0xE, (uint16_t)s->unused_0e);
     }
     putflag16(w, DS_SHOTS_BOUNCE, g->shots_bounce);
     for (int p = 0; p < PLAYER_COUNT; p++) {
@@ -861,11 +861,11 @@ static void write_state(const GameState *g, Writer w)
     put16(w, DS_TUNING_INIT0D_HP, (uint16_t)g->tuning.init0d_hp);
     put16(w, DS_TUNING_SEGMENT_FAMILY, (uint16_t)g->tuning.segment_family);
     put16(w, DS_TUNING_ORBIT_PHASE_STEP, (uint16_t)g->tuning.orbit_phase_step);
-    put16(w, DS_TUNING_P0826, (uint16_t)g->tuning.p0826);
+    put16(w, DS_TUNING_P0826, (uint16_t)g->tuning.growth_step);
     put32(w, DS_TUNING_ACCUM_START, g->tuning.accum_start);
-    put16(w, DS_TUNING_P082C, (uint16_t)g->tuning.p082c);
-    put16(w, DS_TUNING_P082E, (uint16_t)g->tuning.p082e);
-    put16(w, DS_TUNING_P0830, (uint16_t)g->tuning.p0830);
+    put16(w, DS_TUNING_P082C, (uint16_t)g->tuning.runner_fire);
+    put16(w, DS_TUNING_P082E, (uint16_t)g->tuning.runner_hits);
+    put16(w, DS_TUNING_P0830, (uint16_t)g->tuning.dropper_creep_mask);
     put16(w, DS_TUNING_INIT19_VX, (uint16_t)g->tuning.init19_vx);
 
     put16(w, DS_SHIELD_TIMER, (uint16_t)g->shield_timer);
@@ -874,7 +874,7 @@ static void write_state(const GameState *g, Writer w)
     put16(w, DS_SWARM_COUNT, (uint16_t)g->swarm_count);
 
     put16(w, DS_SPAWN_SPRITE, (uint16_t)g->spawn_sprite);
-    put16(w, DS_SPAWN_COUNT_0804, (uint16_t)g->spawn_count_0804);
+    put16(w, DS_SPAWN_COUNT_0804, (uint16_t)g->eggs_spawned);
     put16(w, DS_UNHATCHED, (uint16_t)g->unhatched);
     put16(w, DS_SPAWN_PHASE, (uint16_t)g->spawn_phase);
     put32(w, DS_ORBIT_ANGLE, g->orbit_angle);
@@ -882,7 +882,7 @@ static void write_state(const GameState *g, Writer w)
     put16(w, DS_SEGMENT_SPRITE, (uint16_t)g->segment_sprite);
     put32(w, DS_SPEED_ACCUM, g->speed_accum);
     put16(w, DS_KILLS_TOWARD_BONUS, (uint16_t)g->kills_toward_bonus);
-    put16(w, DS_POWERUP_0652, (uint16_t)g->powerup_0652);
+    put16(w, DS_POWERUP_0652, (uint16_t)g->shot_power_kept);
     put16(w, DS_DEBRIS_ALT, (uint16_t)g->debris_alt);
     put16(w, DS_SNAKE_HEAD, (uint16_t)g->snake_head);
     for (int i = 0; i < PLAYER_COUNT; i++) {
@@ -936,7 +936,7 @@ static void write_state(const GameState *g, Writer w)
     if (have_data()) {
         put16(w, DS_SPAWN_CURSOR, spawn_to(&g->spawn));
         put16(w, DS_FLASH_LIST, flash_to(g));
-        clobber_to(g->spawns_clobbered_10b0, w);
+        clobber_to(g->spawn_pairs_clobbered, w);
     }
     put16(w, DS_TICK_COUNT, g->tick_count);
     put16(w, DS_TICK_HOOK, hook_to(TICK_HOOKS, TICK_HOOK_COUNT, g->tick_hook));

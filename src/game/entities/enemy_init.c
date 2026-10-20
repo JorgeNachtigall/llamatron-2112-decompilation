@@ -118,7 +118,7 @@ void enemy_setup_00(GameState *game, Entity *e, bool hatch_fast)
     e->aux30 = game->spawn_sprite;
     entity_set_type(e, 0x04, 0x05);
     game->unhatched++;
-    game->spawn_count_0804++;
+    game->eggs_spawned++;
 }
 
 /* game86 1000:1dcd */
@@ -140,7 +140,7 @@ void enemy_setup_01(GameState *game, Entity *e)
     e->solid = 1;
     game->spawn_phase++;
     e->timer = game->spawn_phase & 0x1f;
-    e->hp = (int16_t)(game->player.script_param[1] + game->player.param_21ca);
+    e->hp = (int16_t)(game->player.script_param[1] + game->player.level_loops);
     e->kill_action = game->player.script_param[3];
     e->sub_mode = game->tuning.init01_mode;
     e->hit_handler = game->player.script_param[0];
@@ -201,7 +201,7 @@ static void enemy_init_04(GameState *game, Entity *e)
     e->timer = -2;
     e->aux16 = 0;
     e->hp = 1;
-    e->aux1a = game->player.param_21ca != 0 ? 0x202 : 0x505;
+    e->aux1a = game->player.level_loops != 0 ? 0x202 : 0x505;
     e->aux1c = e->sprite;
     e->kill_action = 1;
     e->hit_handler = 3;
@@ -305,7 +305,7 @@ static void init_drifter(GameState *game, Entity *e, int16_t anim, int16_t sprit
 /* game86 1000:2612. Not counted as alive. */
 static void enemy_init_08(GameState *game, Entity *e)
 {
-    init_drifter(game, e, 0x02, SPRITE_DRIFTER, game->player.param_21ca != 0 ? 0x800 : 0x400);
+    init_drifter(game, e, 0x02, SPRITE_DRIFTER, game->player.level_loops != 0 ? 0x800 : 0x400);
     e->aux2e = 0x7070;
     e->hit_handler = 6;
     entity_set_type(e, 0x11, 0x11);
@@ -926,9 +926,9 @@ static void init_edge_runner(GameState *game, Entity *e, Edge edge, int16_t spri
         e->sub_mode = (int16_t)(e->sub_mode | jitter);
     e->scale = 0;
     e->solid = 1;
-    e->aux24 = game->tuning.p082e;
+    e->aux24 = game->tuning.runner_hits;
     remember_home(e);
-    e->aux2e = game->tuning.p082c;
+    e->aux2e = game->tuning.runner_fire;
     e->hit_handler = 0x0f;
     entity_set_type(e, 0x2a, 0x2a);
     game->enemies_alive++;

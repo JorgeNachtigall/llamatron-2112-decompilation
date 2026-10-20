@@ -103,9 +103,9 @@ void play_tick_hook(GameState *game)
 
     players_tick(game);                             /* 16c1..1a00 */
     player_fire(game);                              /* 1a01 */
-    if (game->level_flags >= 0 && game->powerup_0652 == 0)
+    if (game->level_flags >= 0 && game->shot_power_kept == 0)
         game->level_flags--;                        /* 1a04 */
-    game->play_flag_0617 = 1;
+    game->play_ticked = 1;
     shots_update(game);                             /* 1a1c */
     game->swarm_count = 0;                         /* 1a1f */
     entities_think_all(game);

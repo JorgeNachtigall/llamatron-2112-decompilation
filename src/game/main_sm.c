@@ -394,7 +394,7 @@ static bool new_game(GameState *game)
     game->game_started = 0;
     game->wave_start_delay = WAVE_START_DELAY;
     game->loop_count = 0;
-    game->player.param_21ca = 0;
+    game->player.level_loops = 0;
     game->player.lives = NEW_GAME_LIVES;
     game->player.bonus_countdown = NEW_GAME_BONUS_COUNTDOWN;
     game->ship[0] = (Point16){ 0x98, 0x8C };
@@ -412,7 +412,7 @@ static bool next_level(GameState *game)
     game_sound_play(SAMPLE_ID_WAVE_START, 1, 0x1E);                 /* 01e5 */
     game->player.swarm_reaim_period = 0x0F;
     game->player.multi_shot = 0;
-    game->powerup_0652 = 0;
+    game->shot_power_kept = 0;
     game->level_flags = -1;
     script_start_level(game, asset_levels());       /* 020b..045d */
     go(MS_WAVE_START);
@@ -475,7 +475,7 @@ static bool wave_show(GameState *game)
     hud_refresh_if_dirty(game);
     player_swap_state(game);
     game->smart_bomb = false;                       /* 05ed */
-    game->play_flag_0617 = -1;
+    game->play_ticked = -1;
     game->frame_drawn = false;
     game->tick_hook = TICK_HOOK_PLAY;
     game->draw_hook = DRAW_HOOK_PLAY;

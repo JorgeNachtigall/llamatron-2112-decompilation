@@ -41,7 +41,7 @@ static void pickup_effect_03(GameState *game, unsigned touched)
 {
     (void)touched;
     game->level_flags = 0x32;
-    game->powerup_0652 = 1;
+    game->shot_power_kept = 1;
 }
 
 /* game86 1000:0fdb: one player only. With enemies left, multi-shot for the rest of the wave

@@ -155,7 +155,8 @@ typedef struct Player {
                                    score_add's extra life sets 3 */
     int16_t bonus_countdown;    /* 21C8 -1 per 200 kills; at 0 back to 2 and, below level 90,
                                    pickup 1 is queued (2 at a new game) */
-    int16_t param_21ca;         /* 21CA */
+    int16_t level_loops;        /* 21CA times the levels wrapped back to 0 (0223); non-zero:
+                                   tougher and faster enemies (enemy_init 00/02/..) */
     RosterEntry roster[ROSTER_SIZE]; /* 220A */
 } Player;
 
@@ -221,9 +222,9 @@ typedef struct Shot {           /* 16-byte records at DS:68C9 */
     int16_t y;                  /* +2 */
     int16_t vx, vy;             /* +4/+6 */
     int16_t direction;          /* +8 sprite / direction index */
-    int16_t aux0a;              /* +a */
+    int16_t unused_0a;          /* +a only zeroed, by enemy_shot_init's stray write (fire_back) */
     int16_t bounce_life;        /* +c [H] lifetime when shots bounce */
-    int16_t aux0e;              /* +e */
+    int16_t unused_0e;          /* +e never used */
 } Shot;
 
 typedef struct TrailPoint {     /* 8-byte records, DS:6CC9 (P1) / DS:70C9 (P2) [H] */
@@ -274,11 +275,12 @@ typedef struct LevelTuning {
     int16_t init0d_hp;          /* 0816 op 4: enemy_init_0d hit points */
     int16_t segment_family;     /* 0818 op 3: enemy_init_11 family, ent_hit_0e +2e */
     int16_t orbit_phase_step;   /* 0820 op 7: enemy_init_15 sine phase step (0x40 until set) */
-    int16_t p0826;              /* 0826 op 3 */
+    int16_t growth_step;        /* 0826 op 3: think_1f adds it to its acceleration each tick */
     uint32_t accum_start;       /* 0828/082A op 6: enemy_init_22..25 accumulators */
-    int16_t p082c;              /* 082C op 6: copied to +2e */
-    int16_t p082e;              /* 082E op 6: copied to +24 */
-    int16_t p0830;              /* 0830 op 5 */
+    int16_t runner_fire;        /* 082C op 6: edge runner fire counter (+2e) */
+    int16_t runner_hits;        /* 082E op 6: edge runner hit points (+24) */
+    int16_t dropper_creep_mask; /* 0830 op 5: think_26 creeps towards the ship on ticks
+                                   with (tick & mask) == 0 */
     int16_t init19_vx;          /* 086E op 4: enemy_init_19 vx */
 } LevelTuning;
 
@@ -374,7 +376,7 @@ typedef struct GameState {
     bool spawning_done;                 /* 0802 the whole list is out: player fire (0981) and the
                                            wave-cleared check (1665) wait for it */
     int16_t unhatched_left;             /* 08F8 [H] unhatched when the list ended, -1 at 4cb3 */
-    bool spawns_clobbered_10b0;         /* a think_13 drop has zeroed LevelSet.clobber_10b0's
+    bool spawn_pairs_clobbered;         /* a think_13 drop has zeroed LevelSet.clobber_10b0's
                                            spawn pairs (1000:123c via 10b0); never reset, as the
                                            original never reloads its script data */
 
@@ -390,7 +392,7 @@ typedef struct GameState {
 
     /* Wave-wide enemy state (W5 handlers; [H] names are proposals) */
     int16_t spawn_sprite;               /* 0806 from tbl_spawn_kind (0808) by level & 3 or random (1daa) */
-    int16_t spawn_count_0804;           /* 0804 [H] enemy_init_00 counts up, no reader found */
+    int16_t eggs_spawned;               /* 0804 enemy_init_00 counts up, no reader found */
     int16_t unhatched;                  /* 091B [H] enemy_init_00 counts up, think handlers read */
     int16_t spawn_phase;                /* 0814 enemy_init_01: timer = value & 0x1f */
     uint32_t orbit_angle;               /* 081A/081C 0x20000 from enemy_init_15, think_21 adds 0x40 */
@@ -398,7 +400,8 @@ typedef struct GameState {
     int16_t segment_sprite;             /* 0824 enemy_init_11..14/1f, read by ent_hit_0e */
     uint32_t speed_accum;               /* 0636/0638 [H] 0x800 at start, the play tick adds 0x200 (15df) */
     int16_t kills_toward_bonus;         /* 063A ent_hit_00 counts; at 200 resets and a pickup drops */
-    int16_t powerup_0652;               /* 0652 [H] 1 from pickup 03 (with level_flags = 0x32) */
+    int16_t shot_power_kept;            /* 0652 1 from pickup 03 (with level_flags = 0x32): the
+                                           play tick stops counting level_flags down (1a0b) */
     int16_t debris_alt;                 /* 0876 [H] 0 from kill actions 01/02/09, 1 from 04 */
     SnakeTrailPoint snake_trail[SNAKE_TRAIL_LENGTH]; /* 4481 enemy_init_10 fills it with the head */
     int16_t snake_head;                 /* 0870 newest snake_trail entry, 0..63 (think_1d 36e1) */
@@ -416,7 +419,7 @@ typedef struct GameState {
                                            wave start (5350); the spawn effect's sprite (1d60) */
     int16_t spawn_delay;                /* 07FE 7 at wave start; the spawn tick (1d40) counts it
                                            down, wave_spawn_enemies sets -1 (1cfe) */
-    int16_t play_flag_0617;             /* 0617 [H] -1 at wave start (05f3), 1 from the play tick
+    int16_t play_ticked;                /* 0617 -1 at wave start (05f3), 1 from the play tick
                                            (1a16); no reader known */
     int16_t level_default;              /* 059F level the attract mode starts with (00ed), saved
                                            before a demo picks a random one (028a) */

@@ -38,7 +38,7 @@ void level_select_variant(GameState *game, const LevelSet *levels);
  * pairs of the level script that happens to sit at that DS offset (levels.dat
  * clobber_10b0). From then on, for the rest of the process, those pairs read as
  * (type 0, count 0). game86 1000:123c..1241 via 1000:10ea */
-void script_clobber_spawns_10b0(GameState *game);
+void script_clobber_spawns(GameState *game);
 
 #ifdef __cplusplus
 }

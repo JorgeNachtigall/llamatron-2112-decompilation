@@ -52,7 +52,7 @@ void script_run_op(GameState *game, const LevelOp *op)
         game_sound_play(SAMPLE_ID_LEVEL_SOUND_OP, 0, 0x1E);
         break;
     case OP_TUNING_3:       /* 1000:03e1 */
-        tuning->p0826 = b[0];
+        tuning->growth_step = b[0];
         tuning->segment_family = b[1];
         break;
     case OP_TUNING_4:       /* 1000:03cf */
@@ -60,13 +60,13 @@ void script_run_op(GameState *game, const LevelOp *op)
         tuning->init19_vx = doubled(b[1]);
         break;
     case OP_TUNING_5:       /* 1000:03bc */
-        tuning->p0830 = b[0];
+        tuning->dropper_creep_mask = b[0];
         tuning->init01_mode = b[1];
         break;
     case OP_TUNING_6:       /* 1000:039c */
         tuning->accum_start = (uint32_t)b[0] << 8;
-        tuning->p082c = doubled(b[1]);
-        tuning->p082e = b[2];
+        tuning->runner_fire = doubled(b[1]);
+        tuning->runner_hits = b[2];
         break;
     case OP_ORBIT_STEP:     /* 1000:0392 */
         tuning->orbit_phase_step = b[0];
@@ -84,7 +84,7 @@ void script_start_level(GameState *game, const LevelSet *levels)
     while (game->player.level < 0 || game->player.level >= levels->level_count) {
         game->player.level = 0;
         game->loop_count++;
-        game->player.param_21ca++;
+        game->player.level_loops++;
     }
 
     const LevelScript *script = &levels->levels[game->player.level];
@@ -96,16 +96,16 @@ void script_start_level(GameState *game, const LevelSet *levels)
 }
 
 /* game86 1000:10ea -> 123c..1241 (see script.h) */
-void script_clobber_spawns_10b0(GameState *game)
+void script_clobber_spawns(GameState *game)
 {
-    game->spawns_clobbered_10b0 = true;
+    game->spawn_pairs_clobbered = true;
 }
 
 static bool spawn_is_clobbered(const GameState *game, const LevelSet *levels, int level,
                                unsigned index)
 {
     const LevelSpawnClobber *clobber = &levels->clobber_10b0;
-    return game->spawns_clobbered_10b0 && level == clobber->level &&
+    return game->spawn_pairs_clobbered && level == clobber->level &&
            index >= clobber->first_spawn && index - clobber->first_spawn < clobber->spawn_count;
 }
 

@@ -119,14 +119,14 @@ void think_23(GameState *game, Entity *e)
 
 /* Dropper: falls with gravity to the floor, then rises one pixel per tick to the top and waits there; whenever the ship is
  * below it and within reach in x it falls again. Meanwhile it creeps towards the ship's x
- * every tick that tuning.p0830 masks out, except at height 1. game86 1000:3014 */
+ * every tick that tuning.dropper_creep_mask masks out, except at height 1. game86 1000:3014 */
 void think_26(GameState *game, Entity *e)
 {
     if (game->wave_intro_timer != 0)
         return;
     if (entity_check_touch(game, e))
         return;
-    if ((game->tick_count & (uint16_t)game->tuning.p0830) == 0 && e->dropper.height.whole != 1)
+    if ((game->tick_count & (uint16_t)game->tuning.dropper_creep_mask) == 0 && e->dropper.height.whole != 1)
         e->x = (int16_t)(e->x + (left_of(game->target.x, e->x) ? -1 : 1));
 
     DropperView *d = &e->dropper;
