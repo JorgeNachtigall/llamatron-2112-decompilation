@@ -31,12 +31,12 @@ void init_image_values(GameState *game)
     game->spawn_delay = 0x11;               /* 07FE 7 at every wave start (04c2) */
     game->player_label_offset = 0x0C;       /* 07F5 set at every wave start (0471) */
     game->player2_label_offset = 0x5E;      /* 07F7 never written */
-    game->play_ticked = -1;              /* 0617 */
+    game->play_ticked = -1;                 /* 0617 */
 
     game->tuning.init01_mode = 1;           /* 0812 script op 5 */
     game->tuning.orbit_phase_step = 0x40;   /* 0820 script op 7 */
-    game->tuning.growth_step = 4;          /* 0826 script op 3 */
-    game->tuning.dropper_creep_mask = 3;   /* 0830 script op 5 */
+    game->tuning.growth_step = 4;           /* 0826 script op 3 */
+    game->tuning.dropper_creep_mask = 3;    /* 0830 script op 5 */
     game->tuning.init19_vx = 0x3939;        /* 086E script op 4 */
 
     game->fire_delay = 8;                   /* 0631 */

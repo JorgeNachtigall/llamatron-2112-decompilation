@@ -51,7 +51,9 @@ bool frame_run(GameState *game)
     input->last_make_code = 0;                      /* 0171 */
 
     /* 0176..0190: CRTC start and wait_vsync, then the flash step; the page swap and the
-     * erase pass (0213..) leave the new draw page with only its background again. */
+     * erase pass (0213..) leave the new draw page with only its background again. A flash
+     * that ends this frame sets the game palette back, which costs one more retrace
+     * (palette_set at 019d, with flashes on: flash_mode 2). */
     bool palette_reload = game->flash_mode == 2 && game->flash_frame_timer == 1;
     draw_flash_step(game);
     gfx_flip();
