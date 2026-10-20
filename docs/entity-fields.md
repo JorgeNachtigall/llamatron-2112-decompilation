@@ -441,17 +441,24 @@ e->llama.sprite_base;
   should say so with
   `#if defined(__BYTE_ORDER__) && __BYTE_ORDER__ != __ORDER_LITTLE_ENDIAN__ #error`.
   The general struct goes away once every user has switched (§7.5).
-- **The adapter.** `tests/adapters/dgroup_map.c` maps the record word by word. It keeps working
-  unchanged through the general names. Once those are gone it can map
-  `e->raw.words[n]` (a `uint16_t words[16]` member of the +12 union, also for attract.c).
-  Sentinel's choice.
+- **The adapter** (agreed with Sentinel). `tests/adapters/dgroup_map.c` is a layout copy and
+  must not depend on the kind: a slot's bytes often belong to a kind it no longer has. Two
+  examples are the title llamas' leftovers (DEVIATIONS #26) and a reused slot that keeps a
+  follower's stale trail (warp 625). Picking a view by the current kind would lose or misread
+  those. So each union also gets a raw member:
+  - `raw_motion.words[2]` over +08..+0b;
+  - `raw.words[16]` over +12..+31.
+
+  The adapter keeps the general names until they are scheduled to go, then maps the raw
+  words, never the views. A raw-words round trip stays exact, byte pairs included.
 
 ### 7.3 Word access
 
 attract.c `entity_record_word_set` and the adapter write records by word number on purpose:
-one reproduces the original's overrun, the other is a memory map. A `raw` member
-(`struct { uint16_t words[16]; } raw` in the +12 union, plus the fixed fields by name) keeps
-that honest without a 30-case switch. It is allowed only in attract.c and tests/adapters. The
+one reproduces the original's overrun, the other is a memory map. The raw members
+(`raw_motion.words[2]`, `raw.words[16]`, plus the fixed fields by name) keep that honest without
+a 30-case switch. `offsetof` asserts cover them too (`raw_motion` at +08, size 4; `raw` at +12,
+size 32), so a drifted union fails the build, not the adapter's round-trip test. It is allowed only in attract.c and tests/adapters. The
 source guard (`cmake/tests/NoDsOffsets.cmake`) can be extended to flag `.raw.` elsewhere.
 
 ### 7.4 sprite_ref
@@ -498,8 +505,10 @@ this change, but it touches the same field.
   - one `HomingView` with per-think unions at +24/+2e, rather than one view per think;
   - the +08 views;
   - who converts which file.
-- **Sentinel** (adapter): keep the field-by-field map through the general names for now;
-  later `raw.words[]` or the views.
+- **Sentinel** (adapter): agreed. Keep the field-by-field map through the general names for
+  now. When the aux names are scheduled to go, Sentinel switches to `raw_motion.words[]` /
+  `raw.words[]` in the same series, with `test_dgroup_map` and the golden replays as the net.
+  llama_residue.py's labels get the view names when the header lands.
 - **Open points in the code**, from the census:
   - `EnemyShot.aim_x`/`aim_y` naming against the mover's axes (§6);
   - `ent_hit_0a` taking the shot's y for `velocity_x` (§5.5).
