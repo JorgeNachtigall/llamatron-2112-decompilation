@@ -26,7 +26,10 @@ enum {
 };
 
 /* The entity's own frame: sprite number `sprite`, or the frame at bank offset sprite_ref
- * when sprite < 0. game86 1000:44ab entity_sprite_setup */
+ * when sprite < 0. sprite_ref stays the frame's offset in the game bank (its own numbering,
+ * as sprites.bin keeps it, not a DS address): the title llamas' leftover words reach +2C
+ * unchanged (DEVIATIONS #26), and no other encoding could tell them from a sprite.
+ * game86 1000:44ab entity_sprite_setup */
 static const GfxSprite *entity_sprite(const Entity *e)
 {
     if (e->sprite >= 0)
