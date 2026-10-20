@@ -37,6 +37,7 @@ import os
 import struct
 import subprocess
 import sys
+from dataclasses import dataclass
 from fractions import Fraction
 from pathlib import Path
 
@@ -55,6 +56,7 @@ OFF_SCREEN = 1000
 
 # DGROUP offsets (tests/adapters/dgroup_map.c)
 LIVES, LEVEL = 0x21A6, 0x21AA
+OTHER_PLAYER_LIVES = 0x226E           # the other player's block (player_swap_state 1000:5317)
 WAVE_RESULT, WAVE_WARP = 0x0810, 4
 SPAWN_TYPE = 0x0900
 TICK_HOOK, PLAY_TICK_HOOK = 0x39E4, 0x1562
@@ -102,13 +104,39 @@ class Problem(Exception):
 # (tests/dosbox/test_reference_golden.py imports them): keep them pure, and expect any change
 # to them to need those golden runs regenerated (Sentinel).
 
-def key_script(level: int, ticks: int) -> dict[int, list[int]]:
-    """Scan codes due per tick: Space to start, then walk in a direction for a while, fire
-    in bursts (fire holds the facing, so the shots go the way the ship last walked)."""
-    keys: dict[int, list[int]] = {START_TICK: [SPACE], START_TICK + 10: [SPACE | BREAK]}
+@dataclass(frozen=True)
+class StartPlan:
+    """How a game is started before the warp: the keys up to then, the warp tick, the first
+    tick of scripted play, and the lives words topped up."""
+    keys: tuple[tuple[int, int], ...]
+    warp_tick: int
+    play_from: int
+    lives: tuple[int, ...] = (LIVES,)
+
+
+# Space on the title: a one-player game (the golden runs' start).
+ONE_PLAYER = StartPlan(((START_TICK, SPACE), (START_TICK + 10, SPACE | BREAK)),
+                       WARP_TICK, PLAY_FROM)
+# The title menu: each Right steps one player -> two players, one controller (the droid flies
+# P2's ship: options 1) -> a controller each (options 3, OPT_DOUBLE_CONTROLLER) -> one
+# player; Up or Down toggles shared start (OPT_SHARED_START). Then fire; both players' lives
+# are topped up.
+TWO_PLAYERS = StartPlan(((1150, RIGHT), (1156, RIGHT | BREAK), (1200, SPACE),
+                         (1210, SPACE | BREAK)), 1350, 1370, (LIVES, OTHER_PLAYER_LIVES))
+TWO_PLAYERS_SHARED = StartPlan(((1150, RIGHT), (1156, RIGHT | BREAK), (1170, UP),
+                                (1176, UP | BREAK), (1200, SPACE), (1210, SPACE | BREAK)),
+                               1350, 1370, (LIVES, OTHER_PLAYER_LIVES))
+
+
+def key_script(level: int, ticks: int, start: StartPlan = ONE_PLAYER) -> dict[int, list[int]]:
+    """Scan codes due per tick: the start, then walk in a direction for a while, fire in
+    bursts (fire holds the facing, so the shots go the way the ship last walked)."""
+    keys: dict[int, list[int]] = {}
+    for t, code in start.keys:
+        keys.setdefault(t, []).append(code)
     held: tuple[int, ...] = ()
     step = 0
-    for t in range(PLAY_FROM, ticks + 1, 30):
+    for t in range(start.play_from, ticks + 1, 30):
         out = [k | BREAK for k in held]
         held = MOVES[(level * 3 + step) % len(MOVES)] if step % 4 != 3 else ()
         out += list(held)
@@ -118,20 +146,23 @@ def key_script(level: int, ticks: int) -> dict[int, list[int]]:
     return keys
 
 
-def poke_script(level: int, ticks: int) -> list[tuple[int, int, int]]:
+def poke_script(level: int, ticks: int,
+                start: StartPlan = ONE_PLAYER) -> list[tuple[int, int, int]]:
     """(tick, DS offset, word), applied before the tick's keys: the warp, then lives."""
-    pokes = [(WARP_TICK, LEVEL, level - WARP_LEVELS), (WARP_TICK, WAVE_RESULT, WAVE_WARP)]
-    pokes += [(t, LIVES, 5) for t in range(WARP_TICK + 50 - WARP_TICK % 50, ticks + 1, 50)]
+    warp = start.warp_tick
+    pokes = [(warp, LEVEL, level - WARP_LEVELS), (warp, WAVE_RESULT, WAVE_WARP)]
+    pokes += [(t, lives, 5) for t in range(warp + 50 - warp % 50, ticks + 1, 50)
+              for lives in start.lives]
     return pokes
 
 
-def lockstep_script(level: int, ticks: int) -> tuple[dict[int, list[int]],
-                                                   dict[int, list[tuple[int, int]]]]:
+def lockstep_script(level: int, ticks: int, start: StartPlan = ONE_PLAYER) -> tuple[
+        dict[int, list[int]], dict[int, list[tuple[int, int]]]]:
     """The same input for whole_game.Script: ({tick: [scan codes]}, {tick: [(DS off, word)]})."""
     pokes: dict[int, list[tuple[int, int]]] = {}
-    for t, off, value in poke_script(level, ticks):
+    for t, off, value in poke_script(level, ticks, start):
         pokes.setdefault(t, []).append((off, value & 0xFFFF))
-    return key_script(level, ticks), pokes
+    return key_script(level, ticks, start), pokes
 
 
 def write_scripts(level: int, ticks: int, keys_path: Path, pokes_path: Path) -> None:
