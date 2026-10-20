@@ -91,7 +91,8 @@ void play_draw_hook(GameState *game, const DrawTarget *target)
     shots_draw(game, target);
     entities_animate_all(game, target);
     if (game->pause_message != 0)
-        draw_plain(target, asset_sprite_id_gfx(SPRITE_ID_PAUSE_FIRST + game->pause_message - 1),
+        draw_plain(target,
+                   asset_sprite_id_gfx((SpriteId)(SPRITE_ID_PAUSE_FIRST + game->pause_message - 1)),
                    PAUSE_PICTURE_POS.x, PAUSE_PICTURE_POS.y);
 
     draw_ship(game, target, 0, game->player_label_offset);
