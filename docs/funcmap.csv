@@ -54,7 +54,7 @@ game86,1000:1416,119,hit_kill_action_05,kill_action_05,src/game/entities/kill_ac
 game86,1000:148d,12,think_1b,think_1b,src/game/entities/think_basic.c,diff-tested,W5,B,
 game86,1000:1499,55,shots_draw,shots_draw,src/game/bullets.c,diff-tested,W5a,B,tests/oracle/test_shots.py::test_shots_draw (pages + dirty lists)
 game86,1000:14d0,110,pause_tick_hook,pause_tick_hook,src/game/pause.c,diff-tested,W5,B,"tests/oracle/test_pause.py (G/O hooks, S via game_sound_toggle 1514, key sample)"
-game86,1000:1514,36,sound_toggle,snd_toggle,src/sound/,todo,W7,B,
+game86,1000:1514,36,sound_toggle,game_sound_toggle,src/game/sound.c,diff-tested,W5b,B,"flips sound_on (0688) and swaps the driver in use [0400] with the other [0404] (stub e785 / card driver) = snd_set_enabled; sound_present 0689 untouched; tests/oracle/test_pause.py test_sound_toggle (and via pause_tick_hook 14d0)"
 game86,1000:1538,,pause_key_sample,pause_tick_hook,src/game/pause.c,diff-tested,W5,B,part of pause_tick_hook (the fall-through key-sample path); tests/oracle/test_pause.py
 game86,1000:1562,1265,play_tick_hook,play_tick_hook,src/game/tick.c,diff-tested,W4,B,"tests/oracle/test_wave_core.py (whole hook on random play state, free entity table, keys P/X and controls); 1562..16c0 play_tick_timers; 1a1c shots_update (bullets.c); 1a38 wave_spawn_tick"
 game86,1000:16c1,,players_tick,players_tick,src/game/player.c,diff-tested,W5,B,per-player part of play_tick_hook (16c1..1a00)
