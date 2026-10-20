@@ -16,12 +16,14 @@
 
 static char error_message[1024];
 
-bool fail(const char *fmt, ...)
+bool(fail)(const char *fmt, ...)
 {
+    char text[sizeof error_message]; /* the arguments may include last_error() */
     va_list args;
     va_start(args, fmt);
-    vsnprintf(error_message, sizeof error_message, fmt, args);
+    vsnprintf(text, sizeof text, fmt, args);
     va_end(args);
+    memcpy(error_message, text, sizeof error_message);
     return false;
 }
 
@@ -86,12 +88,14 @@ bool read_file(const char *path, ByteBuf *out)
         return fail("cannot open %s: %s", path, strerror(errno));
     out->size = 0;
     uint8_t chunk[65536];
-    size_t got;
-    while ((got = fread(chunk, 1, sizeof chunk, f)) > 0) {
-        if (!bytebuf_append(out, chunk, got)) {
+    for (;;) {
+        size_t got = fread(chunk, 1, sizeof chunk, f);
+        if (got > 0 && !bytebuf_append(out, chunk, got)) {
             fclose(f);
             return false;
         }
+        if (got < sizeof chunk) /* end of file or an error, told apart by ferror below */
+            break;
     }
     bool ok = !ferror(f);
     fclose(f);

@@ -31,7 +31,15 @@ static inline void write_u16le(uint8_t *p, uint16_t value)
 
 /* Records a printf-style error message and returns false, so failures read as
  * `return fail("...")`. The last message is available through last_error(). */
+#if defined(__GNUC__) || defined(__clang__)
+__attribute__((format(printf, 1, 2)))
+#endif
 bool fail(const char *fmt, ...);
+#ifdef __clang_analyzer__
+/* The static analyzer does not look into variadic functions, so it would follow paths on
+ * which fail() returned true. */
+#define fail(...) ((void)fail(__VA_ARGS__), false)
+#endif
 const char *last_error(void);
 
 bool read_file(const char *path, ByteBuf *out);

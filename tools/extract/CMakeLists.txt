@@ -28,5 +28,5 @@ set_target_properties(llamatron-extract PROPERTIES C_STANDARD 11 C_STANDARD_REQU
 if(MSVC)
     target_compile_options(llamatron-extract PRIVATE /W4)
 else()
-    target_compile_options(llamatron-extract PRIVATE -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Wno-sign-conversion)
+    target_compile_options(llamatron-extract PRIVATE -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Wsign-conversion)
 endif()

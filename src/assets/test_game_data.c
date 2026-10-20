@@ -22,6 +22,18 @@ static int failures;
 
 enum { ENEMY_TYPES = 41 }; /* tbl_enemy_init entries */
 
+/* Field by field: memcmp would also compare the struct's padding bytes. */
+static bool same_scores(const HighScoreTable *a, const HighScoreTable *b)
+{
+    if (a->count != b->count)
+        return false;
+    for (int i = 0; i < HIGH_SCORE_ENTRIES; i++)
+        if (a->entries[i].score != b->entries[i].score ||
+            memcmp(a->entries[i].name, b->entries[i].name, sizeof a->entries[i].name) != 0)
+            return false;
+    return true;
+}
+
 static void check_bank(SpriteBankId id, unsigned expected)
 {
     const SpriteBank *bank = asset_sprite_bank(id);
@@ -240,7 +252,7 @@ static void check_samples_scores_config(void)
             CHECK(score == table->entries[i].score && memcmp(yak + i * 16 + 8, table->entries[i].name, 8) == 0);
         }
         HighScoreTable back;
-        CHECK(scores_parse_yak(yak, sizeof yak, &back) && memcmp(&back, table, sizeof back) == 0);
+        CHECK(scores_parse_yak(yak, sizeof yak, &back) && same_scores(&back, table));
         uint8_t again[SCORES_YAK_SIZE];
         CHECK(scores_format_yak(&back, again) && memcmp(again, yak, sizeof yak) == 0);
         CHECK(!scores_parse_yak(yak, sizeof yak - 1, &back) && back.count == 0);

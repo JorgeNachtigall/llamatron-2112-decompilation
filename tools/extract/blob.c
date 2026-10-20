@@ -44,7 +44,7 @@ bool write_assets_blob(ExtractContext *ctx)
     for (size_t i = 0; i < outputs->count; i++)
         if (strncmp(outputs->records[i].path, DATA_PREFIX, strlen(DATA_PREFIX)) == 0)
             names[count++] = outputs->records[i].path;
-    qsort(names, count, sizeof *names, compare_names);
+    qsort((void *)names, count, sizeof *names, compare_names);
 
     ByteBuf source = {0}, data = {0};
     bool ok = append_text(&source,

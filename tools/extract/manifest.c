@@ -34,6 +34,15 @@ static bool json_peek(JsonReader *r, char c)
     return r->pos < r->size && r->text[r->pos] == c;
 }
 
+/* Consumes `c` when it comes next (after white space). */
+static bool json_take(JsonReader *r, char c)
+{
+    if (!json_peek(r, c))
+        return false;
+    r->pos++;
+    return true;
+}
+
 static bool json_expect(JsonReader *r, char c)
 {
     if (!json_peek(r, c)) {
@@ -94,10 +103,12 @@ static bool json_literal(JsonReader *r, const char *word)
 static bool json_bool(JsonReader *r, bool *out)
 {
     if (json_literal(r, "true"))
-        return *out = true, true;
-    if (json_literal(r, "false"))
-        return *out = false, true;
-    return json_error(r, "expected true or false");
+        *out = true;
+    else if (json_literal(r, "false"))
+        *out = false;
+    else
+        return json_error(r, "expected true or false");
+    return true;
 }
 
 static bool json_skip_value(JsonReader *r, int depth);
@@ -110,15 +121,13 @@ static bool json_object(JsonReader *r, JsonMemberFn on_member, void *ctx)
 {
     if (!json_expect(r, '{'))
         return false;
-    if (json_peek(r, '}'))
-        return r->pos++, true;
+    if (json_take(r, '}'))
+        return true;
     for (;;) {
         char key[64];
         if (!json_string(r, key, sizeof key) || !json_expect(r, ':') || !on_member(r, key, ctx))
             return false;
-        if (json_peek(r, ','))
-            r->pos++;
-        else
+        if (!json_take(r, ','))
             return json_expect(r, '}');
     }
 }
@@ -139,12 +148,12 @@ static bool json_skip_value(JsonReader *r, int depth)
         return json_object(r, skip_member, &inner);
     if (json_peek(r, '[')) {
         r->pos++;
-        if (json_peek(r, ']'))
-            return r->pos++, true;
+        if (json_take(r, ']'))
+            return true;
         do {
             if (!json_skip_value(r, inner))
                 return false;
-        } while (json_peek(r, ',') && (r->pos++, true));
+        } while (json_take(r, ','));
         return json_expect(r, ']');
     }
     if (json_peek(r, '"')) {
@@ -181,8 +190,8 @@ static bool manifest_member(JsonReader *r, const char *key, void *ctx)
 
     if (!json_expect(r, '['))
         return false;
-    if (json_peek(r, ']'))
-        return r->pos++, true;
+    if (json_take(r, ']'))
+        return true;
     do {
         if (manifest->file_count == MANIFEST_MAX_FILES)
             return json_error(r, "too many files");
@@ -193,7 +202,7 @@ static bool manifest_member(JsonReader *r, const char *key, void *ctx)
         if (!file->name[0] || strlen(file->sha256) != SHA256_HEX_SIZE - 1)
             return json_error(r, "file entry needs a name and a 64-digit sha256");
         manifest->file_count++;
-    } while (json_peek(r, ',') && (r->pos++, true));
+    } while (json_take(r, ','));
     return json_expect(r, ']');
 }
 

@@ -20,6 +20,18 @@ typedef struct {
     size_t size;
 } Buf;
 
+/* Field by field: memcmp would also compare the struct's padding bytes. */
+static bool same_scores(const HighScoreTable *a, const HighScoreTable *b)
+{
+    if (a->count != b->count)
+        return false;
+    for (int i = 0; i < HIGH_SCORE_ENTRIES; i++)
+        if (a->entries[i].score != b->entries[i].score ||
+            memcmp(a->entries[i].name, b->entries[i].name, sizeof a->entries[i].name) != 0)
+            return false;
+    return true;
+}
+
 static void put8(Buf *b, unsigned v) { b->bytes[b->size++] = (uint8_t)v; }
 static void put16(Buf *b, unsigned v) { put8(b, v & 0xFF); put8(b, v >> 8 & 0xFF); }
 static void put32(Buf *b, uint32_t v) { put16(b, v & 0xFFFF); put16(b, v >> 16); }
@@ -269,7 +281,7 @@ static void test_samples_scores_config(void)
     full.entries[9].score = 7;
     CHECK(scores_format_yak(&full, yak) && memcmp(yak, "00050000JEFF    ", 16) == 0 && memcmp(yak + 144, "00000007", 8) == 0);
     HighScoreTable back;
-    CHECK(scores_parse_yak(yak, sizeof yak, &back) && memcmp(&back, &full, sizeof back) == 0);
+    CHECK(scores_parse_yak(yak, sizeof yak, &back) && same_scores(&back, &full));
     CHECK(!scores_parse_yak(yak, sizeof yak - 1, &back) && back.count == 0);  /* 60aa: exactly 0xA0 */
     yak[16 + 7] = ' ';
     CHECK(!scores_parse_yak(yak, sizeof yak, &back) && back.count == 0);      /* non-digit score */

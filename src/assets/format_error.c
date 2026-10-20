@@ -12,7 +12,7 @@ const char *format_error(void)
     return error_text;
 }
 
-bool format_fail(const char *fmt, ...)
+bool(format_fail)(const char *fmt, ...)
 {
     va_list args;
     va_start(args, fmt);

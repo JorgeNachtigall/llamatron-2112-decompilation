@@ -2,6 +2,7 @@
  *   <hex bytes>                      settings_parse_inf -> "accepted vga joystick sound cpu flash"
  *   F vga joystick sound cpu flash   settings_format_inf -> the llama.inf bytes as hex
  * (numbers in decimal). */
+#include "assets.h"
 #include "settings.h"
 
 #include <stdio.h>
@@ -20,6 +21,9 @@ int main(void)
     char line[256];
     while (fgets(line, sizeof line, stdin)) {
         int vga, joystick, sound, cpu, flash;
+        /* The lines come from launcher_oracle.py (small decimal and hex numbers), so sscanf's
+         * missing overflow report does not matter here. */
+        /* NOLINTNEXTLINE(bugprone-unchecked-string-to-number-conversion) */
         if (sscanf(line, "F %d %d %d %d %d", &vga, &joystick, &sound, &cpu, &flash) == 5) {
             Settings s = {vga != 0, joystick != 0, (SettingsSound)sound, (uint8_t)cpu, (SettingsFlash)flash};
             uint8_t inf[SETTINGS_INF_SIZE];
@@ -32,6 +36,7 @@ int main(void)
         uint8_t inf[64];
         size_t size = 0;
         unsigned byte;
+        /* NOLINTNEXTLINE(bugprone-unchecked-string-to-number-conversion) */
         for (const char *p = line; size < sizeof inf && sscanf(p, "%2x", &byte) == 1; p += 2)
             inf[size++] = (uint8_t)byte;
         Settings s = settings_shipped_defaults();

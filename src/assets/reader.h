@@ -25,7 +25,9 @@ static inline const uint8_t *reader_bytes(Reader *r, size_t count)
         r->ok = false;
         return NULL;
     }
-    const uint8_t *p = r->data + r->pos;
+    /* data is NULL only for an empty reader (size 0), which the check above has already
+     * stopped, so this never offsets a null pointer. */
+    const uint8_t *p = r->data + r->pos; /* NOLINT(clang-analyzer-core.NullPointerArithm) */
     r->pos += count;
     return p;
 }
@@ -52,6 +54,14 @@ static inline uint32_t reader_u32(Reader *r)
 bool reader_header(Reader *r, const char magic[4], uint16_t version);
 
 /* Sets the message returned by format_error(); always returns false. */
+#if defined(__GNUC__) || defined(__clang__)
+__attribute__((format(printf, 1, 2)))
+#endif
 bool format_fail(const char *fmt, ...);
+#ifdef __clang_analyzer__
+/* The static analyzer does not look into variadic functions, so it would follow paths on
+ * which format_fail() returned true. */
+#define format_fail(...) ((void)format_fail(__VA_ARGS__), false)
+#endif
 
 #endif /* LLAMATRON_ASSETS_READER_H */
