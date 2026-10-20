@@ -399,6 +399,14 @@ def reference(request):
     cfg = probe_args(RUNS[name])
     result = refrun.probe(original=ORIGINAL, workdir=WORKDIR / f"golden-{name}",
                           time_limit=RUNS[name].get("time_limit", 90), **cfg)
+    if not settled_like_golden(name, result):
+        # Under very heavy host load (load average ~90, a parallel fresh-clone ctest) one
+        # game_over_hiscore run fell a step behind from IRQ 825 on, DGROUP included; two reruns
+        # matched the golden again. Run once more and check that run: a stale golden or a real
+        # change still fails, since the second run disagrees as well.
+        print(f"\n{name}: settled snapshots differ from the golden, running it once more")
+        result = refrun.probe(original=ORIGINAL, workdir=WORKDIR / f"golden-{name}-retry",
+                              time_limit=RUNS[name].get("time_limit", 90), **cfg)
     # game86 exits with whatever AL holds at 1000:5f55 (INT 21h/4Ch): 0 for most runs, 8 when
     # q ends the warped levels. It is part of the golden summary, not an error code.
     assert result.exit_type == 0, result
@@ -434,7 +442,7 @@ def test_golden_hashes(reference):
     assert got["exit_code"] == want["exit_code"]
     assert sorted(got["snapshots"], key=int) == sorted(want["snapshots"], key=int)
     unsettled, flips = [], []
-    for irq, h in want["snapshots"].items():
+    for irq, h in sorted(want["snapshots"].items(), key=lambda kv: int(kv[0])):
         mine = got["snapshots"][irq]
         assert settled(mine) == settled(h), f"snapshot at IRQ {irq} changed"
         if "pages" in h and mine["shown"] != h["shown"]:
@@ -448,6 +456,19 @@ def test_golden_hashes(reference):
     if unsettled:   # informational: see settled()
         print(f"\n{name}: hidden page / raw VRAM differ from the golden at IRQs "
               + ", ".join(unsettled))
+
+
+def settled_like_golden(name: str, result) -> bool:
+    """True when the run's settled snapshots equal the golden entry's, or there is nothing to
+    compare against (no entry yet, or LLAMATRON_GOLDEN_UPDATE)."""
+    if os.environ.get("LLAMATRON_GOLDEN_UPDATE") == "1" or not GOLDEN.exists():
+        return True
+    want = json.loads(GOLDEN.read_text()).get(name)
+    if want is None:
+        return True
+    got = summary(result)["snapshots"]
+    return got.keys() == want["snapshots"].keys() and all(
+        settled(got[irq]) == settled(h) for irq, h in want["snapshots"].items())
 
 
 def settled(snap: dict) -> dict:
