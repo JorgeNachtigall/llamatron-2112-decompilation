@@ -60,14 +60,26 @@ enum {
     SPRITE_TYPE_28 = 0x146,
 };
 
-/* Seeker hit points: two byte counters, as enemy_init_27 starts it (the pieces
- * split_into_type24 makes start at SEEKER_HP_PIECE, kill_actions.c). */
-enum { SEEKER_HP = 0x104 };
+/* The seeker's turn counter as enemy_init_27 starts it, as one word: period 4, left 1
+ * (the pieces split_into_type24 makes start at SEEKER_TURN_PIECE,
+ * kill_actions.c). */
+enum { SEEKER_TURN = 0x104 };
 
 static void set_death_sound(Entity *e, uint8_t sample, uint8_t rate)
 {
     e->death_sample = sample;
     e->death_rate = rate;
+}
+
+static ByteCounter byte_counter(uint8_t period, uint8_t left)
+{
+    return (ByteCounter){ .period = period, .left = left };
+}
+
+/* A counter given as one word, as the original stores it: period in the low byte. */
+static ByteCounter counter_from_word(int16_t word)
+{
+    return byte_counter((uint8_t)word, (uint8_t)((uint16_t)word >> 8));
 }
 
 static void stand_still(Entity *e)
@@ -486,11 +498,9 @@ static void enemy_init_1c(GameState *game, Entity *e)
     stand_still(e);
     e->scale = 0;
     e->solid = 0;
-    e->aux16 = 0x1e;
-    e->timer = 0;
-    e->hp = 0;
-    e->aux1a = 0;
-    e->aux1c = 2;
+    e->dropper.height = (Fixed16){ .frac = 0, .whole = 0x1e };
+    fixed16_set(&e->dropper.fall_speed, 0);
+    e->dropper.state = 2;                   /* waiting at the top (think_w5a.c DROPPER_WAITING) */
     entity_set_type(e, 0x26, 0x26);
 }
 
@@ -757,7 +767,7 @@ static void enemy_init_19(GameState *game, Entity *e)
     e->aux30 = 0;
     remember_home(e);
     e->aux2e = 0;
-    e->vx = game->tuning.init19_vx;
+    e->walker.fire = counter_from_word(game->tuning.init19_vx);
     e->hit_handler = 0x0c;
     entity_set_type(e, 0x23, 0x23);
     game->enemies_alive++;
@@ -773,10 +783,10 @@ void enemy_setup_1a(GameState *game, Entity *e)
     stand_still(e);
     e->scale = 0;
     e->solid = 1;
-    e->timer = 0;
-    e->aux16 = 0;
-    e->hp = 0x120;
-    e->aux1a = e->sprite;
+    e->seeker.unused_12_14[1] = 0;
+    e->seeker.direction = 0;
+    e->seeker.turn = byte_counter(0x20, 1);
+    e->seeker.sprite_base = e->sprite;
     set_death_sound(e, SAMPLE_ID_ALERT, 3);
     e->hit_handler = 0;
     entity_set_type(e, 0x24, 0x24);
@@ -791,17 +801,17 @@ static void enemy_init_1a(GameState *game, Entity *e)
 }
 
 /* game86 1000:3441 */
-void enemy_setup_type24(GameState *game, Entity *e, int16_t phase, int16_t hp)
+void enemy_setup_type24(GameState *game, Entity *e, int16_t phase, int16_t turn)
 {
     e->sprite = (int16_t)(SPRITE_SEEKER + phase);
     e->anim = 0x0d;
     stand_still(e);
     e->scale = 0;
     e->solid = 1;
-    e->timer = 0;
-    e->aux16 = phase;
-    e->hp = hp;
-    e->aux1a = SPRITE_SEEKER;
+    e->seeker.unused_12_14[1] = 0;
+    e->seeker.direction = phase;
+    e->seeker.turn = counter_from_word(turn);
+    e->seeker.sprite_base = SPRITE_SEEKER;
     set_death_sound(e, SAMPLE_ID_DEATH_24, 4);
     e->hit_handler = 0;
     entity_set_type(e, 0x24, 0x24);
@@ -813,7 +823,7 @@ static void enemy_init_27(GameState *game, Entity *e)
 {
     enemy_random_spawn_pos(game, e);
     int16_t phase = rng_next_byte(&game->rng) & 7;
-    enemy_setup_type24(game, e, phase, SEEKER_HP);
+    enemy_setup_type24(game, e, phase, SEEKER_TURN);
 }
 
 /* ---- 1b, 1e, 20: think 25 types with a callback ---------------------------------------- */
@@ -875,8 +885,8 @@ static void enemy_init_1d(GameState *game, Entity *e)
     e->vy = 2;
     e->scale = 0;
     e->solid = 0;
-    e->timer = 0;
-    e->aux16 = 0x1010;
+    e->edge_spawner.stopped = 0;
+    e->edge_spawner.throw_child = byte_counter(0x10, 0x10);
     entity_set_type(e, 0x27, 0x27);
     game->enemies_alive++;
 }

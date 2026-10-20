@@ -14,7 +14,7 @@ enum {
     SEEK_TURN_HALF = 4,             /* half of the eight directions (1000:34e3..34ed) */
     WALKER_SPRITE = 0xfc,           /* +1 while the walker is left of its target */
     WALKER_LAYS_FROM_LEVEL = 0x32,  /* from this level on, think_23 lays type-0x24 records */
-    WALKER_CHILD_HP = 4,
+    WALKER_CHILD_TURN = 4,          /* the seeker it lays: turn period 4, left 0 */
     WALKER_CHILD_PHASE_RIGHT = 4,
     DROPPER_FLOOR = 0xb8,
     DROPPER_TOP = 0x1e,
@@ -108,7 +108,7 @@ void think_23(GameState *game, Entity *e)
                 child->x = e->x;
                 child->y = e->y;
                 enemy_setup_type24(game, child, facing_left ? 0 : WALKER_CHILD_PHASE_RIGHT,
-                                   WALKER_CHILD_HP);
+                                   WALKER_CHILD_TURN);
             }
         }
     }

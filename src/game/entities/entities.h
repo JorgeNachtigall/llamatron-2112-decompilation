@@ -205,7 +205,7 @@ void enemy_setup_0c(GameState *game, Entity *e);                    /* 1000:2407
 void enemy_setup_0e(GameState *game, Entity *e);                    /* 1000:21af */
 void enemy_setup_1a(GameState *game, Entity *e);                    /* 1000:33e3 */
 /* Type 0x24 record with sprite 0x136 + phase. game86 1000:3441 */
-void enemy_setup_type24(GameState *game, Entity *e, int16_t phase, int16_t hp);
+void enemy_setup_type24(GameState *game, Entity *e, int16_t phase, int16_t turn);
 
 /* ---- think_w5a.c (Thorn) -------------------------------------------------------------- */
 

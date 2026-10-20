@@ -19,8 +19,8 @@ enum { KILL_ACTION_COUNT = 12 };
 enum { DEBRIS_SEARCH_LIMIT = 0x3b, DEBRIS_SEARCH_LIMIT_INHERITED = 0x60 };
 /* Sprites of kill action 03's rocks and 04's crawlers. */
 enum { SPRITE_ROCK = 0xb7, SPRITE_CRAWLER = 0xbf };
-/* Hit points of a seeker piece from split_into_type24: two byte counters. */
-enum { SEEKER_HP_PIECE = 0x2004 };
+/* A seeker piece's turn counter (split_into_type24), as one word: period 4, left 0x20. */
+enum { SEEKER_TURN_PIECE = 0x2004 };
 
 static int16_t shifted(int16_t v, int16_t shift)
 {
@@ -243,7 +243,7 @@ static void split_into_type24(GameState *game, Entity *e, const EntityHit *hit, 
         s->x = e->x;
         s->y = e->y;
         s->kind = -1;
-        enemy_setup_type24(game, s, phase, SEEKER_HP_PIECE);
+        enemy_setup_type24(game, s, phase, SEEKER_TURN_PIECE);
     }
     entity_kill(game, e, hit);
 }
