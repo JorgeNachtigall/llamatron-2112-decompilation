@@ -20,6 +20,7 @@ import shutil
 import struct
 import subprocess
 import sys
+import warnings
 from pathlib import Path
 
 import pytest
@@ -392,6 +393,10 @@ def selected_runs() -> list[str]:
                   if which == "all" or bool(r.get("long")) == (which == "long"))
 
 
+class RerunWarning(UserWarning):
+    """A reference run differed from the golden and was run once more (reference())."""
+
+
 @pytest.fixture(scope="module", params=selected_runs())
 def reference(request):
     import refrun
@@ -404,7 +409,10 @@ def reference(request):
         # game_over_hiscore run fell a step behind from IRQ 825 on, DGROUP included; two reruns
         # matched the golden again. Run once more and check that run: a stale golden or a real
         # change still fails, since the second run disagrees as well.
-        print(f"\n{name}: settled snapshots differ from the golden, running it once more")
+        # a warning, not a print: pytest lists it in the warnings summary of a passing run too
+        # (ctest's LastTest.log, or -V), so a rerun never goes unreported
+        warnings.warn(f"{name}: settled snapshots differ from the golden, ran it once more "
+                      f"(first run kept in {WORKDIR / f'golden-{name}'})", RerunWarning)
         result = refrun.probe(original=ORIGINAL, workdir=WORKDIR / f"golden-{name}-retry",
                               time_limit=RUNS[name].get("time_limit", 90), **cfg)
     # game86 exits with whatever AL holds at 1000:5f55 (INT 21h/4Ch): 0 for most runs, 8 when
@@ -441,16 +449,20 @@ def test_golden_hashes(reference):
     assert got["irq_count"] == want["irq_count"]
     assert got["exit_code"] == want["exit_code"]
     assert sorted(got["snapshots"], key=int) == sorted(want["snapshots"], key=int)
-    unsettled, flips = [], []
+    unsettled, flips, late = [], [], []
     for irq, h in sorted(want["snapshots"].items(), key=lambda kv: int(kv[0])):
         mine = got["snapshots"][irq]
         assert settled(mine) == settled(h), f"snapshot at IRQ {irq} changed"
-        if "pages" in h and mine["shown"] != h["shown"]:
+        if "pages" in h and mine["vram_irq"] != h["vram_irq"]:
+            late.append(f"{irq} ({mine['vram_irq']}, golden {h['vram_irq']})")
+        elif "pages" in h and mine["shown"] != h["shown"]:
             flips.append(irq)
         elif shown_page(mine) != shown_page(h):
             raise AssertionError(f"shown page at IRQ {irq} changed")
         elif mine != h:
             unsettled.append(irq)
+    if late:        # informational: see settled()
+        print(f"\n{name}: VRAM captured at another IRQ (frame phase) at IRQs " + ", ".join(late))
     if flips:       # informational: see shown_page()
         print(f"\n{name}: capture on a page flip (shown page differs) at IRQs " + ", ".join(flips))
     if unsettled:   # informational: see settled()
@@ -473,14 +485,18 @@ def settled_like_golden(name: str, result) -> bool:
 
 def settled(snap: dict) -> dict:
     """The parts of a snapshot summary that reproduce run to run: DGROUP, and for VGA the
-    capture IRQ and the background page 4000 (what visual_check.py compares). The hidden page
-    can be caught mid-draw, and how far the draw got varies with host load: three parallel
-    runs of game_over_hiscore agreed with each other but differed from sequential ones in 19
-    pixels of the hidden page at IRQ 1250, with DGROUP equal. Its hash and the raw VRAM hash
-    are kept, but only reported. The shown page: shown_page()."""
+    background page 4000 (what visual_check.py compares). The hidden page can be caught
+    mid-draw, and how far the draw got varies with host load: three parallel runs of
+    game_over_hiscore agreed with each other but differed from sequential ones in 19 pixels of
+    the hidden page at IRQ 1250, with DGROUP equal. Its hash and the raw VRAM hash are kept,
+    but only reported. The capture IRQ (vram_irq: the first vsync wait after the snapshot IRQ)
+    is frame phase like the page bookkeeping: level_40_two_player's IRQ 2400 capture lands at
+    2402 on one host and 2401 here, every run, DGROUP equal. A different capture IRQ is only
+    reported, and the shown page is then not compared (another frame). The shown page:
+    shown_page()."""
     out = {"dgroup": snap["dgroup"]}
     if "pages" in snap:
-        out.update(vram_irq=snap["vram_irq"], background=snap["pages"]["4000"])
+        out.update(background=snap["pages"]["4000"])
     return out
 
 
