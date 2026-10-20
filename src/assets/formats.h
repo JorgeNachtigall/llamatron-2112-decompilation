@@ -503,10 +503,12 @@ enum {
     DEBRIS_TEMPLATE_COUNT = 16,
     ENEMY_DIRECTIONS = 8,
     SEEK_QUADRANTS = 4,
-    /* First template of each group the kill actions use (DS:0878 / 0898 / 08B8, 1000:3bcb..) */
-    DEBRIS_GROUP_0878 = 0,
-    DEBRIS_GROUP_0898 = 4,
-    DEBRIS_GROUP_08B8 = 8,
+    /* First template of each group the kill actions use (8-byte records sprite, vx, vy, pad
+     * at DS:0878, 1000:3bcb..) */
+    DEBRIS_GROUP_CORNERS = 0,       /* DS:0878: 4 pieces of one picture, each to its own corner
+                                       (kill action 01) */
+    DEBRIS_GROUP_SIDEWAYS = 4,      /* DS:0898: 2 fragments left, 2 right, vy 0 (kill actions 02, 04) */
+    DEBRIS_GROUP_STAR = 8,          /* DS:08B8: one sprite in all 8 directions (kill action 09) */
 };
 
 /* score_add(AX = count_minus_1, BX = digit) (1000:0335): adds 1 to score digit `digit`

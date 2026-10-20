@@ -92,7 +92,7 @@ static void kill_action_01(GameState *game, Entity *e, const EntityHit *hit)
     if (game->level_flags < 0) {
         game->debris_alt = 0;
         kill_after_debris(game, e, hit,
-                          spawn_debris_group(game, e, DEBRIS_GROUP_0878, 4, DEBRIS_SEARCH_LIMIT));
+                          spawn_debris_group(game, e, DEBRIS_GROUP_CORNERS, 4, DEBRIS_SEARCH_LIMIT));
         return;
     }
     entity_kill(game, e, hit);
@@ -104,7 +104,7 @@ static void kill_action_02(GameState *game, Entity *e, const EntityHit *hit)
     if (game->level_flags < 0) {
         game->debris_alt = 0;
         kill_after_debris(game, e, hit,
-                          spawn_debris_group(game, e, DEBRIS_GROUP_0898, 4, DEBRIS_SEARCH_LIMIT));
+                          spawn_debris_group(game, e, DEBRIS_GROUP_SIDEWAYS, 4, DEBRIS_SEARCH_LIMIT));
         return;
     }
     entity_kill(game, e, hit);
@@ -151,7 +151,7 @@ static void kill_action_04(GameState *game, Entity *e, const EntityHit *hit)
 {
     game->debris_alt = 1;
     kill_after_debris(game, e, hit,
-                      spawn_debris_group(game, e, DEBRIS_GROUP_0898, 4,
+                      spawn_debris_group(game, e, DEBRIS_GROUP_SIDEWAYS, 4,
                                          DEBRIS_SEARCH_LIMIT_INHERITED));
 }
 
@@ -230,7 +230,7 @@ static void kill_action_09(GameState *game, Entity *e, const EntityHit *hit)
 {
     game->debris_alt = 0;
     kill_after_debris(game, e, hit,
-                      spawn_debris_group(game, e, DEBRIS_GROUP_08B8, 8, DEBRIS_SEARCH_LIMIT));
+                      spawn_debris_group(game, e, DEBRIS_GROUP_STAR, 8, DEBRIS_SEARCH_LIMIT));
 }
 
 /* game86 1000:3d71 / 3dac: meant to fill slots with type 0x24 records at phases first,
