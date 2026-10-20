@@ -17,10 +17,12 @@ enum {
     HOMING_X_MIN = 0x08, HOMING_X_END = 0x130,
     HOMING_Y_MIN = 0x10, HOMING_Y_END = 0xb7,
     BEAM_RANGE = 10,
+    THINK28_SPRITE = 0x118,         /* + 4-frame animation */
+    THINK2A_CHILD_SPRITE = 0x12a,
 };
 
-static const SoundRequest SOUND_BEAM = { 0x08, 0, 7 };     /* 1000:387c */
-static const SoundRequest SOUND_DROP = { 0x0b, 1, 3 };     /* 1000:2597 */
+static const SoundRequest SOUND_BEAM = { SAMPLE_ID_BEAM, 0, 7 };     /* 1000:387c */
+static const SoundRequest SOUND_DROP = { SAMPLE_ID_DROP, 1, 3 };     /* 1000:2597 */
 
 static int32_t join32(int16_t low, int16_t high)
 {
@@ -249,10 +251,10 @@ void think_1f(GameState *game, Entity *e)
 void think_28(GameState *game, Entity *e)
 {
     think_1f(game, e);
-    e->sprite = (int16_t)(0x118 + ((game->tick_count >> 2) & 3));
+    e->sprite = (int16_t)(THINK28_SPRITE + ((game->tick_count >> 2) & 3));
 }
 
-/* Homing enemy that fires a child (sprite 0x12a, its own vx/vy) every period of its aux2e
+/* Homing enemy that fires a child (THINK2A_CHILD_SPRITE, its own vx/vy) every period of its aux2e
  * byte pair. game86 1000:2d35 */
 void think_2a(GameState *game, Entity *e)
 {
@@ -262,7 +264,7 @@ void think_2a(GameState *game, Entity *e)
     set_high_byte(&e->aux2e, (uint8_t)countdown);
     if (countdown < 0) {
         set_high_byte(&e->aux2e, low_byte(e->aux2e));
-        entity_spawn_child_if(game, e, 0x12a, e->vx, e->vy);
+        entity_spawn_child_if(game, e, THINK2A_CHILD_SPRITE, e->vx, e->vy);
     }
     entity_homing_move(game, e);
 }

@@ -14,7 +14,7 @@ enum {
     RELEASE_CHANCE = 0x14,
 };
 
-static const SoundRequest SOUND_RELEASE = { 0x0c, 1, 4 };   /* 1000:20ea */
+static const SoundRequest SOUND_RELEASE = { SAMPLE_ID_RELEASE, 1, 4 };   /* 1000:20ea */
 
 /* think_17 keeps its last four positions in the words +16..+24 (pairs x, y), timer is the
  * byte offset (0, 4, 8, 12) of the newest one. */
@@ -108,7 +108,7 @@ void think_18(GameState *game, Entity *e)
         s->scale = 1;
         s->solid = 1;
         s->hit_handler = 0;
-        s->death_sample = 0x07;
+        s->death_sample = SAMPLE_ID_POP;
         s->death_rate = 0;
         s->kind = -1;
         entity_set_type(s, 0x19, 0x19);

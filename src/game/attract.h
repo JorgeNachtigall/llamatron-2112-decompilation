@@ -12,6 +12,7 @@
 #include <stdint.h>
 
 #include "draw.h"
+#include "formats.h"
 #include "state.h"
 
 #ifdef __cplusplus
@@ -19,11 +20,12 @@ extern "C" {
 #endif
 
 /* Where the title's pictures come from: sprite-bank sprites by sprite number and the g3
- * title shapes by index (attract_art_default() uses the game data). */
+ * title shapes by name (attract_art_default() uses the game data). */
 typedef const GfxSprite *(*AttractSpriteLookup)(unsigned index);
+typedef const GfxSprite *(*AttractShapeLookup)(TitleShapeId id);
 typedef struct AttractArt {
     AttractSpriteLookup sprite;     /* game86 218C:001C + 2n */
-    AttractSpriteLookup shape;      /* game86 g3 segment 30EB:0000 + 2n */
+    AttractShapeLookup shape;       /* game86 g3 segment 30EB:0000 + 2n */
 } AttractArt;
 
 const AttractArt *attract_art_default(void);

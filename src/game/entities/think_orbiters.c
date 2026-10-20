@@ -15,10 +15,10 @@ enum {
     CORE_SEARCH_SLOTS = 0x3d,           /* 1000:366f only looks at the first 61 slots */
     SATELLITE_FIRE_PHASE = 5,
     RUNNER_X_END = 0x138, RUNNER_Y_END = 0xbe, RUNNER_MIN = 0x10,
-    BOLT_LAST_SPRITE = 0x14a,
+    BOLT_FIRST_SPRITE = 0x147, BOLT_LAST_SPRITE = 0x14a,
 };
 
-static const SoundRequest SOUND_THUNDER = { 0x11, 3, 0x0a };    /* 1000:2748 */
+static const SoundRequest SOUND_THUNDER = { SAMPLE_ID_EXPLOSION, 3, 0x0a };    /* 1000:2748 */
 
 static uint8_t high_byte(int16_t w) { return (uint8_t)((uint16_t)w >> 8); }
 static uint8_t low_byte(int16_t w) { return (uint8_t)w; }
@@ -220,7 +220,7 @@ void think_2c(GameState *game, Entity *e)
     bolt->x = (int16_t)((int8_t)rng_next_byte(&game->rng) + 0xa0);
     bolt->y = (int16_t)(((int8_t)rng_next_byte(&game->rng) >> 1) + 0x64);
     bolt->anim = 0x0d;
-    bolt->sprite = 0x147;
+    bolt->sprite = BOLT_FIRST_SPRITE;
     bolt->timer = 0x303;
     entity_set_type(bolt, 0x2d, 0x2d);
     game->enemies_alive++;

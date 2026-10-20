@@ -18,7 +18,7 @@ enum {
     THINK_SHOT = 0x0d,
 };
 
-static const SoundRequest SOUND_DROP_SHOOTER = { 0x08, 1, 3 };   /* 1000:4f2e */
+static const SoundRequest SOUND_DROP_SHOOTER = { SAMPLE_ID_BEAM, 1, 3 };   /* 1000:4f2e */
 
 /* Counts the high byte down; when it passes zero it restarts at the low byte (the period)
  * and the call returns true. */

@@ -9,6 +9,7 @@
 #define LLAMATRON_GAME_CONTINUE_H
 
 #include "draw.h"
+#include "formats.h"
 #include "state.h"
 
 #ifdef __cplusplus
@@ -16,11 +17,12 @@ extern "C" {
 #endif
 
 /* Where the prompt's pictures come from: sprite refs by index (the digits) and the g3 title
- * shapes by index (continue_art_default() uses the game data). */
+ * shapes by name (continue_art_default() uses the game data). */
 typedef const GfxSprite *(*ContinueSpriteLookup)(unsigned index);
+typedef const GfxSprite *(*ContinueShapeLookup)(TitleShapeId id);
 typedef struct ContinueArt {
     ContinueSpriteLookup sprite_ref;    /* game86 218C:0000 + 2n */
-    ContinueSpriteLookup shape;         /* game86 g3 segment 30EB:0000 + 2n */
+    ContinueShapeLookup shape;          /* game86 g3 segment 30EB:0000 + 2n */
 } ContinueArt;
 
 const ContinueArt *continue_art_default(void);

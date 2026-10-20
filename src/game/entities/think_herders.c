@@ -29,9 +29,9 @@ enum {
 /* What a herder does to the llama it reaches, by sub-mode (CS:3AFF). */
 enum { LLAMA_TO_TIMER, LLAMA_TO_HERDER, LLAMA_BURSTS, LLAMA_TO_TIMER_ARM_PICKUP };
 
-static const SoundRequest SOUND_CAUGHT = { 0x00, 1, 4 };        /* 1000:3b80 */
-static const SoundRequest SOUND_NEW_HERDER = { 0x1a, 0, 3 };    /* 1000:3b17 */
-static const SoundRequest SOUND_PROXIMITY = { 0x1e, 2, 0x0c };  /* 1000:2484 */
+static const SoundRequest SOUND_CAUGHT = { SAMPLE_ID_NONE, 1, 4 };        /* 1000:3b80 */
+static const SoundRequest SOUND_NEW_HERDER = { SAMPLE_ID_ALERT, 0, 3 };    /* 1000:3b17 */
+static const SoundRequest SOUND_PROXIMITY = { SAMPLE_ID_GAME_OVER, 2, 0x0c };  /* 1000:2484 */
 static const SoundRequest SOUND_SPAWN_16 = { 0x07, 1, 4 };      /* 1000:23f5 */
 
 static void play(SoundRequest s)

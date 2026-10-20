@@ -18,8 +18,8 @@ enum {
 };
 
 /* Death sounds (1000:4435..4450) */
-static const SoundRequest SOUND_DEATH_LAST_ENEMIES = { 0x1d, 3, 0x1e };
-static const SoundRequest SOUND_DEATH = { 0x11, 0, 0x1e };
+static const SoundRequest SOUND_DEATH_LAST_ENEMIES = { SAMPLE_ID_DEADLY_TOUCH, 3, 0x1e };
+static const SoundRequest SOUND_DEATH = { SAMPLE_ID_EXPLOSION, 0, 0x1e };
 
 static void play(SoundRequest s)
 {

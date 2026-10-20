@@ -28,18 +28,9 @@ enum {
     LLAMA_FACING_RIGHT = 6,
 };
 
-/* g3 title shapes */
-enum {
-    SHAPE_PLAYERS_1 = 7, SHAPE_PLAYERS_2_STICKS = 8, SHAPE_PLAYERS_2_ONE_STICK = 9,
-    SHAPE_SEPARATE_START = 10, SHAPE_SHARED_START = 11,
-    SHAPE_BOB_A = 4, SHAPE_BOB_B = 5,
-    SHAPE_FOOTER_A = 12, SHAPE_FOOTER_B = 13, SHAPE_FOOTER_C = 6,
-    SHAPE_LOGO_RIGHT = 14, SHAPE_LOGO_LEFT = 15,
-};
-
-static const SoundRequest SOUND_LETTER_LANDS = { 0x02, 1, 2 };  /* 1000:3f8f */
-static const SoundRequest SOUND_LETTERS_DONE = { 0x14, 0, 2 };  /* 1000:3fb1 */
-static const SoundRequest SOUND_LOGO_DONE = { 0x11, 1, 2 };     /* 1000:3fcd */
+static const SoundRequest SOUND_LETTER_LANDS = { SAMPLE_ID_LETTER_LANDS, 1, 2 };  /* 1000:3f8f */
+static const SoundRequest SOUND_LETTERS_DONE = { SAMPLE_ID_WAVE_CLEARED, 0, 2 };  /* 1000:3fb1 */
+static const SoundRequest SOUND_LOGO_DONE = { SAMPLE_ID_EXPLOSION, 1, 2 };     /* 1000:3fcd */
 
 static AttractLlama llamas[ATTRACT_LLAMAS];
 
@@ -48,14 +39,9 @@ static void play(SoundRequest s)
     game_sound_play(s.sample, s.rate_index, s.priority);
 }
 
-static const GfxSprite *default_shape(unsigned index)
-{
-    return asset_sprite_gfx(SPRITE_BANK_TITLE, index);
-}
-
 const AttractArt *attract_art_default(void)
 {
-    static const AttractArt art = { asset_sprite_number_gfx, default_shape };
+    static const AttractArt art = { asset_sprite_number_gfx, asset_title_shape };
     return &art;
 }
 
@@ -140,8 +126,8 @@ void title_draw(GameState *game, const AttractArt *art)
     draw_rect_outline(GFX_PAGE_BACKGROUND, 0, 0, 0x13e, 0xc6, 0x0b);
     DrawTarget background = draw_target_page(GFX_PAGE_BACKGROUND);
     draw_set_dirty_recording(false);
-    draw_plain(&background, art->shape(SHAPE_LOGO_LEFT), 0x41, 0x50);
-    draw_plain(&background, art->shape(SHAPE_LOGO_RIGHT), 0x101, 0x50);
+    draw_plain(&background, art->shape(TITLE_SHAPE_LOGO_LEFT), 0x41, 0x50);
+    draw_plain(&background, art->shape(TITLE_SHAPE_LOGO_RIGHT), 0x101, 0x50);
 }
 
 void attract_llamas_init(void)
@@ -307,15 +293,15 @@ void title_draw_hook(GameState *game, const DrawTarget *frame, const AttractArt 
     int16_t timer = game->title_timer;
     if (timer < 0) {                        /* game86 1000:4130 */
         uint16_t ticks = game->tick_count;
-        draw_plain(frame, art->shape(SHAPE_BOB_A), 0x9b, 0x78 + bob(ticks, 0));
-        draw_plain(frame, art->shape(SHAPE_BOB_B), 0x9b, 0x78 + bob(ticks, 8));
-        unsigned players = SHAPE_PLAYERS_1;
+        draw_plain(frame, art->shape(TITLE_SHAPE_BOB_A), 0x9b, 0x78 + bob(ticks, 0));
+        draw_plain(frame, art->shape(TITLE_SHAPE_BOB_B), 0x9b, 0x78 + bob(ticks, 8));
+        TitleShapeId players = TITLE_SHAPE_ONE_PLAYER;
         if (game->options & OPT_TWO_PLAYERS)
-            players = (game->options & OPT_DOUBLE_CONTROLLER) ? SHAPE_PLAYERS_2_STICKS
-                                                              : SHAPE_PLAYERS_2_ONE_STICK;
+            players = (game->options & OPT_DOUBLE_CONTROLLER) ? TITLE_SHAPE_TWO_PLAYERS_TEAM
+                                                              : TITLE_SHAPE_TWO_PLAYERS_DROID;
         draw_plain(frame, art->shape(players), 0x9c, 0x5f);
-        draw_plain(frame, art->shape((game->options & OPT_SHARED_START) ? SHAPE_SHARED_START
-                                                                        : SHAPE_SEPARATE_START),
+        draw_plain(frame, art->shape((game->options & OPT_SHARED_START) ? TITLE_SHAPE_DIGIT_2
+                                                                        : TITLE_SHAPE_DIGIT_1),
                    0x9b, 0x4b);
         attract_llamas_draw(frame, art);
     } else if (timer == 0) {                /* the logo is complete: game86 1000:41c3 */
@@ -325,8 +311,9 @@ void title_draw_hook(GameState *game, const DrawTarget *frame, const AttractArt 
             DrawTarget page = draw_target_page(pages[p]);
             draw_logo_row(&page, art, 1, false);
         }
-        static const struct { unsigned shape; int y; } footer[] = {
-            { SHAPE_FOOTER_A, 0x8c }, { SHAPE_FOOTER_B, 0xa0 }, { SHAPE_FOOTER_C, 0xb4 },
+        static const struct { TitleShapeId shape; int y; } footer[] = {
+            { TITLE_SHAPE_FOOTER_BEAST, 0x8c }, { TITLE_SHAPE_FOOTER_CREDIT, 0xa0 },
+            { TITLE_SHAPE_FOOTER_SIGN, 0xb4 },
         };
         for (int f = 0; f < 3; f++) {
             for (int p = 0; p < 3; p++) {

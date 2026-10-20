@@ -13,6 +13,9 @@
 enum {
     CHARGING_SPRITE_OFFSET = 2,
     DASH_SPRITE_OFFSET = 1,
+    DEADLY_PICKUP_SPRITE = 0x120,
+    PAIR_LEFT_SPRITE = 0x116, PAIR_RIGHT_SPRITE = 0x117,
+    THINK29_SPRITE = 0x11c,         /* + 4-frame animation */
 };
 
 static uint8_t high_byte(int16_t w) { return (uint8_t)((uint16_t)w >> 8); }
@@ -42,7 +45,7 @@ static void spawn_deadly_pickup(GameState *game, Entity *spawn, const Entity *pa
     (void)parent;
     spawn->timer = 9;
     spawn->hp = 0x64;
-    spawn->sprite = 0x120;
+    spawn->sprite = DEADLY_PICKUP_SPRITE;
     spawn->scale = 0;
     spawn->solid = 0;
     spawn->vx = 0;
@@ -58,10 +61,10 @@ static void spawn_deadly_pickup(GameState *game, Entity *spawn, const Entity *pa
  * first. game86 1000:32d7 */
 static void spawn_pair(GameState *game, Entity *spawn, const Entity *parent)
 {
-    entity_init_child(game, spawn, parent, 0x116, -2, 0);
+    entity_init_child(game, spawn, parent, PAIR_LEFT_SPRITE, -2, 0);
     for (Entity *other = spawn; other < game->entities + ENTITY_COUNT; other++) {
         if (entity_is_free(other)) {
-            entity_init_child(game, other, parent, 0x117, 1, 0);
+            entity_init_child(game, other, parent, PAIR_RIGHT_SPRITE, 1, 0);
             return;
         }
     }
@@ -150,6 +153,6 @@ void think_29(GameState *game, Entity *e)
         return;
     if (entity_check_touch(game, e))
         return;
-    e->sprite = (int16_t)(0x11c + ((game->tick_count >> 2) & 3));
+    e->sprite = (int16_t)(THINK29_SPRITE + ((game->tick_count >> 2) & 3));
     charger_update(game, e);
 }

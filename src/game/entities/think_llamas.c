@@ -40,9 +40,9 @@ enum {
  * no kill action runs for them). The original stores the trail's DS address there. */
 enum { FOLLOW_P1 = 0, FOLLOW_P2 = 1 };
 
-static const SoundRequest SOUND_LAST_RESCUE = { 0x1a, 1, 6 };   /* 1000:4ce3 */
-static const SoundRequest SOUND_RESCUE = { 0x17, 1, 3 };        /* 1000:4de6 */
-static const SoundRequest SOUND_CAUGHT = { 0x18, 2, 6 };        /* 1000:4a8d */
+static const SoundRequest SOUND_LAST_RESCUE = { SAMPLE_ID_ALERT, 1, 6 };   /* 1000:4ce3 */
+static const SoundRequest SOUND_RESCUE = { SAMPLE_ID_RESCUE, 1, 3 };        /* 1000:4de6 */
+static const SoundRequest SOUND_CAUGHT = { SAMPLE_ID_CAUGHT, 2, 6 };        /* 1000:4a8d */
 
 static void play(SoundRequest s)
 {
