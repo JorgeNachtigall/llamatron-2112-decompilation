@@ -124,10 +124,14 @@ def level_run(level: int) -> dict:
         ticks=SEED, machine="vga", interval=50, max_snapshots=LEVEL_TICKS // 50,
         keys=[(t, code) for t in sorted(keys) for code in keys[t]],
         pokes=level_sweep.poke_script(level, LEVEL_TICKS), quit_after=LEVEL_TICKS + 10,
-        tick_phase=0.55, start_delay=0, time_limit=300)         # warp's start
+        # warp's start; 0.69..0.70 is where level_75's overlay frame counts match too (warp
+        # holds 0.425..0.7, levels 10/25 0.55..0.70, from 0.705 on the walk keys land a tick off)
+        tick_phase=0.695, start_delay=0, time_limit=300)
 
 
 RUNS.update({f"level_{level:02d}": level_run(level) for level in (10, 25, 50, 75, 99)})
+# level 50: a death at ~1058 restarts the wave a tick later in the port (CPU time, DEVIATIONS #20)
+RUNS["level_50"]["input_shift"] = [(1059, 1, None)]
 
 # input_shift [(start, ticks, end)]: the port replay's keys from `start` to `end` (exclusive,
 # None = the end) come `ticks` later, where the port is a tick behind after a timing-classed
@@ -138,18 +142,19 @@ RUNS.update({f"level_{level:02d}": level_run(level) for level in (10, 25, 50, 75
 # loops test their exit after frame_run's wait, as the original) removed the play lag in warp
 # (400, 425..600), death_continue (800, the continue -> play switch) and two_player (the start
 # switch, 1200). two_player 1300 / warp 625 entities[8]+1e: a follower's trail as address vs
-# player index, also stale in a reused slot (compare.py TRAIL_ADDRESS).
+# player index, also stale in a reused slot (adapters.gamestate.follower_trail_equal). The
+# title llamas' leftover in slots 0..8 (+20 read in play, DEVIATIONS #26): Keel's 7b4ed95
+# (attract_end at new_game) keeps it in the port, compare.py no longer skips any of it.
 #
 # Triage of the real divergences (compare.py's first ones per run and those after them that are
 # not consequences): (run, tick, field, owner, status). Printed under each run's report; update
 # when a re-run after a fix moves them.
-_LEFTOVER_20 = ("entities[0..8]+20 sub_mode: the title llamas' leftover, read in play "
-                "(DEVIATIONS #26), the port holds 0", "Keel + Moss",
-                "open: the port must keep slot leftovers as the original (lead's item 2)")
 TRIAGE = [
-    *[(run, tick, *_LEFTOVER_20) for run, tick in (
-        ("walk_vga", 200), ("walk_ega", 200), ("warp", 175), ("death_continue", 200),
-        ("game_over_hiscore", 175), ("two_player", 1250))],
+    ("level_50", 1150, "entities[2] hit: the port kills it (type 0101 -> 0002, kills_toward_bonus "
+     "and scores move), the original's is alive with shot 0 still flying at x 76h", "Keel",
+     "open"),
+    ("level_99", 700, "entities[51]+38 overlay.frames: original 12, port 13/11/10 at t-1/t/t+1, "
+     "at every tick_phase (entities_animate_all 1000:4374 overlay count)", "Prism / Keel", "open"),
 ]
 
 

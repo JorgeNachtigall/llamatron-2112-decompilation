@@ -98,12 +98,16 @@ Consequences:
   counter one apart right after a jump (the original set it a tick later). While a shift
   holds, the whole state is compared with the port's tick t + shift, and every byte that
   differs there is real, even one equal at the port's own tick (input reaches both runs at
-  one IRQ). Only real bytes decide the first divergence. In play, title llama bytes left in
-  the original's used slots (unchanged since the first play snapshot, 0 in the port) are
-  skipped, only in the fields `tests/dosbox/llama_residue.py` showed never read before
-  written in these runs (it pokes them with 0 and their inverse at the attract -> play switch
-  and compares with a control run; the report's header names them). +20 is left out: it is
-  read in other play (DEVIATIONS #26). Input shift: `input_shift` segments in RUNS deliver the
+  one IRQ). Only real bytes decide the first divergence. A wave
+  (re)start reloads the intro timer (DS:08FC); a reload between two snapshots, in either run,
+  counts as a transition too. Skipped: P2's trail head while the original holds the loaded 2
+  (wave_start zeroes it before any read), the title llamas while the title runs (the port keeps
+  them in attract.c), and a follower's trail (+1E) held as address in the original and as
+  player index in the port (`adapters.gamestate.follower_trail_equal`, also used by
+  `DgroupMap.mismatches` and `tests/oracle/whole_game.py`). The title llamas' bytes left in
+  the slots in play are compared like any other (the port keeps them since 7b4ed95;
+  `tests/dosbox/llama_residue.py` is the oracle that showed which of them the original reads).
+  Input shift: `input_shift` segments in RUNS deliver the
   port's keys a tick later where it is a tick behind after a timing-classed switch (input at
   the same game phase); each segment must match the timing shift at its start, and the report
   has a line per segment. `TRIAGE` in

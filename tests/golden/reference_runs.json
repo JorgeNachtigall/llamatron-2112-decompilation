@@ -3064,7 +3064,7 @@
    ],
    "quit_after": 3010,
    "start_delay": 0,
-   "tick_phase": 0.55,
+   "tick_phase": 0.695,
    "ticks": 1223629
   },
   "exit_code": 5,
@@ -5291,7 +5291,7 @@
    ],
    "quit_after": 3010,
    "start_delay": 0,
-   "tick_phase": 0.55,
+   "tick_phase": 0.695,
    "ticks": 1223629
   },
   "exit_code": 2,
@@ -5961,6 +5961,13 @@
  },
  "level_50": {
   "config": {
+   "input_shift": [
+    [
+     1059,
+     1,
+     null
+    ]
+   ],
    "interval": 50,
    "keys": [
     [
@@ -7338,7 +7345,7 @@
    ],
    "quit_after": 3010,
    "start_delay": 0,
-   "tick_phase": 0.55,
+   "tick_phase": 0.695,
    "ticks": 1223629
   },
   "exit_code": 5,
@@ -9565,7 +9572,7 @@
    ],
    "quit_after": 3010,
    "start_delay": 0,
-   "tick_phase": 0.55,
+   "tick_phase": 0.695,
    "ticks": 1223629
   },
   "exit_code": 8,
@@ -11792,7 +11799,7 @@
    ],
    "quit_after": 3010,
    "start_delay": 0,
-   "tick_phase": 0.55,
+   "tick_phase": 0.695,
    "ticks": 1223629
   },
   "exit_code": 8,

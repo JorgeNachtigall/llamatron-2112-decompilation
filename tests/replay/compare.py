@@ -24,7 +24,7 @@ DGROUP_SIZE = 0x10000
 LRPL_HEADER = "<4sHHII"
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from adapters.gamestate import ATTRACT_LLAMAS  # noqa: E402
+from adapters.gamestate import ATTRACT_LLAMAS, follower_trail_equal  # noqa: E402
 
 # The reference run's phase, from its tick hook (g_tick_hook, not part of GameState).
 TICK_HOOK = 0x39E4
@@ -34,36 +34,19 @@ PLAY_HOOK = 0x1562              # play_tick_hook
 DRAW_HOOK = 0x39E0
 TICK_COUNT = range(0x39E6, 0x39E8)  # counts every IRQ whatever runs: not part of a shift
 TUNE_PERIOD, TUNE_COUNTDOWN = 0x0627, 0x0629
+WAVE_INTRO_TIMER = 0x08FC      # counts down; reloaded when a wave (re)starts (e.g. after a death)
 
 # Entity slots: a free slot (type word < 0) keeps stale bytes from its last user in the
 # original (e.g. the title llamas) and whatever the port leaves there; only its type word
 # is state. Compared again as soon as either side allocates the slot.
 ENTITIES, ENTITY_COUNT, ENTITY_SIZE = 0x48C1, 70, 0x40
 
-# Title llama leftovers in play: entity fields of slots 0..8 (ATTRACT_LLAMAS) that the original
-# never reads before writing in these runs, by tests/dosbox/llama_residue.py (0 and the
-# inverted leftover poked at the attract -> play switch change nothing in warp, death_continue
-# and two_player over their full length). That covers only what those runs play: +20 is read
-# in real play (DEVIATIONS #26: enemy_init_04 1f96 never writes it, so a herder hatched from
-# kind 04, from level 2, takes the leftover as its mode) and is compared. To be dropped once the
-# port keeps slot leftovers as the original does (lead, Keel + Moss).
-LEFTOVER_FIELDS = set(range(0x02, 0x40)) - {0x20, 0x21}
-LEFTOVER_REASON = ("title llama leftovers in play (slots 0..8, fields +02..+3f but not +20 "
-                   "sub_mode, unchanged since the first play snapshot, port 0): never read "
-                   "before written in these runs, tests/dosbox/llama_residue.py; +20 is read "
-                   "(DEVIATIONS #26)")
+# A follower's trail (+1E) as the original's DS address and the port's player index is the same
+# value: adapters.gamestate.follower_trail_equal.
 
-# A follower (think_06, 1000:4bfb) keeps the trail it walks in kill_action (+1e): the original
-# as the trail's DS address (stored by think_05 1000:4d04..4d97), the port as the player index
-# (think_llamas.c FOLLOW_P1/P2). Same value, two representations (Moss; test_think_llamas.py
-# follower_fixup). Where the reference slot is a follower, and after it stops being one while
-# the reference keeps that address there (a reused slot keeps the stale trail: warp 625); the
-# adapter cannot do it, since the slot's type no longer says what the word is.
-THINK_FOLLOWER, FOLLOWER_TRAIL = 0x06, 0x1E
-TRAIL_ADDRESS = {0x6CC9: 0, 0x70C9: 1}
-
-# DEVIATIONS #10: the loaded image has trail_head[1] = 2 (not entry-aligned) until P2's
-# first trail write; the port starts at entry 0. Skipped while the reference still holds 2.
+# The loaded image has P2's trail head [2CF9] = 2 (the listing's g_p2_anim), which wave_start
+# zeroes at 1000:04ef before anything reads it (DEVIATIONS #10, withdrawn); the port starts at
+# 0. Skipped while the reference still holds the loaded 2.
 P2_TRAIL_HEAD = 0x2CF9
 P2_TRAIL_HEAD_LOADED = 2
 
@@ -203,6 +186,7 @@ class TickDiff:
     # `timing` holds the bytes that shift explains (not in `offsets`, which stay real)
     shift: int = 0
     timing: list[int] = field(default_factory=list)
+    transition: bool = False    # a transition since the previous snapshot (see compare)
 
     def fields(self, limit: int = 12) -> list[str]:
         seen: list[str] = []
@@ -224,17 +208,17 @@ def compare(port: PortRun, reference: dict[int, bytes], ignore=()) -> list[TickD
     keeps them in the entity table, the port in attract.c. hook_nop transitions in between
     stay in the attract phase, because the bytes survive until entities_clear. P2's trail
     head is skipped while the reference still holds its loaded value (DEVIATIONS #10).
-    Entity slots free on both sides are compared by their type word only. In play, title
-    llama bytes the reference has kept unchanged since the first play snapshot while the port
-    holds 0 are skipped: the original's occupied slots keep them in fields their entity type
-    never writes.
+    Entity slots free on both sides are compared by their type word only. In play the title
+    llamas' leftovers in slots 0..8 are compared: the port keeps them as the original does
+    (attract_end at new_game, 7b4ed95), and some are read (DEVIATIONS #26).
 
     Timing: a differing byte that equals the port's byte one tick later (or earlier) is a
     one-tick shift, provided a transition happens there or the same shift was already
     established at the previous snapshot. A transition is a tick or draw hook switch (in either
     run, or between them) or a jump of the tick counter, which otherwise counts one per tick
     (the original sets it at state changes, e.g. name entry's end 1000:5ab3 and the hi-score
-    table 1000:5d41, after CPU-heavy work the port does in zero time: DEVIATIONS #20). While
+    table 1000:5d41, after CPU-heavy work the port does in zero time: DEVIATIONS #20), or a
+    reload of wave_intro_timer (a wave restart, e.g. after a death, between snapshots). While
     such a shift holds, the whole state is compared with the port's tick t + shift: the bytes
     it explains go to `timing`, and every byte that differs from the shifted state is real
     (`offsets`), even one that matches the port's own tick t (e.g. input, which both runs get
@@ -251,27 +235,20 @@ def compare(port: PortRun, reference: dict[int, bytes], ignore=()) -> list[TickD
     out = []
     attract = False
     prev_ref_hooks = None
-    prev_tick, prev_counts = None, None
+    prev_tick, prev_counts, prev_intro = None, None, None
     carried = 0
-    play_start = None                       # reference at the first play snapshot
-    trails: dict[int, int] = {}             # slot: trail address it held as a follower
     for tick in sorted(set(port.snapshots) & set(reference)):
         a, b = reference[tick], port.snapshots[tick]
         hook = struct.unpack_from("<H", a, TICK_HOOK)[0]
         if hook in TITLE_HOOKS:
-            attract, play_start = True, None
+            attract = True
         elif hook == PLAY_HOOK:
             attract = False
-            play_start = play_start or a
-        for i in range(ENTITY_COUNT):
-            trail = struct.unpack_from("<H", a, ENTITIES + ENTITY_SIZE * i + FOLLOWER_TRAIL)[0]
-            if a[ENTITIES + ENTITY_SIZE * i] == THINK_FOLLOWER and trail in TRAIL_ADDRESS:
-                trails[i] = trail
-            elif trails.get(i) != trail:
-                trails.pop(i, None)
         counts = (_tick_count(a), _tick_count(b))
         jump = prev_counts is not None and any(not _counted(p, c, tick - prev_tick)
                                                for p, c in zip(prev_counts, counts))
+        intro = (_word(a, WAVE_INTRO_TIMER), _word(b, WAVE_INTRO_TIMER))
+        jump = jump or (prev_intro is not None and any(i > p for p, i in zip(prev_intro, intro)))
         prev = prev_ref_hooks if prev_ref_hooks is not None else _hooks(a)
         # the port's state at tick + s for s = 0, -1, +1, as compared with the reference
         candidates = {}
@@ -284,8 +261,7 @@ def compare(port: PortRun, reference: dict[int, bytes], ignore=()) -> list[TickD
                       or not _counted(_tick_count(b), _tick_count(other), s))
             if s and not (switch or s == carried):
                 continue
-            offs_s, skipped_s = _differences(a, other, port.mask, ignore, attract, trails)
-            offs_s, skipped_s = _leftover(a, other, play_start, offs_s, skipped_s)
+            offs_s, skipped_s = _differences(a, other, port.mask, ignore, attract)
             candidates[s] = (offs_s, skipped_s)
         offs, skipped = candidates[0]
         state = [o for o in offs if o not in TICK_COUNT]
@@ -311,8 +287,9 @@ def compare(port: PortRun, reference: dict[int, bytes], ignore=()) -> list[TickD
             offs = [o for o in offs if o not in frozen]
         carried = shift
         prev_ref_hooks = _hooks(a)
-        prev_tick, prev_counts = tick, counts
-        out.append(TickDiff(tick, offs, skipped, shift, timing))
+        prev_tick, prev_counts, prev_intro = tick, counts, intro
+        out.append(TickDiff(tick, offs, skipped, shift, timing,
+                            transition=jump or _hooks(a) != prev))
     return out
 
 
@@ -321,17 +298,8 @@ def _hooks(image: bytes) -> tuple[int, int]:
             struct.unpack_from("<H", image, DRAW_HOOK)[0])
 
 
-def _leftover(a: bytes, b: bytes, play_start: bytes | None, offs: list[int], skipped: list):
-    """In play: skip title llama bytes the reference keeps unchanged since its first play
-    snapshot where the port holds 0."""
-    if play_start is None:
-        return offs, skipped
-    left = {o for o in offs if o in ATTRACT_LLAMAS and (o - ENTITIES) % ENTITY_SIZE in LEFTOVER_FIELDS
-            and b[o] == 0 and a[o] == play_start[o]}
-    if not left:
-        return offs, skipped
-    return ([o for o in offs if o not in left],
-            skipped + [(None, f"{len(left)} title llama bytes left in used slots")])
+def _word(image: bytes, off: int) -> int:
+    return struct.unpack_from("<H", image, off)[0]
 
 
 def _tick_count(image: bytes) -> int:
@@ -353,8 +321,7 @@ def _counted(before: int, after: int, ticks: int) -> bool:
     return (before + ticks) & 0xFFFF == after
 
 
-def _differences(a: bytes, b: bytes, mask: bytes, ignore: set, attract: bool,
-                 trails: dict[int, int] = {}):
+def _differences(a: bytes, b: bytes, mask: bytes, ignore: set, attract: bool):
     """Compared offsets where reference `a` and port `b` differ, and what was skipped."""
     skipped = [(ATTRACT_LLAMAS, "attract llamas")] if attract else []
     if struct.unpack_from("<H", a, P2_TRAIL_HEAD)[0] == P2_TRAIL_HEAD_LOADED:
@@ -367,10 +334,7 @@ def _differences(a: bytes, b: bytes, mask: bytes, ignore: set, attract: bool,
     for i in free:
         base = ENTITIES + ENTITY_SIZE * i
         skip.update(range(base + 2, base + ENTITY_SIZE))
-    for i, address in trails.items():
-        trail = ENTITIES + ENTITY_SIZE * i + FOLLOWER_TRAIL
-        if TRAIL_ADDRESS[address] == struct.unpack_from("<h", b, trail)[0]:
-            skip.update((trail, trail + 1))
+    skip |= follower_trail_equal(a, b)
     offs = [i for i in range(DGROUP_SIZE)
             if mask[i] and a[i] != b[i] and i not in ignore and i not in skip]
     return offs, skipped
@@ -383,12 +347,17 @@ def _type(image: bytes, slot: int) -> int:
 def input_shift_check(diffs: list[TickDiff], segment) -> str | None:
     """Why the port's keys from tick `start` on may come `ticks` later (test_reference_golden
     port_script): a timing shift of the same size holding at the last snapshot at or before
-    `start`. None when it is explained, else the reason."""
+    `start`, or set up by a transition between that snapshot and the next one. None when it
+    is explained, else the reason."""
     start, ticks = segment[:2]
     at = [d for d in diffs if d.tick <= start]
-    if not at or at[-1].shift != ticks:
-        return f"no timing shift of {ticks:+d} at the snapshot at or before tick {start}"
-    return None
+    if at and at[-1].shift == ticks:
+        return None
+    after = next((d for d in diffs if d.tick >= start), None)
+    if after is not None and after.shift == ticks and after.transition:
+        return None             # the switch fell between the snapshots around `start`
+    return (f"no timing shift of {ticks:+d} at the snapshot at or before tick {start}, nor "
+            f"one from a transition at the next")
 
 
 def first_divergence(diffs: list[TickDiff], input_shift=()) -> int | None:
@@ -408,8 +377,6 @@ def report(diffs: list[TickDiff], input_shift=()) -> str:
         lines.append(f"input shift: the port's keys {span} come {ticks:+d} tick later, "
                      + (f"NOT explained ({why}): real" if why else
                         "explained by the timing shift there"))
-    if any("title llama bytes left" in name for d in diffs for _, name in d.ignored):
-        lines.append(f"ignored: {LEFTOVER_REASON}")
     for d in diffs:
         state = "ok" if not d.offsets else f"{len(d.offsets)} bytes: " + ", ".join(d.fields())
         if d.shift:

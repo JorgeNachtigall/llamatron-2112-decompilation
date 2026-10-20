@@ -18,8 +18,8 @@ was (the settled parts the golden test checks).
 
 Result (2026-10-19, at the scenarios' full lengths): every field +02..+3e passes with both
 poisons in warp, death_continue and two_player. That only covers what those runs play: +20 is
-read elsewhere (DEVIATIONS #26, a herder hatched from kind 04), so compare.py's
-LEFTOVER_FIELDS leaves it out.
+read elsewhere (DEVIATIONS #26, a herder hatched from kind 04). compare.py skipped the other
+fields until Keel's 7b4ed95 made the port keep the leftover; since then it skips none.
 
     python tests/dosbox/llama_residue.py [SCENARIO ...] [--workdir DIR] [--jobs N]
         [--fields 02 04 ...]

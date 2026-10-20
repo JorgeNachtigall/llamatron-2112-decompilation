@@ -271,28 +271,42 @@ def test_compare_frozen_tune_countdown_one_step_apart_is_timing():
     assert "[timing: tune.countdown frozen one tick apart]" in compare.report([diffs[10]])
 
 
-def test_compare_skips_title_llama_bytes_left_in_used_slots():
-    """In play the original's occupied slots keep title llama bytes in fields their type never
-    writes: skipped while the reference keeps them unchanged from the first play snapshot and
-    the port holds 0."""
+def test_compare_title_llama_bytes_in_play_are_compared():
+    """In play the title llamas' leftovers in slots 0..8 are state like any other byte (the
+    port keeps them, and some are read: DEVIATIONS #26)."""
     mask = bytearray(compare.DGROUP_SIZE)
-    left, moving = 0x48C1 + 0x14, 0x48C1 + 0x18      # entity 0, both inside ATTRACT_LLAMAS
-    mask[left] = mask[moving] = 1
-    port = {t: bytes(_image(compare.PLAY_HOOK, 0, t)) for t in (10, 20, 30)}
+    left = 0x48C1 + 0x20                               # entity 0's sub_mode
+    mask[left] = 1
+    port = {10: bytes(_image(compare.PLAY_HOOK, 0, 10))}
+    image = bytearray(_image(compare.PLAY_HOOK, 0, 10))
+    struct.pack_into("<h", image, 0x48C1, 1)           # slot 0 in use
+    image[left] = 0xDC
+    port_image = bytearray(image)
+    port_image[left] = 0
+    diffs = compare.compare(compare.PortRun(10, bytes(mask), {10: bytes(port_image)}),
+                            {10: bytes(image)})
+    assert diffs[0].offsets == [left]
 
-    def ref(tick, a, b, hook=compare.PLAY_HOOK):
-        image = bytearray(_image(hook, 0, tick))
-        struct.pack_into("<h", image, 0x48C1, 1)       # slot 0 in use
-        image[left], image[moving] = a, b
+
+def test_compare_wave_restart_between_snapshots_is_a_transition():
+    """wave_intro_timer only counts down; a reload between two snapshots is a wave (re)start
+    there, so a one-tick shift at the next snapshot is timing, and an input shift from a
+    tick between the two is explained by it."""
+    mask = bytearray(compare.DGROUP_SIZE)
+    mask[0x0927] = 1
+    play = compare.PLAY_HOOK
+
+    def img(value, tick, intro):
+        image = bytearray(_image(play, value, tick))
+        struct.pack_into("<H", image, compare.WAVE_INTRO_TIMER, intro)
         return bytes(image)
 
-    refs = {10: ref(10, 0xDC, 0x0C), 20: ref(20, 0xDC, 0x0D), 30: ref(30, 0xDC, 0x0C)}
-    diffs = {d.tick: d for d in compare.compare(compare.PortRun(10, bytes(mask), port), refs)}
-    assert diffs[10].offsets == []                     # first play snapshot: both left over
-    assert diffs[20].offsets == [moving]               # changed since: real
-    assert diffs[30].offsets == []
-    assert any("title llama bytes left in used slots" in n for _, n in diffs[10].ignored)
-    assert compare.report(list(diffs.values())).startswith("ignored: title llama leftovers")
+    ref = {50: img(3, 50, 0), 100: img(5, 100, 40)}
+    port = {50: img(3, 50, 0), 100: img(4, 100, 41), 101: img(5, 101, 40)}
+    diffs = compare.compare(compare.PortRun(50, bytes(mask), port), ref)
+    assert diffs[1].shift == 1 and diffs[1].offsets == [] and diffs[1].transition
+    assert compare.input_shift_check(diffs, (60, 1, None)) is None
+    assert compare.input_shift_check(diffs, (40, 1, None))      # no shift at 0..40
 
 
 def test_frames_dump_the_frames_of_dumped_ticks(driver, tmp_path):
@@ -321,7 +335,7 @@ def test_compare_tick_counter_set_one_tick_apart_is_timing():
 
 def test_compare_follower_trail_address_is_the_player_index():
     """A follower's kill_action: the original's trail address 6CC9 / 70C9 is the port's
-    player index 0 / 1 (think_llamas.c)."""
+    player index 0 / 1 (think_llamas.c), also once the slot is no longer a follower."""
     mask = bytearray(compare.DGROUP_SIZE)
     trail = 0x48C1 + 0x40 * 20 + 0x1E      # not a title llama slot
     mask[trail] = mask[trail + 1] = 1
@@ -333,7 +347,8 @@ def test_compare_follower_trail_address_is_the_player_index():
         return bytes(image)
 
     for think, ref, mine, real in ((6, 0x6CC9, 0, False), (6, 0x70C9, 1, False),
-                                   (6, 0x70C9, 0, True), (5, 0x6CC9, 0, True)):
+                                   (6, 0x70C9, 0, True), (5, 0x6CC9, 0, False),
+                                   (5, 0x6CC8, 0, True)):
         port = compare.PortRun(10, bytes(mask), {10: img(think, mine)})
         diffs = compare.compare(port, {10: img(think, ref)})
         assert bool(diffs[0].offsets) == real, (think, ref, mine)

@@ -17,6 +17,7 @@ field from Python read it back through to_dgroup and the DS offset.
 from __future__ import annotations
 
 import ctypes
+import struct
 
 from adapters.cport import bind
 
@@ -31,6 +32,28 @@ SCRATCH = frozenset({*range(0x0413, 0x0417), *range(0x0419, 0x0423)})
 # the port keeps them inside attract.c, not in GameState.entities. Attract-mode comparisons
 # pass this in `ignore`; entities_clear rebuilds the table when a game starts.
 ATTRACT_LLAMAS = range(0x48C1, 0x4B01)
+
+
+# A follower (think_06, 1000:4bfb) keeps the trail it walks in kill_action (+1E): the original
+# as the trail's DS address (think_05 1000:4d04..4d97), the port as the player index
+# (think_llamas.c FOLLOW_P1/P2). The word stays after the slot stops being a follower (hit, or
+# reused by another entity), so the adapter's write-back cannot tell from the slot's type what
+# it is (a mapping there broke test_w5a_types). Compared instead: equal where the original
+# holds exactly 6CC9/70C9 and the port the matching 0/1 (Thorn's rule, whole_game.py).
+ENTITY_TABLE, ENTITY_COUNT, ENTITY_SIZE = 0x48C1, 70, 0x40
+FOLLOWER_TRAIL = 0x1E
+TRAIL_ADDRESS = {0x6CC9: 0, 0x70C9: 1}
+
+
+def follower_trail_equal(original: bytes, port: bytes) -> set[int]:
+    """DS offsets (both bytes of +1E) where the two images hold the same follower trail."""
+    same = set()
+    for slot in range(ENTITY_COUNT):
+        at = ENTITY_TABLE + ENTITY_SIZE * slot + FOLLOWER_TRAIL
+        address = struct.unpack_from("<H", original, at)[0]
+        if address in TRAIL_ADDRESS and struct.unpack_from("<h", port, at)[0] == TRAIL_ADDRESS[address]:
+            same.update((at, at + 1))
+    return same
 
 
 class DgroupMap:
@@ -68,6 +91,9 @@ class DgroupMap:
         return self.to_dgroup(self.from_dgroup(dgroup), dgroup)
 
     def mismatches(self, original: bytes, port: bytes, ignore=SCRATCH) -> list[int]:
-        """Mapped DS offsets where the two images differ."""
+        """Mapped DS offsets where the two images differ (a follower's trail held as address
+        and as player index is the same: follower_trail_equal)."""
+        same = follower_trail_equal(original, port)
         return [i for i in range(DGROUP_SIZE)
-                if self.mask[i] != MASK_UNMAPPED and original[i] != port[i] and i not in ignore]
+                if self.mask[i] != MASK_UNMAPPED and original[i] != port[i] and i not in ignore
+                and i not in same]
