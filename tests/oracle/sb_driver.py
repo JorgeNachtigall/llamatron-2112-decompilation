@@ -130,15 +130,19 @@ class SoundBlasterDriver:
         self._dsp = []
 
     def irqs_until(self, t: int) -> None:
-        """Raise the IRQs of every transfer that ends at or before time t."""
+        """Raise the IRQs of every transfer that ends at or before time t. The handler runs on
+        its own stack and the registers are put back, so a program stopped in the same machine
+        (tests/oracle/whole_game.py) goes on as after the handler's IRET."""
         while self.transfer is not None and self.transfer.end <= t:
             self.now = self.transfer.end
             self.transfer = None
             self._in_irq = True
+            regs = self.m.get_regs()
             try:
                 self._run((self.seg, IRQ_HANDLER), interrupt=True)
             finally:
                 self._in_irq = False
+                self.m.set_regs(regs)
         self.now = max(self.now, t)
 
     # ---- calls -----------------------------------------------------------------------------

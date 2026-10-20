@@ -49,7 +49,8 @@ import unicorn  # noqa: E402
 import unicorn.x86_const as X  # noqa: E402
 
 from adapters.cport import bind, load_testlib  # noqa: E402
-from adapters.gamestate import ATTRACT_LLAMAS, DGROUP_SIZE, MASK_UNMAPPED, DgroupMap  # noqa: E402
+from adapters.gamestate import (ATTRACT_LLAMAS, DGROUP_SIZE, MASK_UNMAPPED, DgroupMap,  # noqa: E402
+                                follower_trail_equal)
 from llamatron_harness import Machine  # noqa: E402
 from llamatron_harness.runner import linear  # noqa: E402
 
@@ -68,25 +69,15 @@ STACK = range(0x84D0, 0x85E2)        # game86's stack (interrupt frames), not st
 KEY_PORT = 0x60
 DRAW_HOOK, TICK_HOOK = 0x39E0, 0x39E4    # [39E0] frame draw hook, [39E4] tick hook
 DRAW_HOOK_TITLE = 0x402C
-ENTITY_TABLE, ENTITY_SIZE = 0x48C1, 0x40
 # Known differences, as tests/replay/compare.py treats them:
 # The loaded image has P2's trail head [2CF9] = 2, which wave_start zeroes at 1000:04ef
 # before any play tick reads it (DEVIATIONS #10, withdrawn); the port starts at 0. Skipped
 # while the original still holds the loaded 2 (only before the first wave).
 P2_TRAIL_HEAD, P2_TRAIL_HEAD_LOADED = 0x2CF9, 2
-# Title llama leftovers in play: fields +02..+3f of slots 0..8 that entities_clear (4307)
-# leaves behind and the original never reads before writing (tests/dosbox/llama_residue.py);
-# skipped while the original keeps the value it had when play started and the port holds 0.
-LEFTOVER_FIELDS = range(0x02, 0x40)
-# A follower (think_06, 1000:4bfb) keeps the trail it walks in kill_action (+1e): the original
-# as the trail's DS address (think_05 1000:4d04..4d97), the port as the player index
-# (think_llamas.c FOLLOW_P1/P2). Same value, two representations (compare.py TRAIL_ADDRESS,
-# test_think_llamas.py follower_fixup). Skipped while the slot is a follower, and after it
-# stops being one while the original keeps that address there (a reused slot keeps it).
-THINK_FOLLOWER, FOLLOWER_TRAIL = 0x06, 0x1E
-TRAIL_ADDRESS = {0x6CC9: 0, 0x70C9: 1}
-ENTITY_COUNT = 70
+# A follower's trail (+1e) as the original's DS address and the port's player index is the same
+# value: adapters.gamestate.follower_trail_equal (also in DgroupMap.mismatches).
 
+SOUND_BLASTER = 0x0C                 # PSP:89h for llama.inf's S (docs/re-notes-sound-data.md)
 STUB_SEG = 0x9F00                    # our IRET for the chained BIOS vectors
 DOS_PATH_MAX = 128
 MAX_INSNS_PER_RUN = 20_000_000
@@ -128,12 +119,20 @@ class Clock:
         self.pending -= n * self.tick_cost
         return n
 
+    def tick_phase(self) -> int:
+        """timing_tick_phase: the time since the last tick, 0..65535 of a tick."""
+        return self.pending % self.tick_cost * 65536 // self.tick_cost
+
 
 # ---- the original --------------------------------------------------------------------------
 
 class OriginalGame:
     def __init__(self, game86: str | Path | None, original_dir: Path, seed: int,
-                 machine: str = "vga"):
+                 machine: str = "vga", sound_driver=None):
+        """sound_driver(machine) -> (seg, off), if given, loads a sound driver into the machine
+        and returns its far entry; the command tail then selects it (PSP:89h = 0Ch, the
+        Sound Blaster code, and PSP:8Ah..8Dh = the entry; game86 1000:5f6b..). Without it
+        PSP:89h = FFh selects game86's dummy driver 1000:e785."""
         self.m = Machine.from_game86(game86)
         self.uc = self.m.uc
         self.dir = original_dir
@@ -165,6 +164,9 @@ class OriginalGame:
 
         # PSP command tail as llama.exe passes it (docs/re-notes-game86.md §1).
         tail = bytes([0x6C, 0x6D, 0x0D, 0, 0, 1 if machine == "vga" else 0, 0, 0, 0xFF])
+        if sound_driver:
+            seg, off = sound_driver(m)
+            tail = tail[:-1] + bytes([SOUND_BLASTER]) + struct.pack("<HH", off, seg)
         m.write(m.psp_seg, 0x80, bytes([len(tail)]) + tail + b"\r")
         m.set_bios_ticks(seed)
         m.write(STUB_SEG, 0, b"\xCF")                       # IRET
@@ -411,7 +413,7 @@ class GameHostInput(ctypes.Structure):
 class PortGame:
     """llamatron_replay's set-up (tests/replay/replay_driver.c), in this process."""
 
-    def __init__(self, lib: ctypes.CDLL, seed: int, machine: str = "vga"):
+    def __init__(self, lib: ctypes.CDLL, seed: int, machine: str = "vga", sound: bool = False):
         self.dg = DgroupMap(lib)
         self.state = self.dg.new_state()
         self._tick = bind(lib, "game_tick", None, ctypes.c_void_p)
@@ -424,7 +426,7 @@ class PortGame:
         palettes = bind(lib, "asset_palettes", ctypes.c_void_p)()
         bind(lib, "gfx_set_adapter", None, ctypes.c_int, ctypes.c_void_p)(
             1 if machine == "vga" else 0, palettes + 17)
-        launch = GameLaunch(vga=machine == "vga", joystick=False, sound=False, flash_mode=0,
+        launch = GameLaunch(vga=machine == "vga", joystick=False, sound=sound, flash_mode=0,
                             bios_ticks=seed)
         if not bind(lib, "game_init", ctypes.c_bool, ctypes.c_void_p,
                     ctypes.POINTER(GameLaunch))(self.state, ctypes.byref(launch)):
@@ -493,60 +495,41 @@ class Comparer:
         return [i for i, v in enumerate(raw) if v]
 
 
-def known(off: int, a: bytes, b: bytes, play_start: bytes | None) -> bool:
-    """A documented difference (see P2_TRAIL_HEAD, LEFTOVER_FIELDS); a = original, b = port."""
-    if off == P2_TRAIL_HEAD and a[off] == P2_TRAIL_HEAD_LOADED and b[off] == 0:
-        return True
-    return (play_start is not None and off in ATTRACT_LLAMAS
-            and (off - ENTITY_TABLE) % ENTITY_SIZE in LEFTOVER_FIELDS
-            and b[off] == 0 and a[off] == play_start[off])
+def known(off: int, a: bytes, b: bytes) -> bool:
+    """A documented difference (see P2_TRAIL_HEAD); a = original, b = port."""
+    return off == P2_TRAIL_HEAD and a[off] == P2_TRAIL_HEAD_LOADED and b[off] == 0
 
 
 def run_lockstep(lib, script: Script, ticks: int, seed: int, machine: str = "vga",
                  phase: int = 0, start_delay: int = 0, game86=None,
                  original_dir: Path | None = None, ignore=(), progress=None,
-                 on_frame=None) -> Result:
+                 on_frame=None, sound=None) -> Result:
     """on_frame(orig, port, tick, frame), called after each frame whose DGROUP matched, may
-    return a Result to stop with (e.g. a page comparison, tests/oracle/whole_game_pages.py)."""
+    return a Result to stop with (e.g. a page comparison, tests/oracle/whole_game_pages.py).
+
+    sound, if given, runs a sound driver on both sides (tests/oracle/test_whole_game_sound.py):
+    sound.load(machine) -> (seg, off) is OriginalGame's sound_driver, the port starts with
+    sound on, and sound.before_tick(orig, port, tick) / sound.before_frame(orig, port, tick,
+    phase) run before every tick and frame, phase being the tick phase the shell passes to
+    snd_set_phase; sound.check(orig, port, tick, frame, where) after every tick and frame
+    whose DGROUP matched may return a Result to stop with."""
     original_dir = original_dir or Path(os.environ.get("LLAMATRON_ORIGINAL_DIR", REPO / "original"))
     try:
-        orig = OriginalGame(game86, original_dir, seed, machine)
+        orig = OriginalGame(game86, original_dir, seed, machine,
+                            sound_driver=sound.load if sound else None)
     except OriginalFault as exc:
         return Result(False, 0, 0, "original", detail=f"start-up: {exc}")
-    port = PortGame(lib, seed, machine)
+    port = PortGame(lib, seed, machine, sound=sound is not None)
     cmp = Comparer(port.dg, ignore)
     clock = Clock(machine, phase)
     tick = frame = 0
 
-    play_start: bytes | None = None
-    in_title = False
-    trails: dict[int, int] = {}             # slot: trail address it held as a follower
-
-    def follower_trails(a: bytes, b: bytes) -> set[int]:
-        skip = set()
-        for i in range(ENTITY_COUNT):
-            at = ENTITY_TABLE + ENTITY_SIZE * i + FOLLOWER_TRAIL
-            trail = struct.unpack_from("<H", a, at)[0]
-            if a[ENTITY_TABLE + ENTITY_SIZE * i] == THINK_FOLLOWER and trail in TRAIL_ADDRESS:
-                trails[i] = trail
-            elif trails.get(i) != trail:
-                trails.pop(i, None)
-            if i in trails and TRAIL_ADDRESS[trails[i]] == struct.unpack_from("<h", b, at)[0]:
-                skip.update((at, at + 1))
-        return skip
-
     def check(where: str) -> Result | None:
-        nonlocal play_start, in_title
         a = orig.dgroup()
         b = port.dgroup(a)
-        title = struct.unpack_from("<H", a, DRAW_HOOK)[0] == DRAW_HOOK_TITLE
-        if title:
-            in_title, play_start = True, None
-        elif in_title:
-            in_title, play_start = False, a
-        skip = follower_trails(a, b)
+        skip = follower_trail_equal(a, b)
         bad = cmp.differ(a, b)
-        bad = [o for o in bad if o not in skip and not known(o, a, b, play_start)]
+        bad = [o for o in bad if o not in skip and not known(o, a, b)]
         if bad:
             hooks = (struct.unpack_from("<H", a, DRAW_HOOK)[0], struct.unpack_from("<H", a, TICK_HOOK)[0])
             return Result(False, tick, frame, where, bad,
@@ -564,6 +547,8 @@ def run_lockstep(lib, script: Script, ticks: int, seed: int, machine: str = "vga
             if tick >= ticks:
                 return None
             tick += 1
+            if sound:
+                sound.before_tick(orig, port, tick)
             for off, value in script.pokes.get(tick, ()):
                 orig.poke(off, value)
                 port.poke(off, value)
@@ -573,6 +558,8 @@ def run_lockstep(lib, script: Script, ticks: int, seed: int, machine: str = "vga
             orig.tick()
             port.tick()
             bad = check("tick")
+            if not bad and sound:
+                bad = sound.check(orig, port, tick, frame, "tick")
             if bad:
                 return bad
         return None
@@ -586,9 +573,13 @@ def run_lockstep(lib, script: Script, ticks: int, seed: int, machine: str = "vga
             r = run_ticks(clock.frame_ticks())
             if r:
                 return r
+            if sound:
+                sound.before_frame(orig, port, tick, clock.tick_phase())
             orig.frame()
             port.frame()
             r = check("frame")
+            if not r and sound:
+                r = sound.check(orig, port, tick, frame, "frame")
             if r:
                 return r
             if on_frame:
