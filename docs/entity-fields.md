@@ -109,7 +109,7 @@ Further think handlers that no init sets directly:
 | view | +08 | +0a | written by | read by |
 |------|-----|-----|-----------|---------|
 | default (`vx`, `vy`) | velocity x | velocity y | everywhere | `entity_move_bounce`, think 0d/0f/14/19/1a/1b/1c, shots (`fire_back`, hit 01/06/07/0d) |
-| snake head (think 1d) | `trail_slot`: next `snake_trail` slot 0..63 | `spawn`: byte counter (lo period, hi left), one segment step | `enemy_init_10` | `think_1d` (think_snake.c) |
+| snake head (think 1d) | `next_trail_slot`: the `snake_trail` slot written next (then + 1, & 63) | `spawn`: byte counter (lo period, hi left), one segment step | `enemy_init_10` | `think_1d` (think_snake.c) |
 | walker (think 23) | `fire`: byte counter | - | `enemy_init_19` | `think_23` |
 | growth (think 1f/28) | `sprite_base`: the facing sprites (vx = `e->sprite` at init) | - | `init_segment`, `ent_hit_0e` | `think_1f` |
 | gun (think 2a) | `child_v.x` | `child_v.y`: the velocity its child is fired with | `init_edge_runner` | `think_2a` |
@@ -129,7 +129,7 @@ Notation:
 | off | name | meaning |
 |-----|------|---------|
 | +14 | `turn_timer` (05) / `trail_lag` (06) | 05: ticks to the next random turn. 06: byte offset (8 per entry) behind its ship's newest trail point |
-| +16 | `facing` | 05: sprite offset of the walking direction (`wander_sprite[]`, 0 or 6) |
+| +16 | `facing` | 05: sprite offset of the direction: 0, 2, 4 or 6 (`wander_sprite[]` while wandering, 0 / 6 while walking to its ship) |
 | +18 | `claimed` (= `hp`) | 0 = free; herders and hunters claim a llama by setting 1 |
 | +1e | `ship` (06) | which ship's trail it follows (FOLLOW_P1/P2; the original stores the trail's DS address) |
 | +30 | `sprite_base` | the llama's sprites; the egg (`enemy_setup_00`) stores `spawn_sprite` here and the llama keeps it |
@@ -187,7 +187,7 @@ The +24 and +2e words, per think:
 | 10 (shots 05..07) | `sprite_base` (4-frame animation) | - |
 | 11 / 12 (beams 08/09) | `beam`: byte counter, beam on while the high byte != 0 | `pause`: byte counter between beams |
 | 13 (type 0a) | `drop`: byte counter between projectiles | `drops_left` |
-| 1d (snake head) | `egg_hits`: byte counter, hits per segment turned into an egg (`ent_hit_08`) | - |
+| 1d (snake head) | `egg_hits`: byte counter, hits per segment turned into an egg (`ent_hit_08`). The head's frame comes from the sign of `(int16_t)velocity_x.frac` (+14), as the original tests it; do not turn that into `.whole` | - |
 | 1f / 28 (types 11..14, 1f) | `flash_frames`: counts down while >= 0 (hit 0a sets 0x14) | `hits_left` (`ent_hit_0a`); on a segment the segment family (`tuning.segment_family`) |
 | 23 (type 19) | `hits`: byte counter, high byte = hits left (`ent_hit_0c`) | - |
 | 2a (types 22..25) | `hits_left`: word (`ent_hit_0f`) | `fire`: byte counter between children |
@@ -397,7 +397,7 @@ typedef struct Entity {
     int16_t x, y, anim;
     union {                                                     /* +08 */
         struct { int16_t vx, vy; };
-        struct { int16_t trail_slot; ByteCounter spawn; } snake_head;
+        struct { int16_t next_trail_slot; ByteCounter spawn; } snake_head;
         struct { ByteCounter fire; int16_t unused_0a; } walker;
         struct { int16_t sprite_base; int16_t unused_0a; } growth;
         Point16 child_velocity;                                 /* think 2a */
@@ -464,11 +464,16 @@ e->llama.sprite_base;
 ### 7.3 Word access
 
 attract.c `entity_record_word_set` and the adapter write records by word number on purpose:
-one reproduces the original's overrun, the other is a memory map. The raw members
-(`raw_motion.words[2]`, `raw.words[16]`, plus the fixed fields by name) keep that honest without
-a 30-case switch. `offsetof` asserts cover them too (`raw_motion` at +08, size 4; `raw` at +12,
-size 32), so a drifted union fails the build, not the adapter's round-trip test. It is allowed only in attract.c and tests/adapters. The
-source guard (`cmake/tests/NoDsOffsets.cmake`) can be extended to flag `.raw.` elsewhere.
+one reproduces the original's overrun, the other is a memory map.
+- The adapter maps the raw members (`raw_motion.words[2]`, `raw.words[16]`) and the fixed fields
+  by name (Sentinel).
+- attract.c uses `EntityWords` (Moss), a union of `Entity` and `uint16_t words[32]`, defined in
+  entity_layout.h after Entity with a size assert. C11 union punning makes it one loop, without
+  a 30-case switch.
+- `offsetof` asserts cover the raw members (`raw_motion` at +08, size 4; `raw` at +12, size 32),
+  so a drifted union fails the build, not the adapter's round-trip test.
+- The source guard (`cmake/tests/NoDsOffsets.cmake`) fails on `raw.words`, `raw_motion.words`
+  and `EntityWords` anywhere in src/game except their definitions and attract.c.
 
 ### 7.4 sprite_ref
 
@@ -516,10 +521,14 @@ this change, but it touches the same field.
 - **Thorn**: agreed (§5.5, 5.10, 5.12..5.14 checked against the listing; one HomingView with
   per-think unions; the +08 views). He converts enemy_init.c, spawn.c, hit.c, kill_actions.c,
   pickups.c, think_w5a.c and bullets.c.
-- **Moss** (main user): the view split and the names of §5. In particular:
-  - one `HomingView` with per-think unions at +24/+2e, rather than one view per think;
-  - the +08 views;
-  - who converts which file.
+- **Moss**: agreed.
+  - One HomingView, since `entity_homing_move` touches only the shared prefix.
+  - The +08 views, with `next_trail_slot`.
+  - The facing values and the snake head's frame test, noted in §5.1 / §5.5.
+  - `EntityWords` for attract.c (§7.3).
+  - He converts think_llamas, think_spawners, think_herders, think_homing, think_chasers,
+    think_snake, think_orbiters, think_chargers, think_basic, movement.c and attract.c.
+  - ent_hit_08's egg_hits is Thorn's (hit.c).
 - **Sentinel** (adapter): agreed. Keep the field-by-field map through the general names for
   now. When the aux names are scheduled to go, Sentinel switches to `raw_motion.words[]` /
   `raw.words[]` in the same series, with `test_dgroup_map` and the golden replays as the net.
