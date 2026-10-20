@@ -45,6 +45,9 @@ if(DEFINED LLAMATRON_ORIGINAL_DIR AND NOT LLAMATRON_ORIGINAL_DIR STREQUAL "")
 else()
   set(_original_dir "${LLAMATRON_REPO_DIR}/original")
 endif()
+# Every harness test reads the original files from the configured folder (their own default,
+# <repo>/original, is wrong for a clone that keeps them elsewhere).
+list(APPEND _harness_env "LLAMATRON_ORIGINAL_DIR=${_original_dir}")
 if(NOT LLAMATRON_DOSBOX_TESTS)
   message(STATUS "DOSBox-X tests off (enable with -DLLAMATRON_DOSBOX_TESTS=ON)")
 elseif(LLAMATRON_DOSBOX_X AND LLAMATRON_PYTHON3 AND EXISTS "${_original_dir}/llama.exe")
@@ -97,7 +100,7 @@ foreach(_test IN LISTS _dosbox_tests)
     set(_timeout 2400)
   endif()
   set_tests_properties(dosbox.${_name} PROPERTIES
-    ENVIRONMENT "${_harness_env};LLAMATRON_ORIGINAL_DIR=${_original_dir};LLAMATRON_DOSBOX_WORKDIR=${CMAKE_CURRENT_BINARY_DIR}/dosbox"
+    ENVIRONMENT "${_harness_env};LLAMATRON_DOSBOX_WORKDIR=${CMAKE_CURRENT_BINARY_DIR}/dosbox"
     LABELS "dosbox" TIMEOUT ${_timeout}
     SKIP_REGULAR_EXPRESSION "\n[0-9]+ skipped in ")
 endforeach()
@@ -111,7 +114,7 @@ if(LLAMATRON_DOSBOX_TESTS)
                    "${CMAKE_CURRENT_SOURCE_DIR}/dosbox/test_reference_golden.py"
            WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")
   set_tests_properties(dosbox.reference_golden_long PROPERTIES
-    ENVIRONMENT "${_harness_env};LLAMATRON_ORIGINAL_DIR=${_original_dir};LLAMATRON_DOSBOX_WORKDIR=${CMAKE_CURRENT_BINARY_DIR}/dosbox-long;LLAMATRON_GOLDEN_SET=long"
+    ENVIRONMENT "${_harness_env};LLAMATRON_DOSBOX_WORKDIR=${CMAKE_CURRENT_BINARY_DIR}/dosbox-long;LLAMATRON_GOLDEN_SET=long"
     LABELS "dosbox;dosbox_long" TIMEOUT 2400
     SKIP_REGULAR_EXPRESSION "\n[0-9]+ skipped in ")
 endif()
