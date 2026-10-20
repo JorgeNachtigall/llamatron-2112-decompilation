@@ -4,7 +4,7 @@
  *
  * A llama is rescued by flying over it: it scores, may arm a pickup and becomes a follower
  * placed follower_lag entries further back on the rescuing ship's trail (game->trail).
- * Herders (think_0e) and hunters claim a llama by setting its hp to 1.
+ * Herders (think_0e) and hunters claim a llama (llama.claimed) so that no other goes for it.
  */
 #include "entities.h"
 #include "game_data.h"
@@ -26,7 +26,14 @@ enum {
     HUNTER_STEP = 3,
     CAUGHT_SPRITE = 0x33, CAUGHT_TICKS = 0x14,
     QUARRY_NONE = -2,                   /* herder_claim_llama found none: go to the companion */
+    RESCUE_BONUS_RATE = 0x50,           /* level_flags after a rescue, before the halvings */
 };
+
+/* Sprite offsets of the four walking directions in a walker's sprite set. */
+enum { FACE_LEFT = 0, FACE_UP = 2, FACE_DOWN = 4, FACE_RIGHT = 6 };
+
+/* score_add digit places (0 = ten millions .. 7 = units). */
+enum { PLACE_THOUSANDS = 4, PLACE_HUNDREDS = 5, PLACE_TENS = 6 };
 
 /* Pickup kinds a rescue arms (Player.pickup_pending = kind + 1). */
 enum {
@@ -36,8 +43,8 @@ enum {
     PENDING_LAST_RESCUE_2P_ALT = 8,
 };
 
-/* Which ship's trail a follower walks (llama.ship, the kill-action word; followers are never
- * solid, so no kill action runs for them). The original stores the trail's DS address there. */
+/* Which ship's trail a follower walks (llama.ship). The original stores the trail's address
+ * there; followers are never solid, so the field's other use (the kill action) never runs. */
 enum { FOLLOW_P1 = 0, FOLLOW_P2 = 1 };
 
 static const SoundRequest SOUND_LAST_RESCUE = { SAMPLE_ID_ALERT, 1, 6 };   /* 1000:4ce3 */
@@ -69,10 +76,11 @@ static bool ship_over(const Point16 *ship, const Entity *e)
 }
 
 /* The wave's bonus rate for rescues: halved in double-controller mode, and once more per loop
- * through the levels (the shift count is taken mod 32, as the 286+ SAR does). */
+ * through the levels (DEVIATIONS #13: the halvings are counted mod 32). */
 static int16_t rescue_level_flags(const GameState *game)
 {
-    int16_t base = (game->options & OPT_DOUBLE_CONTROLLER) ? 0x28 : 0x50;
+    int16_t base = (game->options & OPT_DOUBLE_CONTROLLER) ? RESCUE_BONUS_RATE / 2
+                                                           : RESCUE_BONUS_RATE;
     return (int16_t)(base >> (game->loop_count & 0x1f));
 }
 
@@ -84,11 +92,13 @@ static void llama_follow(GameState *game, Entity *e, int player)
     if (game->rescue_marker_pending)
         game->rescue_marker_y[player] = wrap16(game->ship[player].y - RESCUE_MARKER_ABOVE);
     game->follower_lag[player] = wrap16(game->follower_lag[player] + FOLLOWER_SPACING);
-    e->llama.trail_lag = wrap16(game->follower_lag[player] * 8);  /* the original's trail byte offset */
+    e->llama.trail_lag = wrap16(game->follower_lag[player] * (int)sizeof(TrailPoint));
     e->llama.ship = player == 1 ? FOLLOW_P2 : FOLLOW_P1;
 }
 
-/* game86 1000:4ca3..4df2 */
+/* A ship flew over the llama: it may arm a pickup (always for the wave's last llama, which
+ * also scores 1,000), scores 500 (250 for P2 with two controllers) and becomes a follower of
+ * the rescuing ship with a "rescued" sprite over it for a while. game86 1000:4ca3..4df2 */
 static void llama_rescue(GameState *game, Entity *e, unsigned touched)
 {
     bool two_players = game->options & OPT_TWO_PLAYERS;
@@ -102,18 +112,18 @@ static void llama_rescue(GameState *game, Entity *e, unsigned touched)
                 game->player.pickup_pending = PENDING_LAST_RESCUE_2P_ALT;
         }
         play(SOUND_LAST_RESCUE);
-        score_add(game, 4, 1);
+        score_add(game, PLACE_THOUSANDS, 1);
         game->rescue_marker_pending = true;
     }
 
     if (two_players && (touched & TOUCH_P2)) {
         llama_follow(game, e, 1);
         if (game->options & OPT_DOUBLE_CONTROLLER)
-            score_add(game, 6, 0x19);
+            score_add(game, PLACE_TENS, 25);
         else
-            score_add(game, 5, 5);
+            score_add(game, PLACE_HUNDREDS, 5);
     } else {
-        score_add(game, 5, 5);
+        score_add(game, PLACE_HUNDREDS, 5);
         game->level_flags = rescue_level_flags(game);
         llama_follow(game, e, 0);
     }
@@ -156,7 +166,7 @@ void think_05(GameState *game, Entity *e)
     } else {
         bool right = wrap16(e->x - game->target.x) < 0;
         e->vx = right ? 1 : -1;
-        e->llama.facing = right ? 6 : 0;
+        e->llama.facing = right ? FACE_RIGHT : FACE_LEFT;
         e->vy = wrap16(e->y - game->target.y) < 0 ? 1 : -1;
     }
     if ((game->tick_count & 1) == 0)
@@ -167,17 +177,18 @@ void think_05(GameState *game, Entity *e)
 
 /* ---- think_06 ------------------------------------------------------------------------- */
 
-/* Rescued llama: sits `trail_lag` bytes (8 per entry) behind the newest point of its ship's trail
- * and takes the direction sprite stored there. game86 1000:4bfb */
+/* Rescued llama: sits llama.trail_lag (in trail bytes) behind the newest point of its
+ * ship's trail and faces the way the ship went there. game86 1000:4bfb */
 void think_06(GameState *game, Entity *e)
 {
     int player = e->llama.ship == FOLLOW_P2 ? 1 : 0;
-    unsigned index = ((unsigned)(uint16_t)(game->trail_head[player] * 8 - e->llama.trail_lag) & 0x3f8) / 8;
-    const TrailPoint *point = &game->trail[player][index];
+    uint16_t offset = (uint16_t)(game->trail_head[player] * sizeof(TrailPoint)
+                                 - (uint16_t)e->llama.trail_lag);
+    const TrailPoint *point = &game->trail[player][offset / sizeof(TrailPoint) % TRAIL_LENGTH];
     e->x = point->x;
     e->y = point->y;
     int16_t direction = point->flag;
-    bool horizontal = direction == 0 || direction == 6;
+    bool horizontal = direction == FACE_LEFT || direction == FACE_RIGHT;
     e->sprite = wrap16(direction + step_frame(horizontal ? e->x : e->y) + e->llama.sprite_base);
 }
 
@@ -215,9 +226,9 @@ void think_08(GameState *game, Entity *e)
 
     int16_t frame;
     if (magnitude16(e->vy) > magnitude16(e->vx))
-        frame = (int16_t)((e->vy >= 0 ? 4 : 2) + step_frame(e->y));
+        frame = (int16_t)((e->vy >= 0 ? FACE_DOWN : FACE_UP) + step_frame(e->y));
     else
-        frame = (int16_t)((e->vx >= 0 ? 6 : 0) + step_frame(e->x));
+        frame = (int16_t)((e->vx >= 0 ? FACE_RIGHT : FACE_LEFT) + step_frame(e->x));
     if (e->hunter.hit_frames != 0) {
         e->hunter.hit_frames--;
         frame += HUNTER_FLASH_OFFSET;
