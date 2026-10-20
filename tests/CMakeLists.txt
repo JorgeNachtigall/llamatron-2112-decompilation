@@ -10,6 +10,12 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
   project(llamatron_tests NONE)
   enable_testing()
 endif()
+# The harness (unicorn, DOSBox-X, the ctypes testlib) runs on the build host only: a cross
+# build (the web preset) registers none of it, rather than every oracle test as skipped.
+if(CMAKE_CROSSCOMPILING OR EMSCRIPTEN)
+  message(STATUS "Oracle and DOSBox-X tests: native builds only, none registered here")
+  return()
+endif()
 
 get_filename_component(LLAMATRON_REPO_DIR "${CMAKE_CURRENT_SOURCE_DIR}/.." ABSOLUTE)
 set(LLAMATRON_HARNESS_DIR "${LLAMATRON_REPO_DIR}/tools/harness")
