@@ -18,31 +18,70 @@ set(_extract_src "${PROJECT_SOURCE_DIR}/tools/extract")
 set(_host_dir "${CMAKE_BINARY_DIR}/host-tools")
 set(_host_bin "${_host_dir}/bin")
 
-if(NOT LLAMATRON_ORIGINAL_DIR)
-    message(FATAL_ERROR
-        "LLAMATRON_ORIGINAL_DIR is not set. Point it at your own copy of Llamatron 2112:\n"
-        "  cmake --preset macos-native -DLLAMATRON_ORIGINAL_DIR=/path/to/llamatron")
-endif()
-get_filename_component(LLAMATRON_ORIGINAL_DIR "${LLAMATRON_ORIGINAL_DIR}" ABSOLUTE)
-if(NOT IS_DIRECTORY "${LLAMATRON_ORIGINAL_DIR}")
-    message(FATAL_ERROR "LLAMATRON_ORIGINAL_DIR=${LLAMATRON_ORIGINAL_DIR} is not a directory.")
-endif()
-
-# Original files listed in the manifest, matched as written or in upper case like the extractor.
+# The original files the manifest lists: required (verified) and optional ones.
 file(READ "${LLAMATRON_MANIFEST}" _manifest_json)
 string(JSON _file_count LENGTH "${_manifest_json}" files)
 math(EXPR _last "${_file_count} - 1")
-set(LLAMATRON_ORIGINAL_FILES "")
+set(_required_names "")
+set(_optional_names "")
 foreach(_i RANGE ${_last})
     string(JSON _name GET "${_manifest_json}" files ${_i} name)
+    string(JSON _verify ERROR_VARIABLE _no_verify GET "${_manifest_json}" files ${_i} verify)
+    if(_no_verify OR _verify)
+        list(APPEND _required_names "${_name}")
+    else()
+        list(APPEND _optional_names "${_name}")
+    endif()
+endforeach()
+
+# Stops the configure with what a new user needs to know: which files, and the two ways to
+# hand them over.
+function(_llamatron_need_originals problem)
+    list(JOIN _required_names " " _required)
+    list(JOIN _optional_names " " _optional)
+    message(FATAL_ERROR
+        "${problem}\n"
+        "The build reads your own copy of Llamatron 2112 (MS-DOS, 1992); none of its files are in "
+        "this repository. It needs (tools/manifest/original-files.json, any letter case):\n"
+        "  ${_required}\n"
+        "and uses these when present: ${_optional}\n"
+        "Either copy them into ${PROJECT_SOURCE_DIR}/original (the presets' default), or point "
+        "the build at the folder that holds them:\n"
+        "  cmake --preset macos-native -DLLAMATRON_ORIGINAL_DIR=/path/to/llamatron\n"
+        "  emcmake cmake --preset web-emscripten -DLLAMATRON_ORIGINAL_DIR=/path/to/llamatron")
+endfunction()
+
+if(NOT LLAMATRON_ORIGINAL_DIR)
+    _llamatron_need_originals("LLAMATRON_ORIGINAL_DIR is not set.")
+endif()
+get_filename_component(LLAMATRON_ORIGINAL_DIR "${LLAMATRON_ORIGINAL_DIR}" ABSOLUTE)
+if(NOT IS_DIRECTORY "${LLAMATRON_ORIGINAL_DIR}")
+    _llamatron_need_originals("LLAMATRON_ORIGINAL_DIR=${LLAMATRON_ORIGINAL_DIR} is not a directory.")
+endif()
+
+# Original files listed in the manifest, matched as written or in upper case like the extractor.
+set(LLAMATRON_ORIGINAL_FILES "")
+set(_missing "")
+foreach(_name IN LISTS _required_names _optional_names)
     string(TOUPPER "${_name}" _upper)
+    set(_found "")
     foreach(_candidate "${_name}" "${_upper}")
         if(EXISTS "${LLAMATRON_ORIGINAL_DIR}/${_candidate}")
-            list(APPEND LLAMATRON_ORIGINAL_FILES "${LLAMATRON_ORIGINAL_DIR}/${_candidate}")
+            set(_found "${LLAMATRON_ORIGINAL_DIR}/${_candidate}")
             break()
         endif()
     endforeach()
+    if(_found)
+        list(APPEND LLAMATRON_ORIGINAL_FILES "${_found}")
+    elseif(_name IN_LIST _required_names)
+        list(APPEND _missing "${_name}")
+    endif()
 endforeach()
+if(_missing AND NOT LLAMATRON_ALLOW_UNVERIFIED)
+    list(JOIN _missing " " _missing_text)
+    _llamatron_need_originals(
+        "LLAMATRON_ORIGINAL_DIR=${LLAMATRON_ORIGINAL_DIR} lacks: ${_missing_text}")
+endif()
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${LLAMATRON_MANIFEST}")
 
 # --- host build of the extractor -------------------------------------------------------------
