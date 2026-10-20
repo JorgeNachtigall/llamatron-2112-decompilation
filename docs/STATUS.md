@@ -2,13 +2,16 @@
 
 Where the port stands against the milestones in `docs/PLAN.md` §6.
 
-**What was checked, and how** (2026-10-19):
-- I built commit `911295c` from a clean export (`git archive`) and ran:
-  - the 99 native tests outside the DOSBox label: 99 passed;
-  - the DOSBox-X reference runs: 35 passed, 1 skipped (the skipped one has no VRAM capture to compare).
-- The web tests were last run on `1fa2f75`: 34 of 34 passed.
+**What was checked, and how** (2026-10-20):
+- I built commit `61fc59e` from a clean export (`git archive`) and ran:
+  - the 100 native tests outside the DOSBox label: 100 passed;
+  - the macOS app workflow (`cmake --workflow --preset macos-app`): 4 of 4 passed;
+  - all 35 web tests (Emscripten build, headless Chrome): 35 passed;
+  - the DOSBox-X reference runs: 35 passed, 1 skipped (the skipped one has no VRAM capture to compare);
+  - the whole-game lockstep sample (`tests/oracle/lockstep_check.py --sample`): 12 of 12 match.
+- On `af88aab` I also ran the 100-level lockstep sweep with pages (1500 ticks per level): 99 of 100 match (M6).
 - Anything else below is quoted from a commit message and marked *(unverified)*.
-- Commits after `911295c` have not been run here.
+- Commits after `61fc59e` have not been run here.
 
 Words used below:
 - **diff-tested**: the port's function is run side by side with the original machine code on the same inputs, and the results must match.
@@ -24,8 +27,8 @@ Words used below:
 | M3 State machine, scripts, player, first waves | done |
 | M4 All enemies, all 100 levels, game over, hi-scores | done |
 | M5 Sound | done |
-| M6 Reference runs against the original | in progress: all 12 recorded runs reproduce; the port matches 10 of them, 2 warped-level runs have open differences |
-| M7 Polish | mostly done: the macOS app bundle is not self-contained yet |
+| M6 Reference runs against the original | done: all 12 recorded runs reproduce; the port matches them apart from timing and 5 explained, pinned differences in level_50 and level_99; the lockstep sample matches 12 of 12 |
+| M7 Polish | done |
 
 ## M0: repo skeleton, extraction, symbols: done
 - The extractor verifies the original files by hash, and its unpacker matches the Python reference tools byte for byte. Tests: `extract_verify`, `extract_verify_rejects_mismatch`, `unpack_matches_python_{game86,fs,llama,install}`.
@@ -44,13 +47,13 @@ Words used below:
 ## M3: game core: done
 - The state machine, level scripts, player, shots and waves are diff-tested: `oracle.script`, `oracle.player`, `oracle.shots`, `oracle.wave_core`, `oracle.wave_screens`, `oracle.movement`, `oracle.rng`, `oracle.score`, `oracle.pause`, `oracle.continue`.
 - The real executable starts a game: `llamatron_to_game`, `llamatron_title_phase`, `llamatron_visual_walk_vga`.
-- `tests/oracle/whole_game.py` runs the whole game86 and the port in lockstep. By its commit messages, the 7 golden scenarios match on every tick and level 10 matches for 1500 ticks *(unverified: not run here)*.
+- `tests/oracle/whole_game.py` runs the whole game86 (in unicorn) and the port in lockstep, comparing game state and drawn pages after every tick and frame. Results are in M6.
 
 ## M4: all enemies and levels: done
-- game86 has 381 rows in funcmap: 364 diff-tested, 15 ported, 2 marked todo. The 2 todo rows are:
-  - `sprite_draw_all_pages` (`424c`): dead code;
-  - `mem_shrink` (`e788`): DOS memory, not ported on purpose.
-- The 15 ported rows are start-up, video mode, interrupt and wait routines, plus `main` (`0010`), whose parts are diff-tested and which the whole-game oracle runs.
+- game86 has 381 rows in funcmap: 364 diff-tested, 6 run-verified, 6 ported, 5 n/a, none todo.
+  - n/a means the port has no counterpart, and the notes give the reason. For game86 that is three dead routines (`424c`, `5994`, `5eae`) and two pieces of DOS/BIOS glue (`e605` kbd_flush, `e788` mem_shrink).
+  - The 6 run-verified rows are `main` (`0010`), `wave_run` (`0455`), `video_init` (`5960`), `screen_reveal_bg` (`61ff`), `wait_vsync` (`e5f3`) and `frame_run` (`1e7b:013f`). Each is checked by the whole-game runs (M6).
+- The other programs: fs.exe has 16 diff-tested, 6 ported and 2 n/a; llama.exe has 1 diff-tested, 2 ported and 12 n/a; install.exe has 1 diff-tested and 14 n/a. The n/a rows are the launcher's DOS and sound-card code and the installer's text UI.
 - All 41 enemy init handlers and all 46 per-tick (think) handlers are diff-tested: `oracle.enemy_init`, `oracle.think_basic`, `oracle.think_herders`, `oracle.think_llamas`, `oracle.think_orbiters`, `oracle.think_w5a`, `oracle.w5a_types`, `oracle.hit`, `oracle.pickups`, `oracle.anim`, `oracle.entity_animate`, `oracle.entity_loop`, `oracle.spawn_clobber`.
 - `oracle.level_sweep` plays each of the 100 levels for 3000-5000 ticks and checks that every live entity uses ported code and stays drawable. All 100 pass.
 - Game over and hi-scores: `oracle.game_over`, `oracle.hiscore`, `oracle.hiscore_save`. The scores file survives a restart: `llamatron_scores_{reset,low,play,reload}`.
@@ -60,37 +63,45 @@ Words used below:
 - Web: `web_game_sound` and `web_smoke_title_sound` pass.
 - `web_game_sound` fails on the commits from `3a35a42` to `9f47591`. Its expected value was taken from a working tree that already held the change later committed as `379b7ab`, so it matches from `379b7ab` on (Lantern).
 
-## M6: reference runs: in progress
+## M6: reference runs: done
 The original game ran in DOSBox-X for 12 scripted sessions, and the port replayed the same inputs:
 
 | Run | Original matches its recorded hashes | Port replay |
 |---|---|---|
 | attract, walk_vga, walk_ega, warp, death_continue, game_over_hiscore, two_player | yes | identical on every compared tick, apart from known one-tick timing shifts (DEVIATIONS #20) |
-| level_10, level_25, level_75 | yes | identical apart from timing |
-| level_50 | yes | differs from tick 1150: the port kills entity 2, which is still alive in the original (Keel, open) |
-| level_99 | yes | differs from tick 700: an entity's overlay frame count, 12 in the original (Prism and Keel, open) |
+| level_10, level_25, level_75, level_99 | yes | identical apart from timing and the pinned rows below |
+| level_50 | yes | differs from tick 1150, explained and pinned (below) |
 
-- The 7 original runs: the earlier differences (the continue a tick late, the two-player start, the warp positions, the title llamas' leftovers) are gone since Keel's `379b7ab` and `7b4ed95`.
-- The 5 warped-level runs are new in `1fa2f75` (Sentinel and Prism). On `1fa2f75`, level_10's and level_50's recorded hashes did not reproduce here. The cause was the blitter's mode bytes DS:39D9..39DD: they are left over from the last draw call, so their value depends on where in the frame the snapshot was taken. Since `911295c` the hash leaves them out, as it already did for the page bookkeeping at 39D3..39D8 (Sentinel).
-- The differences that are still open are listed in `tests/dosbox/test_reference_golden.py` (TRIAGE).
+- The test pins each explained difference exactly (`EXPECTED` in `tests/dosbox/test_reference_golden.py`), so a new difference still fails it:
+  - level_50 at 1150: the port kills an entity because of its one-tick lag after a respawn (DEVIATIONS #20). In lockstep, where both sides follow one schedule, level_50 matches for all 3010 ticks.
+  - level_99 at 700 and 2800: a rescued llama's overlay frame count, one frame apart (frame phase, DEVIATIONS #24).
+  - level_99 at 2250 and 2400: the follower trail read past P2's ring (DEVIATIONS #14).
+- Since `911295c` the snapshot hash leaves out the blitter's mode bytes DS:39D9..39DD, as it already did the page bookkeeping at 39D3..39D8. They are left over from the last draw call, so they depend on where in the frame the snapshot was taken (Sentinel).
+- Whole-game lockstep (`tests/oracle/`, game86 in unicorn against the port, game state and drawn pages after every tick and frame):
+  - `lockstep_check.py --sample` (10 levels for 1500 ticks, plus a two-player and an EGA warp; about 5 minutes; ctest `oracle_long.lockstep_sample` with `-DLLAMATRON_ORACLE_LONG=ON`): 12 of 12 match on `61fc59e`.
+  - `whole_game.py sweep --levels 0-99 --ticks 1500 --pages` on `af88aab`: 99 of 100 match. Level 99 differs at tick 1408, in `chain_tail` (DEVIATIONS #14), as Prism found.
+  - `lockstep_check.py --all` (all 100 levels for 3000 ticks, about 3.5 hours): 100 of 100 by Thorn on 2026-10-20 *(unverified: not run here)*.
 - Native and web parity: `web_llamatron_parity` passes.
 
-## M7: polish: mostly done
-- Done:
-  - options screen (F2 on the title): `options_selftest`, `llamatron_options_*`;
-  - display scaling and full screen: `web_display_{hidpi,integer,sharp}`;
-  - gamepads: `controls_selftest`;
-  - pause: `oracle.pause`. Quit is implemented but has no test of its own.
-- Every deliberate difference from the original is listed in `docs/DEVIATIONS.md`. It has 26 rows, audited against the original code this week. Every row whose exact case can be reached has a test:
+## M7: polish: done
+- Options screen (F2 on the title): `options_selftest`, `llamatron_options_*`.
+- Display scaling and full screen: `web_display_{hidpi,integer,sharp}`.
+- Gamepads: `controls_selftest`.
+- Pause: `oracle.pause`. Quit is implemented but has no test of its own.
+- The macOS app is self-contained: SDL is bundled and ad-hoc signed (`554d3c2`, `b152db0`). `macos_app_self_contained` and `macos_app_bundled_sdl` pass, and the icon is drawn from the title picture at build time (`app_icon_from_title`).
+- How to play: `docs/PLAYING.md`. How to build: `README.md`.
+- Entity records use named per-kind views instead of raw offsets (`docs/entity-fields.md`; Moss and Thorn), and the tests above pass on that code. Forge's shrinking of the remaining spare fields is still pending.
+- Every deliberate difference from the original is listed in `docs/DEVIATIONS.md` (26 rows, audited against the original code). Every row whose exact case can be reached has a test:
   - #1 and #2 in `assets_game_data_*`;
   - #8, #9 and #19 in `oracle.w5a_deviations`;
-  - #26 in `oracle.attract` (`test_attract_end`).
+  - #26 in `oracle.attract` (`test_attract_end`);
+  - #14, #20 and #24 in the reference runs' `EXPECTED` rows.
 - #10 was withdrawn in `3eb91f7`. The value it was about is zeroed at 1000:04ef before anything reads it, so the port behaves the same.
-- Open: the macOS app still needs Homebrew's SDL2 (`src/platform/README.md`, TODO).
 
 ## How to verify
 ```sh
-# native build and all tests (needs your copy of the original game in original/)
+# native build and all tests (needs your copy of the original game in original/; README.md)
+sh tools/harness/setup_venv.sh
 cmake --preset macos-native -DLLAMATRON_ORIGINAL_DIR=$PWD/original
 cmake --build build
 ctest --test-dir build -j8
@@ -104,5 +115,11 @@ ctest --test-dir build-web -j1
 # the DOSBox-X reference runs (slow, about 10 minutes; needs dosbox-x and nasm)
 LLAMATRON_REPLAY=$PWD/build/tests/llamatron_replay \
   tools/harness/.venv/bin/python -m pytest -s tests/dosbox/test_reference_golden.py
+
+# the macOS app (game files in original/)
+cmake --workflow --preset macos-app
+
+# whole-game lockstep, from tests/ (about 5 minutes; --all is about 3.5 hours)
+../tools/harness/.venv/bin/python oracle/lockstep_check.py --sample
 ```
 With `-s`, the reference test prints a per-run report: which game variables differ, from which tick, and who is on it.
