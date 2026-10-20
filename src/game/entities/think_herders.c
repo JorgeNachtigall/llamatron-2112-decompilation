@@ -1,12 +1,11 @@
 /*
  * think_herders.c - herders (think_0e and the variants 15, 16 built on it): they walk to a
  * llama still waiting to be rescued (think_05, see think_llamas.c), turn it into something
- * according to their sub-mode, then return to the companion and pick the next llama.
+ * according to their mode, then return to the companion and pick the next llama.
  *
- * Record use: timer = slot index of the llama being fetched, HERDER_SEEK = pick one,
- * HERDER_RETURN = walk back to the companion; aux1a = step period/countdown byte pair;
- * aux1c = sprite base (8 directions x 2 frames); sub_mode = what happens to the llama.
- * A llama is claimed by setting its hp to 1. (game->unhatched counts the llamas left.)
+ * Record use: the herder view (entity_views.h). herder.target = slot index of the llama being
+ * fetched, HERDER_SEEK = pick one, HERDER_RETURN = walk back to the companion. A llama is
+ * claimed by setting llama.claimed to 1. (game->unhatched counts the llamas left.)
  */
 #include "entities.h"
 #include "sound.h"
@@ -39,12 +38,6 @@ static void play(SoundRequest s)
     game_sound_play(s.sample, s.rate_index, s.priority);
 }
 
-static uint8_t high_byte(int16_t w) { return (uint8_t)((uint16_t)w >> 8); }
-static uint8_t low_byte(int16_t w) { return (uint8_t)w; }
-static void set_high_byte(int16_t *w, uint8_t v)
-{
-    *w = (int16_t)(uint16_t)((uint16_t)v << 8 | low_byte(*w));
-}
 
 static int16_t magnitude16(int16_t v)
 {
@@ -54,7 +47,7 @@ static int16_t magnitude16(int16_t v)
 /* Claims the first unclaimed llama; the search gives up after game->unhatched llamas. The original
  * scans on past the table when there are fewer llamas than unhatched says; the port stops at
  * the table's end and returns as if all llamas were taken. Also think_08's search
- * (1000:498e). game86 1000:3a17 */
+ * (1000:498e): herder.target is the same word as hunter.quarry. game86 1000:3a17 */
 void herder_claim_llama(GameState *game, Entity *e)
 {
     int16_t llamas_left = game->unhatched;
@@ -63,16 +56,16 @@ void herder_claim_llama(GameState *game, Entity *e)
             Entity *llama = &game->entities[slot];
             if (llama->think != THINK_LLAMA)
                 continue;
-            if (llama->hp == 0) {
-                llama->hp = 1;
-                e->timer = (int16_t)slot;
+            if (llama->llama.claimed == 0) {
+                llama->llama.claimed = 1;
+                e->herder.target = (int16_t)slot;
                 return;
             }
             if (--llamas_left == 0)
                 break;
         }
     }
-    e->timer = HERDER_RETURN;
+    e->herder.target = HERDER_RETURN;
 }
 
 /* The direction it walks in picks one of 8 sprites, two frames each by position. */
@@ -83,14 +76,14 @@ static int16_t herder_sprite(const Entity *e)
         frame = (int16_t)((e->vy >= 0 ? 4 : 2) + ((e->y >> 2) & 1));
     else
         frame = (int16_t)((e->vx >= 0 ? 6 : 0) + ((e->x >> 2) & 1));
-    return (int16_t)(frame + e->aux1c);
+    return (int16_t)(frame + e->herder.sprite_base);
 }
 
 /* Done with a llama (or back at the companion): `marker` shows the "caught" sprite for a
  * while and the herder looks for the next one. game86 1000:3b70 */
 static void herder_drop(Entity *e, Entity *marker)
 {
-    e->timer = HERDER_SEEK;
+    e->herder.target = HERDER_SEEK;
     marker->sprite = CAUGHT_SPRITE;
     marker->timer = CAUGHT_TICKS;
     play(SOUND_CAUGHT);
@@ -108,7 +101,7 @@ static void llama_to_timer(GameState *game, Entity *e, Entity *llama)
 /* game86 1000:3aeb..3b62 */
 static void herder_handle_llama(GameState *game, Entity *e, Entity *llama)
 {
-    switch (e->sub_mode) {
+    switch (e->herder.mode) {
     case LLAMA_TO_TIMER:
         llama_to_timer(game, e, llama);
         break;
@@ -126,7 +119,7 @@ static void herder_handle_llama(GameState *game, Entity *e, Entity *llama)
         llama_to_timer(game, e, llama);
         break;
     default:    /* the original jumps through the code after its 4-entry table (CS:3AFF);
-                 * enemy_init_04 leaves sub_mode stale, see docs/DEVIATIONS.md #26 */
+                 * enemy_init_04 leaves herder.mode stale, see docs/DEVIATIONS.md #26 */
         break;
     }
 }
@@ -136,26 +129,24 @@ void think_0e(GameState *game, Entity *e)
 {
     if (game->wave_intro_timer != 0)
         return;
-    int8_t countdown = (int8_t)(high_byte(e->aux1a) - 1);
-    set_high_byte(&e->aux1a, (uint8_t)countdown);
-    if (countdown >= 0)
+    if ((int8_t)--e->herder.step.left >= 0)
         return;
-    set_high_byte(&e->aux1a, low_byte(e->aux1a));
+    e->herder.step.left = e->herder.step.period;
 
-    if (e->timer == HERDER_RETURN) {
+    if (e->herder.target == HERDER_RETURN) {
         game->companion.x = game->target.x;
         game->companion.y = game->target.y;
-    } else if (e->timer < 0) {
+    } else if (e->herder.target < 0) {
         herder_claim_llama(game, e);
         return;
     }
 
     e->sprite = herder_sprite(e);
     Entity *goal;
-    if (e->timer == HERDER_RETURN) {
+    if (e->herder.target == HERDER_RETURN) {
         goal = &game->companion;
     } else {
-        goal = e->timer < ENTITY_COUNT ? &game->entities[e->timer] : NULL;
+        goal = e->herder.target < ENTITY_COUNT ? &game->entities[e->herder.target] : NULL;
         if (!goal || goal->think != THINK_LLAMA) {
             herder_claim_llama(game, e);   /* the llama was rescued, caught or shot meanwhile */
             return;
@@ -168,7 +159,7 @@ void think_0e(GameState *game, Entity *e)
     int16_t dx = (int16_t)(uint16_t)(goal->x - e->x);
     int16_t dy = (int16_t)(uint16_t)(goal->y - e->y);
     if (magnitude16(dx) < ARRIVED_RANGE && magnitude16(dy) < ARRIVED_RANGE) {
-        if (e->timer == HERDER_RETURN)
+        if (e->herder.target == HERDER_RETURN)
             herder_drop(e, goal);
         else
             herder_handle_llama(game, e, goal);
@@ -197,8 +188,8 @@ void think_15(GameState *game, Entity *e)
  * slot is not taken from free_slots. game86 1000:23a7 */
 void think_16(GameState *game, Entity *e)
 {
-    if ((int8_t)--e->countdown < 0) {
-        e->countdown = e->reload;
+    if ((int8_t)--e->herder.spawn.left < 0) {
+        e->herder.spawn.left = e->herder.spawn.period;
         if (rng_next_byte(&game->rng) < SPAWN_CHANCE_16) {
             for (Entity *s = game->entities; s < game->entities + ENTITY_COUNT; s++) {
                 if (!entity_is_free(s))
