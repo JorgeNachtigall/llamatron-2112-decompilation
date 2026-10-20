@@ -76,7 +76,7 @@ void enemy_shot_init(GameState *game, Entity *shot, const Entity *from, const En
 {
     shot->death_sample = SAMPLE_ID_SHOT_DEATH;
     shot->death_rate = 0;
-    shot->anim = 0x0d;
+    shot->anim = ANIM_PLAIN;
     shot->scale = 2;
     shot->solid = 1;
     shot->sprite = tmpl->sprite;
@@ -135,7 +135,7 @@ void entity_init_child(GameState *game, Entity *child, const Entity *parent, int
     child->y = parent->y;
     game->enemies_alive++;
     game->free_slots--;
-    child->anim = 0x0d;
+    child->anim = ANIM_PLAIN;
     child->sprite = sprite;
     child->vx = vx;
     child->vy = vy;
@@ -195,7 +195,7 @@ Entity *entity_spawn_debris(GameState *game, const Entity *at)
     d->death_sample = SAMPLE_ID_ENEMY_DEATH;
     d->death_rate = 0;
     d->hit_handler = 0;
-    d->anim = 0x0d;
+    d->anim = ANIM_PLAIN;
     d->overlay.x = 0;
     d->kind = -1;
     return d;

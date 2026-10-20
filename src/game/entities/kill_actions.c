@@ -52,7 +52,7 @@ static int spawn_debris_group(GameState *game, const Entity *e, int first, int c
         left--;
         game->enemies_alive++;
         game->free_slots--;
-        d->anim = 0x0d;
+        d->anim = ANIM_PLAIN;
         if (tables) {
             const DebrisTemplate *t = &tables->debris[first + next];
             d->sprite = (int16_t)t->sprite;
@@ -122,7 +122,7 @@ static void kill_action_03(GameState *game, Entity *e, const EntityHit *hit)
             continue;
         r->x = e->x;
         r->y = e->y;
-        r->anim = 0x0d;
+        r->anim = ANIM_PLAIN;
         int16_t vx;
         do {
             vx = (int16_t)((rng_next_byte(&game->rng) & 3) - 1);
@@ -167,7 +167,7 @@ static void kill_action_05(GameState *game, Entity *e, const EntityHit *hit)
     if (c) {
         c->x = e->x;
         c->y = e->y;
-        c->anim = 0x0d;
+        c->anim = ANIM_PLAIN;
         uint8_t roll;
         do {
             roll = rng_next_byte(&game->rng);
@@ -199,7 +199,7 @@ static void kill_action_06(GameState *game, Entity *e, const EntityHit *hit)
         f->vx = (int16_t)((int16_t)(uint16_t)-hit->shot->vx >> 1);
         f->vy = (int16_t)((int16_t)(uint16_t)-hit->shot->vy >> 1);
         f->sprite = (int16_t)(hit->shot->direction + 0xa3);
-        f->anim = 0x0d;
+        f->anim = ANIM_PLAIN;
         f->scale = 0;
         f->solid = 0;
         entity_set_type(f, 0x0f, 0x0f);

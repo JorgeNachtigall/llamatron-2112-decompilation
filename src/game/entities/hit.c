@@ -42,7 +42,7 @@ static void become_pickup(GameState *game, Entity *e)
     const EnemyTables *tables = asset_enemy_tables();
     if (tables && kind >= 0 && kind < PICKUP_KINDS)
         e->sprite = (int16_t)tables->pickup_sprites[kind];
-    e->anim = 0x0d;
+    e->anim = ANIM_PLAIN;
     e->kind = -1;
     e->vx = 0;
     e->vy = 0;
@@ -328,7 +328,7 @@ static void ent_hit_0e(GameState *game, Entity *e, const EntityHit *hit)
         h->start_delay = 0;
         h->segment_family = game->tuning.segment_family;
         s->hit_handler = 0x0a;
-        s->anim = 0x0d;
+        s->anim = ANIM_PLAIN;
         s->growth.unused_0a = 0;
         s->growth.sprite_base = s->sprite;
         entity_set_type(s, 0x28, 0x28);

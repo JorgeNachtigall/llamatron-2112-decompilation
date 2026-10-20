@@ -340,7 +340,7 @@ static void enemy_init_0b(GameState *game, Entity *e)
 {
     enemy_random_spawn_pos(game, e);
     set_death_sound(e, SAMPLE_ID_DEATH_0B, 0);
-    e->anim = 0x0d;
+    e->anim = ANIM_PLAIN;
     e->vx = random_step(game);
     e->vy = random_step(game);
     e->sprite = SPRITE_TYPE_0B;
@@ -406,7 +406,7 @@ static void enemy_init_0d(GameState *game, Entity *e)
 void enemy_setup_0e(GameState *game, Entity *e)
 {
     set_death_sound(e, SAMPLE_ID_ENEMY_DEATH, 0);
-    e->anim = 0x0d;
+    e->anim = ANIM_PLAIN;
     stand_still(e);
     e->sprite = SPRITE_TYPE_0E;
     e->scale = 0;
@@ -435,7 +435,7 @@ static void enemy_init_0f(GameState *game, Entity *e)
     e->x = 0xa0;
     e->y = 0x1e;
     set_death_sound(e, SAMPLE_ID_ENEMY_DEATH, 0);
-    e->anim = 0x0d;
+    e->anim = ANIM_PLAIN;
     e->vx = 0;
     e->vy = 1;
     e->sprite = SPRITE_TYPE_0F;
@@ -456,7 +456,7 @@ static void enemy_init_1c(GameState *game, Entity *e)
     e->x = 0xa0;
     e->y = 0x1e;
     e->sprite = SPRITE_DROPPER;
-    e->anim = 0x0d;
+    e->anim = ANIM_PLAIN;
     stand_still(e);
     e->scale = 0;
     e->solid = 0;
@@ -495,7 +495,7 @@ static void enemy_init_10(GameState *game, Entity *e)
             return;
         s->x = at.x;
         s->y = at.y;
-        s->anim = 0x0d;
+        s->anim = ANIM_PLAIN;
         s->sprite = SPRITE_SNAKE_SEGMENT;
         s->scale = 0;
         s->solid = 1;
@@ -514,7 +514,7 @@ static void enemy_init_10(GameState *game, Entity *e)
     head->x = at.x;
     head->y = at.y;
     set_death_sound(head, SAMPLE_ID_POP, 0);
-    head->anim = 0x0d;
+    head->anim = ANIM_PLAIN;
     head->sprite = SPRITE_SNAKE_HEAD;
     head->scale = 2;
     head->solid = 1;
@@ -552,7 +552,7 @@ static void init_segment(GameState *game, Entity *e, int16_t sprite)
     e->homing.start_delay = 0;
     e->homing.segment_family = game->tuning.segment_family;
     e->hit_handler = 0x0a;
-    e->anim = 0x0d;
+    e->anim = ANIM_PLAIN;
     e->growth.unused_0a = 0;
     e->growth.sprite_base = e->sprite;
     entity_set_type(e, 0x1f, 0x1f);
@@ -588,7 +588,7 @@ static void init_orbiter(GameState *game, Entity *e, int16_t phase, int16_t spri
     int8_t sin_y = sine ? sine->sine8[(uint8_t)(at + 0x40)] : 0;
     e->x = (int16_t)((sin_x >> 1) + 0xa0);
     e->y = (int16_t)((sin_y >> 1) + 0x6e);
-    e->anim = 0x0d;
+    e->anim = ANIM_PLAIN;
     stand_still(e);
     e->sprite = sprite;
     e->scale = 0;
@@ -628,7 +628,7 @@ static void enemy_init_16(GameState *game, Entity *e)
 static void enemy_init_17(GameState *game, Entity *e)
 {
     enemy_random_spawn_pos(game, e);
-    e->anim = 0x0d;
+    e->anim = ANIM_PLAIN;
     stand_still(e);
     e->scale = 0;
     e->solid = 1;
@@ -655,7 +655,7 @@ static void init_think0e(GameState *game, Entity *e, uint8_t death_rate, int16_t
 {
     enemy_random_spawn_pos(game, e);
     set_death_sound(e, SAMPLE_ID_ENEMY_DEATH, death_rate);
-    e->anim = 0x0d;
+    e->anim = ANIM_PLAIN;
     e->solid = 1;
     entity_set_type(e, 0x0e, 0x0e);
     stand_still(e);
@@ -692,7 +692,7 @@ static void enemy_init_19(GameState *game, Entity *e)
 {
     enemy_random_spawn_pos(game, e);
     set_death_sound(e, SAMPLE_ID_GAME_OVER, 0);
-    e->anim = 0x0d;
+    e->anim = ANIM_PLAIN;
     stand_still(e);
     e->sprite = SPRITE_WALKER;
     e->scale = 0;
@@ -715,7 +715,7 @@ static void enemy_init_19(GameState *game, Entity *e)
 void enemy_setup_1a(GameState *game, Entity *e)
 {
     e->sprite = SPRITE_TYPE_1A;
-    e->anim = 0x0d;
+    e->anim = ANIM_PLAIN;
     stand_still(e);
     e->scale = 0;
     e->solid = 1;
@@ -740,7 +740,7 @@ static void enemy_init_1a(GameState *game, Entity *e)
 void enemy_setup_type24(GameState *game, Entity *e, int16_t phase, int16_t turn)
 {
     e->sprite = (int16_t)(SPRITE_SEEKER + phase);
-    e->anim = 0x0d;
+    e->anim = ANIM_PLAIN;
     stand_still(e);
     e->scale = 0;
     e->solid = 1;
@@ -776,7 +776,7 @@ static void init_think25(GameState *game, Entity *e, int16_t sprite, ByteCounter
     c->spawn = spawn;
     c->callback = callback;
     c->move = move;
-    e->anim = 0x0d;
+    e->anim = ANIM_PLAIN;
     stand_still(e);
     e->scale = 0;
     e->solid = 1;
@@ -820,7 +820,7 @@ static void enemy_init_1d(GameState *game, Entity *e)
 {
     enemy_random_spawn_pos(game, e);
     e->sprite = SPRITE_EDGE_SPAWNER;
-    e->anim = 0x0d;
+    e->anim = ANIM_PLAIN;
     e->vx = 1;
     e->vy = 2;
     e->scale = 0;
@@ -849,7 +849,7 @@ static void init_edge_runner(GameState *game, Entity *e, Edge edge, int16_t spri
     case EDGE_BOTTOM: e->vy = -2; e->vx = 0;  e->y = 0xbe;  break;
     }
     set_death_sound(e, SAMPLE_ID_POP, 3);
-    e->anim = 0x0d;
+    e->anim = ANIM_PLAIN;
     e->sprite = sprite;
     int32_t accel_x = runs_vertically ? (int32_t)game->tuning.accum_start : 0;
     int32_t accel_y = runs_vertically ? 0 : (int32_t)game->tuning.accum_start;
