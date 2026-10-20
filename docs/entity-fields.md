@@ -508,8 +508,11 @@ this change, but it touches the same field.
 
 ## 8. Agreement needed
 
-- **Keel** (state.h owner; review only): the anonymous-union shape, the new header
-  `entity_views.h`, the little-endian `#error`, `unused_0a`/`unused_0e` in `Shot`.
+- **Keel** (state.h owner): agreed to §7 as written.
+  - The little-endian guard goes in entity_views.h next to the unions, with its reason.
+  - The header commit leaves state.h's general names untouched; Keel retires his own uses
+    later.
+  - `Shot.aux0a`/`aux0e` -> `unused_0a`/`unused_0e` is Keel's, in his DS-name audit commit.
 - **Thorn**: agreed (§5.5, 5.10, 5.12..5.14 checked against the listing; one HomingView with
   per-think unions; the +08 views). He converts enemy_init.c, spawn.c, hit.c, kill_actions.c,
   pickups.c, think_w5a.c and bullets.c.
