@@ -13,6 +13,6 @@ foreach(_case good bad)
 endforeach()
 # Passes when all three calls of the bad fixture are reported (exit status not used).
 set_tests_properties(source_no_ds_offsets_fixture_bad PROPERTIES
-    PASS_REGULAR_EXPRESSION "bad.c: asset_palette_at\\(0x2175\\).*bad.c: asset_text_at\\(.*bad.c: game_sprite_at\\(0x245a\\)")
+    PASS_REGULAR_EXPRESSION "bad.c: asset_palette_at\\(0x2175\\).*bad.c: asset_text_at\\(.*bad.c: game_sprite_at\\(0x245a\\).*bad.c: raw.words.*bad.c: EntityWords")
 set_tests_properties(source_no_ds_offsets source_no_ds_offsets_fixture_good source_no_ds_offsets_fixture_bad
     PROPERTIES LABELS guard)

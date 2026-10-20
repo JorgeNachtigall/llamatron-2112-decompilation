@@ -16,6 +16,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "entity_views.h"   /* Point16, the Entity views */
 #include "formats.h"   /* HighScore (src/assets) */
 #include "rng.h"
 #include "text.h"
@@ -54,27 +55,56 @@ typedef struct Entity {
     int8_t hatch_into;          /* +00 hi: think index it becomes when a spawn hatches (think_00) */
     int16_t x, y;               /* +02/+04 sprite centre, screen pixels */
     int16_t anim;               /* +06 tbl_anim_handlers index (19 handlers; low byte used) */
-    int16_t vx, vy;             /* +08/+0a velocity (entity_move_bounce) */
+    union {                     /* +08..+0b (entity_views.h) */
+        struct {
+            int16_t vx, vy;     /* +08/+0a velocity (entity_move_bounce) */
+        };
+        SnakeHeadMotion snake_head;
+        WalkerMotion walker;
+        GrowthMotion growth;
+        Point16 child_velocity; /* think 2a: the velocity its children get */
+        RawMotion raw_motion;
+    };
     int16_t sprite;             /* +0c sprite bank index; < 0 = use sprite_ref */
     int16_t scale;              /* +0e draw scale / hatch countdown */
     int16_t solid;              /* +10 shots and players collide only when non-zero */
-    int16_t aux12;              /* +12 handler-specific */
-    int16_t timer;              /* +14 general timer; pickup kind for think_1c */
-    int16_t aux16;              /* +16 handler-specific (projectile parameter) */
-    int16_t hp;                 /* +18 hit points; < 0 after a hit -> kill action (ent_hit_03) */
-    int16_t aux1a;              /* +1a handler-specific (projectile parameter) */
-    int16_t aux1c;              /* +1c handler-specific: callback id (3119/32d7) or accumulator low */
-    int16_t kill_action;        /* +1e tbl_hit_kill_actions index (accumulator high for some types) */
-    int16_t sub_mode;           /* +20 think_0e sub-mode */
-    uint8_t reload, countdown;  /* +22/+23 think_25 */
-    int16_t aux24, aux26;       /* +24/+26 handler-specific accumulators */
-    int16_t anim_toggle;        /* +28 anim_01 */
-    int16_t aux2a;              /* +2a */
-    int16_t sprite_ref;         /* +2c explicit sprite when sprite < 0: the frame's offset in the
-                                   original game bank (218C:xxxx, SpriteFrame.bank_offset), kept
-                                   as the original holds it; some thinks keep y or the homing
-                                   position's high word here instead */
-    int16_t aux2e, aux30;       /* +2e/+30 */
+    union {                     /* +12..+31 handler-specific (entity_views.h) */
+        struct {                /* the general names */
+            int16_t aux12;              /* +12 handler-specific */
+            int16_t timer;              /* +14 general timer; pickup kind for think_1c */
+            int16_t aux16;              /* +16 handler-specific (projectile parameter) */
+            int16_t hp;                 /* +18 hit points; < 0 after a hit -> kill action (ent_hit_03) */
+            int16_t aux1a;              /* +1a handler-specific (projectile parameter) */
+            int16_t aux1c;              /* +1c handler-specific: callback id (3119/32d7) or accumulator low */
+            int16_t kill_action;        /* +1e tbl_hit_kill_actions index (accumulator high for some types) */
+            int16_t sub_mode;           /* +20 think_0e sub-mode */
+            uint8_t reload, countdown;  /* +22/+23 think_25 */
+            int16_t aux24, aux26;       /* +24/+26 handler-specific accumulators */
+            int16_t anim_toggle;        /* +28 anim_01 */
+            int16_t aux2a;              /* +2a */
+            int16_t sprite_ref;         /* +2c explicit sprite when sprite < 0: the frame's offset in the
+                                           original game bank (218C:xxxx, SpriteFrame.bank_offset), kept
+                                           as the original holds it; some thinks keep y or the homing
+                                           position's high word here instead */
+            int16_t aux2e, aux30;       /* +2e/+30 */
+        };
+        LlamaView llama;
+        HunterView hunter;
+        MotherView mother;
+        HerderView herder;
+        HomingView homing;
+        ChaserView chaser;
+        OrbitView orbit;
+        EdgeRunnerView edge_runner;
+        SeekerView seeker;
+        ChargerView charger;
+        DropperView dropper;
+        EdgeSpawnerView edge_spawner;
+        PickupView pickup;
+        SegmentView segment;
+        StormView storm;
+        RawView raw;
+    };
     /* +32..+38 overlay sprite drawn after the animate handler for `frames` frames
      * (game86 1000:4392..43be). x == 0 means no overlay. */
     struct {
@@ -87,6 +117,8 @@ typedef struct Entity {
     uint8_t death_rate;         /* +3c hi: its rate index */
     int16_t hit_handler;        /* +3e tbl_hit_handlers index (CS:0C04, 18 handlers) */
 } Entity;
+
+#include "entity_layout.h"  /* offset asserts for the views */
 
 static inline bool entity_is_free(const Entity *e) { return e->hatch_into < 0; }
 
@@ -130,10 +162,6 @@ typedef struct Player {
 /* --------------------------------------------------------------------------------------
  * Player ships, shots and trails (outside the swapped block)
  * ------------------------------------------------------------------------------------ */
-
-typedef struct Point16 {
-    int16_t x, y;
-} Point16;
 
 /* The per-tick hook [0x39E4] and the per-frame draw hook [0x39E0]: the original stores code
  * addresses, the port names them. */

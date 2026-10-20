@@ -10,18 +10,24 @@
 #     asset_text_at, asset_text_raw, asset_dos_message_at, asset_sprite_index_at). Those are
 #     for tests/adapters that map original memory; game code uses asset_palette(PaletteId),
 #     asset_text(TextId), asset_sprite_id_gfx(SpriteId), asset_title_shape(TitleShapeId), ...
+#   - the entity record's word views (raw.words, raw_motion.words, EntityWords): they copy a
+#     record by layout and are for tests/adapters and attract_end's overrun only; game code
+#     uses the named views of entity_views.h (docs/entity-fields.md).
 #
 # ALLOWED lists the known leftovers as "<path>|<call>", each with its owner and the planned
 # replacement. Remove an entry once its owner has switched; a stale entry is only reported.
 
 set(ALLOWED
-    # W4 Keel: hiscore_art markers -> asset_sprite_id_gfx(SPRITE_ID_HISCORE_MARK_1 / _2)
-    "src/game/main_sm.c|game_sprite_at(0x245A)"
-    "src/game/main_sm.c|game_sprite_at(0x4268)"
-    "src/game/main_sm.c|asset_sprite_index_at("
     # W5a/W6: Entity.sprite_ref holds the frame's 218C bank offset (enemy_init 00 copies it from
     # the ref table); storing the frame or ref index instead removes this lookup
     "src/game/entities/anim.c|asset_sprite_index_at("
+    # The word views' own definitions and offset asserts
+    "src/game/entity_layout.h|EntityWords"
+    "src/game/entity_layout.h|raw.words"
+    "src/game/entity_layout.h|raw_motion.words"
+    # W5 Moss: attract_end writes the title llamas over entity slots 0..8 word by word, as the
+    # original's overrun does (an EntityWords loop; reported as unneeded until it lands)
+    "src/game/attract.c|EntityWords"
 )
 
 if(NOT SOURCE_DIR)
@@ -34,6 +40,7 @@ endif()
 set(_hex "[0-9A-Fa-f]")
 set(_offset_call "[A-Za-z0-9_]*_at\\([ \t\n]*0[xX]${_hex}${_hex}${_hex}${_hex}?[uUlL]*[ \t\n]*[,)]")
 set(_accessor_call "asset_(palette_at|flash_list_at|text_at|text_raw|dos_message_at|sprite_index_at)\\(")
+set(_word_view "(raw|raw_motion)\\.words|EntityWords")
 
 file(GLOB_RECURSE _files "${SOURCE_DIR}/*.c" "${SOURCE_DIR}/*.h")
 list(SORT _files)
@@ -48,7 +55,7 @@ foreach(_file IN LISTS _files)
     string(REGEX REPLACE "\"([^\"\\\\\n]|\\\\.)*\"" "\"\"" _code "${_code}")
     string(REGEX REPLACE "'([^'\\\\\n]|\\\\.)*'" "' '" _code "${_code}")
 
-    string(REGEX MATCHALL "(^|[^A-Za-z0-9_])(${_offset_call}|${_accessor_call})" _matches "${_code}")
+    string(REGEX MATCHALL "(^|[^A-Za-z0-9_])(${_offset_call}|${_accessor_call}|${_word_view})" _matches "${_code}")
     foreach(_match IN LISTS _matches)
         string(REGEX REPLACE "^[^A-Za-z_]" "" _match "${_match}")
         string(REGEX REPLACE "[ \t\n]*[,)]$" ")" _call "${_match}")
@@ -79,10 +86,11 @@ list(REMOVE_DUPLICATES _found)
 if(_found)
     foreach(_entry IN LISTS _found)
         string(REPLACE "|" ": " _shown "${_entry}")
-        message("DS offset in game code: ${_shown}")
+        message("DS offset or record word view in game code: ${_shown}")
     endforeach()
     message(FATAL_ERROR "Use the named ID (formats.h SpriteId, TitleShapeId, PaletteId, FlashListId, "
-        "TextId, MessageId, SampleId) and its accessor in game_data.h instead of the original's offset.")
+        "TextId, MessageId, SampleId) and its accessor in game_data.h instead of the original's offset, "
+        "and the entity views (entity_views.h) instead of record words.")
 endif()
 list(LENGTH _files _count)
 list(REMOVE_DUPLICATES _used)

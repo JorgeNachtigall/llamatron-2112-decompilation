@@ -8,5 +8,8 @@ void bad(void)
     const GfxGamePalette *black = asset_palette_at(0x2175);
     const GameText *text = asset_text_at(id_from_somewhere());
     const GfxSprite *mark = game_sprite_at( 0x245a );
+    Entity *e = entity_somewhere();
+    e->raw.words[3] = 0;
+    ((EntityWords *)e)->words[9] = 1;
     (void)black; (void)text; (void)mark;
 }

@@ -9,5 +9,6 @@ void good(const DrawTarget *target, int y)
     draw_char_at(target, 8, y);         /* a coordinate, not an offset */
     print_at(0x10, y);                  /* two hex digits: a coordinate */
     my_asset_text_at_cache(0x09B5);     /* not an *_at( call */
+    e_draw.raw_words_seen = 0;          /* not a word view; e->raw.words only in a comment */
     (void)black; (void)quoted;
 }
