@@ -101,6 +101,20 @@ foreach(_test IN LISTS _dosbox_tests)
     LABELS "dosbox" TIMEOUT ${_timeout}
     SKIP_REGULAR_EXPRESSION "\n[0-9]+ skipped in ")
 endforeach()
+# The long golden runs (RUNS with long: more warped levels, EGA and two-player warps, ~1 min
+# each): label dosbox_long as well, so ctest -L dosbox -LE dosbox_long skips them.
+if(LLAMATRON_DOSBOX_TESTS)
+  add_test(NAME dosbox.reference_golden_long
+           COMMAND "${LLAMATRON_HARNESS_PYTHON}" -m pytest -q -p no:cacheprovider
+                   --rootdir "${CMAKE_CURRENT_SOURCE_DIR}"
+                   --basetemp "${CMAKE_CURRENT_BINARY_DIR}/pytest-tmp/dosbox.reference_golden_long"
+                   "${CMAKE_CURRENT_SOURCE_DIR}/dosbox/test_reference_golden.py"
+           WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")
+  set_tests_properties(dosbox.reference_golden_long PROPERTIES
+    ENVIRONMENT "${_harness_env};LLAMATRON_ORIGINAL_DIR=${_original_dir};LLAMATRON_DOSBOX_WORKDIR=${CMAKE_CURRENT_BINARY_DIR}/dosbox-long;LLAMATRON_GOLDEN_SET=long"
+    LABELS "dosbox;dosbox_long" TIMEOUT 2400
+    SKIP_REGULAR_EXPRESSION "\n[0-9]+ skipped in ")
+endif()
 
 file(GLOB _oracle_tests CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/oracle/test_*.py")
 foreach(_test IN LISTS _oracle_tests)

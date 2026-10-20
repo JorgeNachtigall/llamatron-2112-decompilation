@@ -66,7 +66,11 @@ Consequences:
     loop is complete.
 - Scenarios (`RUNS` in that file, one-line summary at the top of each report): `walk_vga`,
   `walk_ega`, `attract`, `two_player` (droid), `warp`, `death_continue`,
-  `game_over_hiscore`. Keys cannot reach a warp or a quick game over, so a run can also
+  `game_over_hiscore`, and the warped levels `level_10/25/50/75/99` (level_sweep's script).
+  Long runs (`long` in RUNS: levels 20/30/40/60/70/80/90, `level_25_ega`,
+  `level_40_two_player`) run only with `LLAMATRON_GOLDEN_SET=long` (or `all`; default
+  `core`), and in ctest as `dosbox.reference_golden_long` (labels `dosbox;dosbox_long`, so
+  `ctest -L dosbox -LE dosbox_long` leaves them out). Keys cannot reach a warp or a quick game over, so a run can also
   poke words into DGROUP (PROBE.POK `{u32 irq, u16 DS offset, u16 word}`, applied before
   that IRQ's keys). `llamatron_replay --pokes` applies the same words through the adapter,
   so only mapped offsets can be poked.

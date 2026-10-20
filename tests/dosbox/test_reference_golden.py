@@ -114,23 +114,37 @@ RUNS = {
 LEVEL_TICKS = 3000
 
 
-def level_run(level: int) -> dict:
+def level_run(level: int, machine: str = "vga", start: str = "ONE_PLAYER",
+              long: bool = False) -> dict:
+    """A warped level with level_sweep's script; `start` names its StartPlan."""
     sys.path.insert(0, str(ROOT / "tests" / "oracle"))
     import level_sweep
-    keys = level_sweep.key_script(level, LEVEL_TICKS)
+    plan = getattr(level_sweep, start)
+    keys = level_sweep.key_script(level, LEVEL_TICKS, plan)
+    players = {"ONE_PLAYER": "", "TWO_PLAYERS": ", two players (the droid flies P2's ship)"}[start]
     return dict(
-        summary=f"level {level} through the warp (level_sweep's script): walk and fire, "
-                "lives topped up",
-        ticks=SEED, machine="vga", interval=50, max_snapshots=LEVEL_TICKS // 50,
+        summary=f"level {level} through the warp (level_sweep's script{players}): walk and "
+                "fire, lives topped up" + (", EGA" if machine == "ega" else ""),
+        ticks=SEED, machine=machine, interval=50, max_snapshots=LEVEL_TICKS // 50,
         keys=[(t, code) for t in sorted(keys) for code in keys[t]],
-        pokes=level_sweep.poke_script(level, LEVEL_TICKS), quit_after=LEVEL_TICKS + 10,
+        pokes=level_sweep.poke_script(level, LEVEL_TICKS, plan), quit_after=LEVEL_TICKS + 10,
         # warp's start; 0.69..0.70 is where level_75's overlay frame counts match too (warp
         # holds 0.425..0.7, levels 10/25 0.55..0.70, from 0.705 on the walk keys land a tick off)
-        tick_phase=0.695, start_delay=0, time_limit=300)
+        tick_phase=0.695, start_delay=0, time_limit=300, long=long)
 
 
 RUNS.update({f"level_{level:02d}": level_run(level) for level in (10, 25, 50, 75, 99)})
-# level 50: a death at ~1058 restarts the wave a tick later in the port (CPU time, DEVIATIONS #20)
+# Long runs (LLAMATRON_GOLDEN_SET=long or all; ctest dosbox.reference_golden_long, label
+# dosbox_long): more levels for real-hardware timing, the warp on EGA and with two players.
+RUNS.update({f"level_{level:02d}": level_run(level, long=True)
+             for level in (20, 30, 40, 60, 70, 80, 90)})
+RUNS["level_25_ega"] = level_run(25, machine="ega", long=True)
+RUNS["level_25_ega"]["tick_phase"] = 0.795         # EGA's 59.92 Hz frames: 0.78..0.81
+RUNS["level_40_two_player"] = level_run(40, start="TWO_PLAYERS", long=True)
+# the title menu start (as two_player): delay 3..4 with 0.65..0.70; level 80: 0.55..0.68 (from
+# 0.69 on 2300's player+00 lands a tick off, at 0.45 an overlay count does)
+RUNS["level_40_two_player"].update(tick_phase=0.68, start_delay=4)
+RUNS["level_80"]["tick_phase"] = 0.62
 RUNS["level_50"]["input_shift"] = [(1059, 1, None)]
 
 # input_shift [(start, ticks, end)]: the port replay's keys from `start` to `end` (exclusive,
@@ -151,7 +165,18 @@ RUNS["level_50"]["input_shift"] = [(1059, 1, None)]
 # Triage of the real divergences (compare.py's first ones per run and those after them that are
 # not consequences): (run, tick, field, owner, status). Printed under each run's report; update
 # when a re-run after a fix moves them.
-TRIAGE: list[tuple[str, int, str, str, str]] = []
+TRIAGE: list[tuple[str, int, str, str, str]] = [
+    ("level_30", 900, "ship, target, trail[0], entities[8]/[9] x, shots[0]: the port one tick "
+     "behind from 850 and the ship's path apart after it; no tick_phase, start_delay or input "
+     "shift brings it back", "Sentinel (+ Keel)",
+     "open: timing, not logic (whole_game.py sweep --one 30 --ticks 3000 matches); mechanism "
+     "to find"),
+    ("level_25_ega", 2550, "ship, target, trail[0], entities[39..45] x, shots[1]: a wave "
+     "transition at ~2490 leaves the port one tick behind (2500..2750), then the ship's path "
+     "apart; no calibration or input shift brings it back", "Sentinel (+ Keel)",
+     "open: timing, not logic (lockstep_configs.py ega --one 25 --ticks 3000 matches); "
+     "mechanism to find"),
+]
 
 
 # Expected differences, pinned: a run is green only if each happens exactly as listed and
@@ -170,6 +195,18 @@ EXPECTED = {
          "under the port's one-tick lag after the respawn at ~1058 (DEVIATIONS #20, Keel). "
          "Lockstep: tests/oracle/whole_game.py level_50 matches all 3010 ticks (Thorn's unicorn "
          "oracle, one frame schedule on both sides; Keel 2026-10-19)"),
+    ],
+    "level_20": [
+        ("frame_phase", 1450, frozenset({0x48C1 + 0x40 * 11 + 0x38}),
+         "entities[11]+38 overlay.frames, one frame apart (as level_99 700). Lockstep: "
+         "whole_game.py sweep (level 20)"),
+    ],
+    "level_40_two_player": [
+        ("frame_phase", 1300, frozenset({0x48C1 + 0x40 * 8 + 0x38}),
+         "entities[8]+38 overlay.frames, one frame apart. Lockstep: lockstep_configs.py "
+         "two_players --one 40 --ticks 3000 matches"),
+        ("frame_phase", 1550, frozenset({0x48C1 + 0x40 * 42 + 0x38}),
+         "entities[42]+38 overlay.frames, as at 1300"),
     ],
     "level_99": [
         ("frame_phase", 700, frozenset({0x48C1 + 0x40 * 51 + 0x38}),
@@ -285,13 +322,14 @@ CALIBRATION = ("tick_phase", "start_delay", "input_shift")  # the port replay's,
 
 
 def probe_args(run: dict) -> dict:
-    return {k: v for k, v in run.items() if k not in ("summary", "time_limit", *CALIBRATION)}
+    return {k: v for k, v in run.items()
+            if k not in ("summary", "time_limit", "long", *CALIBRATION)}
 
 
 def golden_config(run: dict) -> dict:
     """The reference_runs.json "config": the probe's arguments and the replay calibration
     (visual_check.py / web_parity.py read tick_phase and start_delay from it)."""
-    return {k: v for k, v in run.items() if k not in ("summary", "time_limit")}
+    return {k: v for k, v in run.items() if k not in ("summary", "time_limit", "long")}
 
 
 def port_script(drive: Path, out: Path, input_shift=()) -> list[str]:
@@ -328,7 +366,16 @@ def replay_args(run: dict) -> list[str]:
             "--start-delay", str(run.get("start_delay", 0))]
 
 
-@pytest.fixture(scope="module", params=sorted(RUNS))
+def selected_runs() -> list[str]:
+    """LLAMATRON_GOLDEN_SET: core (default: the runs without long), long, or all."""
+    which = os.environ.get("LLAMATRON_GOLDEN_SET", "core")
+    if which not in ("core", "long", "all"):
+        raise ValueError(f"LLAMATRON_GOLDEN_SET={which!r}: core, long or all")
+    return sorted(n for n, r in RUNS.items()
+                  if which == "all" or bool(r.get("long")) == (which == "long"))
+
+
+@pytest.fixture(scope="module", params=selected_runs())
 def reference(request):
     import refrun
     name = request.param
