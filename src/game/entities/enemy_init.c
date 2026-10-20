@@ -101,14 +101,17 @@ static int16_t random_step(GameState *game)
     return (int16_t)((rng_next_byte(&game->rng) & 3) - 1);
 }
 
-/* Remembers the spawn position in +28 (x) and +2c (y) and clears +26 / +2a, the "home"
- * fields of the drifting types. */
-static void remember_home(Entity *e)
+/* The homing mover at rest where the entity is: no velocity, the given accelerations, its
+ * 16.16 position at (x, y). */
+static void homing_at_rest(Entity *e, int32_t accel_x, int32_t accel_y)
 {
-    e->anim_toggle = e->x;
-    e->aux26 = 0;
-    e->sprite_ref = e->y;
-    e->aux2a = 0;
+    HomingView *h = &e->homing;
+    fixed16_set(&h->velocity_x, 0);
+    fixed16_set(&h->velocity_y, 0);
+    fixed16_set(&h->accel_x, accel_x);
+    fixed16_set(&h->accel_y, accel_y);
+    h->position_x = (Fixed16){ .frac = 0, .whole = e->x };
+    h->position_y = (Fixed16){ .frac = 0, .whole = e->y };
 }
 
 /* ---- 00: egg that hatches into think 05 ------------------------------------------------ */
@@ -262,11 +265,11 @@ static void init_as_projectile(GameState *game, Entity *e, int16_t sprite, int16
                                int16_t hit_handler)
 {
     enemy_random_spawn_pos(game, e);
-    const EnemyShot shot = { .aim_y = 0, .aim_x = 0, .sprite = sprite, .speed = speed,
+    const EnemyShot shot = { .velocity_x = 0, .velocity_y = 0, .sprite = sprite, .speed = speed,
                              .hit_handler = hit_handler };
     stand_still(e);                         /* enemy_shot_init's write through SI (= the record) */
     enemy_shot_init(game, e, e, &shot);
-    e->aux30 = 0;
+    e->homing.start_delay = 0;
 }
 
 /* game86 1000:24c1 */
@@ -298,27 +301,16 @@ static void init_drifter(GameState *game, Entity *e, int16_t anim, int16_t sprit
     e->scale = 2;
     e->solid = 1;
     e->sprite = sprite;
-    e->timer = 0;
-    e->aux16 = 0;
-    e->hp = 0;
-    e->aux1a = 0;
-    e->aux1c = speed;
-    e->kill_action = 0;
-    e->sub_mode = speed;
-    set_reload_pair(e, 0);
-    e->aux24 = 0x20;
-    e->anim_toggle = e->x;
-    e->aux26 = 0;
-    e->aux30 = 0;
-    e->sprite_ref = e->y;
-    e->aux2a = 0;
+    homing_at_rest(e, (uint16_t)speed, (uint16_t)speed);
+    e->homing.beam = byte_counter(0x20, 0);
+    e->homing.start_delay = 0;
 }
 
 /* game86 1000:2612. Not counted as alive. */
 static void enemy_init_08(GameState *game, Entity *e)
 {
     init_drifter(game, e, 0x02, SPRITE_DRIFTER, game->player.level_loops != 0 ? 0x800 : 0x400);
-    e->aux2e = 0x7070;
+    e->homing.pause = byte_counter(0x70, 0x70);
     e->hit_handler = 6;
     entity_set_type(e, 0x11, 0x11);
 }
@@ -328,7 +320,7 @@ static void enemy_init_09(GameState *game, Entity *e)
 {
     init_drifter(game, e, 0x03, SPRITE_DRIFTER_ALT, 0x400);
     (void)rng_next_byte(&game->rng);
-    e->aux2e = 0x7070;
+    e->homing.pause = byte_counter(0x70, 0x70);
     e->hit_handler = 6;
     entity_set_type(e, 0x12, 0x12);
 }
@@ -345,23 +337,10 @@ static void enemy_init_0a(GameState *game, Entity *e)
     e->sprite = SPRITE_HOMING_DROPPER;
     e->scale = 0x14;
     e->solid = 1;
-    e->timer = 0;
-    e->aux16 = 0;
-    e->hp = 0;
-    e->aux1a = 0;
-    int16_t accum_low = (int16_t)(game->speed_accum & 0xffff);
-    int16_t accum_high = (int16_t)(game->speed_accum >> 16);
-    e->aux1c = accum_low;
-    e->sub_mode = accum_low;
-    e->kill_action = accum_high;
-    set_reload_pair(e, accum_high);
-    e->aux24 = 0x4040;
-    e->anim_toggle = e->x;
-    e->aux26 = 0;
-    e->aux30 = 0x14;
-    e->sprite_ref = e->y;
-    e->aux2a = 0;
-    e->aux2e = 7;
+    homing_at_rest(e, (int32_t)game->speed_accum, (int32_t)game->speed_accum);
+    e->homing.drop = byte_counter(0x40, 0x40);
+    e->homing.start_delay = 0x14;
+    e->homing.drops_left = 7;
     e->hit_handler = 0;
     entity_set_type(e, 0x07, 0x13);
     game->enemies_alive++;
@@ -556,23 +535,12 @@ static void enemy_init_10(GameState *game, Entity *e)
     head->sprite = SPRITE_SNAKE_HEAD;
     head->scale = 2;
     head->solid = 1;
-    head->timer = 0;
-    head->aux16 = 0;
-    head->hp = 0;
-    head->aux1a = 0;
-    head->aux1c = 0x800;
-    head->kill_action = 0;
-    head->sub_mode = 0x800;
-    set_reload_pair(head, 0);
-    head->aux24 = 0x404;
-    head->anim_toggle = head->x;
-    head->aux26 = 0;
-    head->aux30 = 0;
-    head->sprite_ref = head->y;
-    head->aux2a = 0;
-    head->aux2e = 0;
-    head->vx = 0;
-    head->vy = 0x3030;
+    homing_at_rest(head, 0x800, 0x800);
+    head->homing.egg_hits = byte_counter(4, 4);
+    head->homing.start_delay = 0;
+    head->homing.unused_2e = 0;
+    head->snake_head.next_trail_slot = 0;
+    head->snake_head.spawn = byte_counter(0x30, 0x30);
     head->hit_handler = 8;
     head->kind = 0x10;
     entity_set_type(head, 0x1d, 0x1d);
@@ -596,22 +564,14 @@ static void init_segment(GameState *game, Entity *e, int16_t sprite)
     e->sprite = game->segment_sprite;
     e->scale = 0;
     e->solid = 1;
-    e->timer = 0;
-    e->aux16 = 0;
-    e->hp = 0;
-    e->aux1a = 0;
-    e->aux1c = 0;
-    e->kill_action = 0;
-    e->sub_mode = 0;
-    set_reload_pair(e, 0);
-    e->aux24 = -1;
-    e->aux30 = 0;
-    remember_home(e);
-    e->aux2e = game->tuning.segment_family;
+    homing_at_rest(e, 0, 0);
+    e->homing.flash_frames = -1;
+    e->homing.start_delay = 0;
+    e->homing.segment_family = game->tuning.segment_family;
     e->hit_handler = 0x0a;
     e->anim = 0x0d;
-    e->vy = 0;
-    e->vx = e->sprite;
+    e->growth.unused_0a = 0;
+    e->growth.sprite_base = e->sprite;
     entity_set_type(e, 0x1f, 0x1f);
     game->enemies_alive++;
 }
@@ -755,18 +715,12 @@ static void enemy_init_19(GameState *game, Entity *e)
     e->sprite = SPRITE_WALKER;
     e->scale = 0;
     e->solid = 1;
-    e->timer = 0;
-    e->aux16 = 0;
-    e->hp = 0;
-    e->aux1a = 0;
-    e->aux1c = (int16_t)(rng_next_byte(&game->rng) | 0x300);
-    e->kill_action = 0;
-    e->sub_mode = (int16_t)(rng_next_byte(&game->rng) | 0x600);
-    set_reload_pair(e, 0);
-    e->aux24 = 0x1818;
-    e->aux30 = 0;
-    remember_home(e);
-    e->aux2e = 0;
+    int32_t accel_x = rng_next_byte(&game->rng) | 0x300;
+    int32_t accel_y = rng_next_byte(&game->rng) | 0x600;
+    homing_at_rest(e, accel_x, accel_y);
+    e->homing.hits = byte_counter(0x18, 0x18);
+    e->homing.start_delay = 0;
+    e->homing.unused_2e = 0;
     e->walker.fire = counter_from_word(game->tuning.init19_vx);
     e->hit_handler = 0x0c;
     entity_set_type(e, 0x23, 0x23);
@@ -901,8 +855,6 @@ typedef enum Edge { EDGE_TOP, EDGE_LEFT, EDGE_RIGHT, EDGE_BOTTOM } Edge;
 static void init_edge_runner(GameState *game, Entity *e, Edge edge, int16_t sprite)
 {
     enemy_random_spawn_pos(game, e);
-    int16_t accum_low = (int16_t)(game->tuning.accum_start & 0xffff);
-    int16_t accum_high = (int16_t)(game->tuning.accum_start >> 16);
     bool runs_vertically = edge == EDGE_TOP || edge == EDGE_BOTTOM;
     switch (edge) {
     case EDGE_TOP:    e->vy = 2;  e->vx = 0;  e->y = 0x11;  break;
@@ -913,32 +865,19 @@ static void init_edge_runner(GameState *game, Entity *e, Edge edge, int16_t spri
     set_death_sound(e, SAMPLE_ID_POP, 3);
     e->anim = 0x0d;
     e->sprite = sprite;
-    e->timer = 0;
-    e->aux16 = 0;
-    e->hp = 0;
-    e->aux1a = 0;
-    if (runs_vertically) {
-        e->aux1c = accum_low;
-        e->kill_action = accum_high;
-        e->sub_mode = 0;
-        set_reload_pair(e, 0);
-    } else {
-        e->sub_mode = accum_low;
-        set_reload_pair(e, accum_high);
-        e->aux1c = 0;
-        e->kill_action = 0;
-    }
-
+    int32_t accel_x = runs_vertically ? (int32_t)game->tuning.accum_start : 0;
+    int32_t accel_y = runs_vertically ? 0 : (int32_t)game->tuning.accum_start;
+    /* Random low bits for whichever fraction is not zero (accel_y's if both are). */
     uint8_t jitter = rng_next_byte(&game->rng);
-    if (e->aux1c != 0)
-        e->aux1c = (int16_t)(e->aux1c | jitter);
+    if ((uint16_t)accel_x != 0)
+        accel_x |= jitter;
     else
-        e->sub_mode = (int16_t)(e->sub_mode | jitter);
+        accel_y |= jitter;
     e->scale = 0;
     e->solid = 1;
-    e->aux24 = game->tuning.runner_hits;
-    remember_home(e);
-    e->aux2e = game->tuning.runner_fire;
+    homing_at_rest(e, accel_x, accel_y);
+    e->homing.gun_hits_left = game->tuning.runner_hits;
+    e->homing.fire = counter_from_word(game->tuning.runner_fire);
     e->hit_handler = 0x0f;
     entity_set_type(e, 0x2a, 0x2a);
     game->enemies_alive++;

@@ -162,12 +162,13 @@ enum {
  * game86 1000:1c67 */
 void enemy_random_spawn_pos(GameState *game, Entity *e);
 
-/* Enemy projectile template (game86's scratch words 0419..0421). */
+/* Enemy projectile template (game86's scratch words 0419..0421). fire_back fills the
+ * velocities transposed, as the original does: velocity_x from the player shot's vy. */
 typedef struct EnemyShot {
-    int16_t aim_y;              /* 0419 -> +16 */
-    int16_t aim_x;              /* 041B -> +1a */
-    int16_t sprite;             /* 041D -> +0c (and +24) */
-    int16_t speed;              /* 041F -> +1c and +20 */
+    int16_t velocity_x;         /* 0419 -> homing.velocity_x.whole (+16) */
+    int16_t velocity_y;         /* 041B -> homing.velocity_y.whole (+1a) */
+    int16_t sprite;             /* 041D -> +0c (and homing.sprite_base) */
+    int16_t speed;              /* 041F -> homing.accel_x / accel_y fractions */
     int16_t hit_handler;        /* 0421 -> +3e */
 } EnemyShot;
 

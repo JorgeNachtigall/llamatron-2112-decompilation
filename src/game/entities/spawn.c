@@ -80,23 +80,17 @@ void enemy_shot_init(GameState *game, Entity *shot, const Entity *from, const En
     shot->scale = 2;
     shot->solid = 1;
     shot->sprite = tmpl->sprite;
-    shot->aux16 = tmpl->aim_y;
-    shot->timer = 0;
-    shot->aux1a = tmpl->aim_x;
-    shot->hp = 0;
     shot->x = from->x;
     shot->y = from->y;
-    shot->aux1c = tmpl->speed;
-    shot->kill_action = 0;
-    shot->sub_mode = tmpl->speed;
-    shot->reload = 0;
-    shot->countdown = 0;
-    shot->aux24 = shot->sprite;
-    shot->anim_toggle = shot->x;
-    shot->aux26 = 0;
-    shot->aux30 = (int16_t)((rng_next_byte(&game->rng) & 7) + 3);
-    shot->sprite_ref = shot->y;
-    shot->aux2a = 0;
+    HomingView *h = &shot->homing;
+    h->velocity_x = (Fixed16){ .frac = 0, .whole = tmpl->velocity_x };
+    h->velocity_y = (Fixed16){ .frac = 0, .whole = tmpl->velocity_y };
+    h->accel_x = (Fixed16){ .frac = (uint16_t)tmpl->speed, .whole = 0 };
+    h->accel_y = (Fixed16){ .frac = (uint16_t)tmpl->speed, .whole = 0 };
+    h->sprite_base = shot->sprite;
+    h->position_x = (Fixed16){ .frac = 0, .whole = shot->x };
+    h->position_y = (Fixed16){ .frac = 0, .whole = shot->y };
+    h->start_delay = (int16_t)((rng_next_byte(&game->rng) & 7) + 3);
     shot->hit_handler = tmpl->hit_handler;
     entity_set_type(shot, 0x10, 0x10);
     game->enemies_alive++;
@@ -123,7 +117,7 @@ Entity *enemy_shot_drop(GameState *game, const Entity *from)
         return NULL;
     shot->anim = ANIM_IDLE;
     shot->scale = 0;
-    const EnemyShot bomb = { .aim_y = 0, .aim_x = 0, .sprite = SPRITE_BOMB, .speed = 0xa00,
+    const EnemyShot bomb = { .velocity_x = 0, .velocity_y = 0, .sprite = SPRITE_BOMB, .speed = 0xa00,
                              .hit_handler = 0 };
     enemy_shot_init(game, shot, from, &bomb);
     script_clobber_spawns(game);

@@ -136,18 +136,20 @@ static void ent_hit_03(GameState *game, Entity *e, const EntityHit *hit)
 }
 
 /* Projectiles fanned out along the shot's velocity, each marked with roster kind `kind`.
- * enemy_shot_init also zeroes the shot's direction and +0a word (its SI is the shot here),
+ * The original fills the template transposed (the shot's vx * 2 into 041B, which the shot
+ * flies as velocity_y, and vy * 2 into 0419, velocity_x), so they fly mirrored across the
+ * diagonal. enemy_shot_init also zeroes the shot's direction and +0a word (its SI is the shot here),
  * so the kill that follows reads direction 0. game86 1000:1108 / 11e2 */
 static void fire_back(GameState *game, Entity *e, const EntityHit *hit, EnemyShot *tmpl,
-                      int16_t kind, const bool *negate_y, const bool *negate_x, int count)
+                      int16_t kind, const bool *negate_vx, const bool *negate_vy, int count)
 {
-    tmpl->aim_x = word(hit->shot->vx * 2);
-    tmpl->aim_y = word(hit->shot->vy * 2);
+    tmpl->velocity_y = word(hit->shot->vx * 2);
+    tmpl->velocity_x = word(hit->shot->vy * 2);
     for (int i = 0; i < count; i++) {
-        if (negate_y[i])
-            tmpl->aim_y = word(-tmpl->aim_y);
-        if (negate_x[i])
-            tmpl->aim_x = word(-tmpl->aim_x);
+        if (negate_vx[i])
+            tmpl->velocity_x = word(-tmpl->velocity_x);
+        if (negate_vy[i])
+            tmpl->velocity_y = word(-tmpl->velocity_y);
         Entity *shot = enemy_shot_alloc(game, e, tmpl);
         if (shot) {
             hit->shot->direction = 0;
@@ -162,8 +164,8 @@ static void ent_hit_04(GameState *game, Entity *e, const EntityHit *hit)
 {
     if (game->level_flags < 0) {
         EnemyShot tmpl = { .sprite = SPRITE_SHOT_MEDIUM, .speed = 0x400, .hit_handler = 5 };
-        static const bool flip_y[] = { false, true }, flip_x[] = { false, true };
-        fire_back(game, e, hit, &tmpl, 6, flip_y, flip_x, 2);
+        static const bool flip_vx[] = { false, true }, flip_vy[] = { false, true };
+        fire_back(game, e, hit, &tmpl, 6, flip_vx, flip_vy, 2);
     }
     entity_kill(game, e, hit);
 }
@@ -173,9 +175,9 @@ static void ent_hit_05(GameState *game, Entity *e, const EntityHit *hit)
 {
     if (game->level_flags < 0) {
         EnemyShot tmpl = { .sprite = SPRITE_SHOT_FAST, .speed = 0x600, .hit_handler = 0 };
-        static const bool flip_y[] = { false, true, false, true };
-        static const bool flip_x[] = { false, false, true, false };
-        fire_back(game, e, hit, &tmpl, 7, flip_y, flip_x, 4);
+        static const bool flip_vx[] = { false, true, false, true };
+        static const bool flip_vy[] = { false, false, true, false };
+        fire_back(game, e, hit, &tmpl, 7, flip_vx, flip_vy, 4);
     }
     entity_kill(game, e, hit);
 }
@@ -184,9 +186,9 @@ static void ent_hit_05(GameState *game, Entity *e, const EntityHit *hit)
 static void ent_hit_06(GameState *game, Entity *e, const EntityHit *hit)
 {
     (void)game;
-    e->aux16 = word(hit->shot->vx * 4);
-    e->aux1a = word(hit->shot->vy * 4);
-    e->aux30 = 5;
+    e->homing.velocity_x.whole = word(hit->shot->vx * 4);
+    e->homing.velocity_y.whole = word(hit->shot->vy * 4);
+    e->homing.start_delay = 5;
     game_sound_play(SAMPLE_ID_KNOCK, 1, 3);
 }
 
@@ -202,22 +204,20 @@ static void ent_hit_07(GameState *game, Entity *e, const EntityHit *hit)
     e->vy = hit->shot->vy >> 1;
 }
 
-/* game86 1000:115d: the snake head (think 1d). Every few hits (aux24's high byte counts
- * down from its low byte) the first segment left becomes an egg; with none left the head
+/* game86 1000:115d: the snake head (think 1d). Every egg_hits period of hits the first
+ * segment left becomes an egg; with none left the head
  * goes, without a kill. */
 static void ent_hit_08(GameState *game, Entity *e, const EntityHit *hit)
 {
     entity_start_flash(game, FLASH_LIST_HIT);
     game_sound_play(SAMPLE_ID_RESCUE, 0, 4);
-    uint8_t reload = (uint8_t)(e->aux24 & 0xff);
-    int8_t left = (int8_t)((uint16_t)e->aux24 >> 8);
-    left--;
-    e->aux24 = (int16_t)((uint16_t)(uint8_t)left << 8 | reload);
-    if (left >= 0) {
+    ByteCounter *egg_hits = &e->homing.egg_hits;
+    egg_hits->left--;
+    if ((int8_t)egg_hits->left >= 0) {
         ent_hit_06(game, e, hit);
         return;
     }
-    e->aux24 = (int16_t)((uint16_t)reload << 8 | reload);
+    egg_hits->left = egg_hits->period;
 
     for (int i = 0; i < ENTITY_COUNT; i++) {
         Entity *s = &game->entities[i];
@@ -243,19 +243,18 @@ static void ent_hit_09(GameState *game, Entity *e, const EntityHit *hit)
 /* game86 1000:2da7 */
 static void ent_hit_0a(GameState *game, Entity *e, const EntityHit *hit)
 {
-    if (--e->aux2e < 0) {
+    HomingView *h = &e->homing;
+    if (--h->hits_left < 0) {
         entity_kill(game, e, hit);
         return;
     }
     entity_start_flash(game, FLASH_LIST_HIT);
-    e->timer = word(hit->shot->y * 4);
-    e->hp = word(hit->shot->vx * 4);
-    e->aux1c = 0x200;
-    e->kill_action = 0;
-    e->sub_mode = 0x200;
-    e->reload = 0;
-    e->countdown = 0;
-    e->aux24 = 0x14;
+    /* The fractions only, from the shot's y and vx: the original's own choice of words. */
+    h->velocity_x.frac = (uint16_t)(hit->shot->y * 4);
+    h->velocity_y.frac = (uint16_t)(hit->shot->vx * 4);
+    h->accel_x = (Fixed16){ .frac = 0x200, .whole = 0 };
+    h->accel_y = (Fixed16){ .frac = 0x200, .whole = 0 };
+    h->flash_frames = 0x14;
     game_sound_play(SAMPLE_ID_POP, 1, 3);
 }
 
@@ -271,13 +270,11 @@ static void ent_hit_0b(GameState *game, Entity *e, const EntityHit *hit)
     game_sound_play(SAMPLE_ID_HIT_0B, 1, 3);
 }
 
-/* game86 1000:363c: aux24's high byte counts the hits left; no kill, no score. */
+/* game86 1000:363c: the walker (think 23) counts its hits left; no kill, no score. */
 static void ent_hit_0c(GameState *game, Entity *e, const EntityHit *hit)
 {
     (void)hit;
-    uint8_t left = (uint8_t)(((uint16_t)e->aux24 >> 8) - 1);
-    e->aux24 = (int16_t)((uint16_t)left << 8 | (e->aux24 & 0xff));
-    if (left != 0) {
+    if (--e->homing.hits.left != 0) {
         entity_start_flash(game, FLASH_LIST_HIT_0C);
         game_sound_play(SAMPLE_ID_GAME_OVER, 3, 4);
         return;
@@ -316,24 +313,20 @@ static void ent_hit_0e(GameState *game, Entity *e, const EntityHit *hit)
         s->sprite = game->segment_sprite;
         s->scale = 0;
         s->solid = 1;
-        s->timer = 0;
-        s->aux16 = 0;
-        s->hp = 0;
-        s->aux1a = 0;
-        s->aux1c = 0;
-        s->kill_action = 0;
-        s->sub_mode = 0;
-        s->reload = 0;
-        s->countdown = 0;
-        s->aux24 = -1;
-        s->anim_toggle = 0;
-        s->aux30 = 0;
-        s->sprite_ref = 0;
-        s->aux2e = game->tuning.segment_family;
+        HomingView *h = &s->homing;
+        fixed16_set(&h->velocity_x, 0);
+        fixed16_set(&h->velocity_y, 0);
+        fixed16_set(&h->accel_x, 0);
+        fixed16_set(&h->accel_y, 0);
+        h->flash_frames = -1;
+        h->position_x.whole = 0;            /* the fractions keep what the slot held */
+        h->position_y.whole = 0;
+        h->start_delay = 0;
+        h->segment_family = game->tuning.segment_family;
         s->hit_handler = 0x0a;
         s->anim = 0x0d;
-        s->vy = 0;
-        s->vx = s->sprite;
+        s->growth.unused_0a = 0;
+        s->growth.sprite_base = s->sprite;
         entity_set_type(s, 0x28, 0x28);
         game->enemies_alive++;
         s->kind = -1;
@@ -345,7 +338,7 @@ static void ent_hit_0e(GameState *game, Entity *e, const EntityHit *hit)
 static void ent_hit_0f(GameState *game, Entity *e, const EntityHit *hit)
 {
     entity_start_flash(game, FLASH_LIST_HIT_ALT);
-    if (--e->aux24 == 0) {
+    if (--e->homing.gun_hits_left == 0) {
         entity_kill(game, e, hit);
         return;
     }
