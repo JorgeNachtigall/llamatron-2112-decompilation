@@ -125,10 +125,9 @@ static void draw_beam_head(const DrawTarget *target, const Entity *e)
     draw_at(target, asset_sprite_id_gfx(SPRITE_ID_BEAM_HEAD), e->x, e->y - BEAM_HEAD_RISE);
 }
 
-/* The beam is on while the high byte of aux24 (+25) is non-zero. */
 static bool beam_on(const Entity *e)
 {
-    return ((uint16_t)e->aux24 >> 8) != 0;
+    return e->homing.beam.left != 0;
 }
 
 /* Beam head, a horizontal beam along the entity's row, the entity. game86 1000:4779 */
@@ -149,25 +148,13 @@ static void anim_beam_vertical(GameState *game, Entity *e, const DrawTarget *tar
     anim_plain(game, e, target);
 }
 
-/* Satellite position i, stored from +16 as four (x, y) words: (+16, +18), (+1a, +1c),
- * (+1e, +20), (+22, +24). */
-static Point16 satellite_at(const Entity *e, int i)
-{
-    switch (i) {
-    case 0: return (Point16){ e->aux16, e->hp };
-    case 1: return (Point16){ e->aux1a, e->aux1c };
-    case 2: return (Point16){ e->kill_action, e->sub_mode };
-    default: return (Point16){ (int16_t)(e->reload | e->countdown << 8), e->aux24 };
-    }
-}
-
-/* Four satellite sprites, sprite k at position (timer / 4 + k) % 4, then the entity.
- * game86 1000:474a */
+/* Four satellite sprites along the chaser's trail, sprite k on entry (newest + k) % 4, then
+ * the entity. game86 1000:474a */
 static void anim_satellites(GameState *game, Entity *e, const DrawTarget *target)
 {
-    int first = (e->timer & 0x0c) >> 2;
+    int first = (e->chaser.newest & 0x0c) >> 2;     /* byte offset 0/4/8/12 -> entry */
     for (int k = 0; k < SATELLITE_COUNT; k++) {
-        Point16 at = satellite_at(e, (first + k) % SATELLITE_COUNT);
+        Point16 at = e->chaser.trail[(first + k) % SATELLITE_COUNT];
         draw_at(target, asset_sprite_number_gfx(SATELLITE_FIRST_SPRITE + (unsigned)k), at.x, at.y);
     }
     anim_plain(game, e, target);
