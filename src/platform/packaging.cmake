@@ -5,7 +5,9 @@
 #
 #   native macOS, -DLLAMATRON_MACOS_BUNDLE=ON: target llamatron_macos_app builds
 #     <build>/Llamatron.app (assets embedded, generic placeholder icon, ad-hoc signed only:
-#     no Apple account, no notarisation).
+#     no Apple account, no notarisation). The SDL2 dylib (and, for Homebrew's sdl2-compat, the
+#     SDL3 it loads at run time) is copied into Contents/Frameworks (macos/bundle_dylibs.cmake),
+#     so the app runs without Homebrew.
 #   web: target web-dist gathers the page into <build-web>/dist/ (index.html, js, wasm, data).
 #
 # LLAMATRON_PACKAGE_TARGET picks the executable target to package. The calls run deferred (end
@@ -57,9 +59,12 @@ function(llama_add_macos_bundle)
         COMMAND ${CMAKE_COMMAND} -E copy ${work}/Info.plist ${app}/Contents/Info.plist
         COMMAND ${CMAKE_COMMAND} -E copy ${work}/Llamatron.icns ${app}/Contents/Resources/Llamatron.icns
         COMMAND ${CMAKE_COMMAND} -E copy ${work}/PERSONAL-USE-ONLY.txt ${app}/Contents/Resources/PERSONAL-USE-ONLY.txt
+        COMMAND ${CMAKE_COMMAND} -DAPP=${app} -DEXE=Llamatron -DCODESIGN=${LLAMA_CODESIGN}
+            -P ${LLAMA_PACKAGING_DIR}/macos/bundle_dylibs.cmake
         COMMAND ${LLAMA_CODESIGN} --force --sign - ${app}
         COMMAND ${CMAKE_COMMAND} -E touch ${work}/bundle.stamp
         DEPENDS ${target} ${work}/Info.plist ${work}/Llamatron.icns ${work}/PERSONAL-USE-ONLY.txt
+            ${LLAMA_PACKAGING_DIR}/macos/bundle_dylibs.cmake
         COMMENT "Llamatron.app from ${target} (personal use only, ad-hoc signed)")
     add_custom_target(llamatron_macos_app ALL DEPENDS ${work}/bundle.stamp)
     if(target STREQUAL "llamatron" OR target STREQUAL "llamatron_title")
@@ -69,6 +74,19 @@ function(llama_add_macos_bundle)
         set_tests_properties(macos_app_title PROPERTIES
             ENVIRONMENT "LLAMATRON_PREF_DIR=${work}/test-prefs"
             PASS_REGULAR_EXPRESSION "title 320x400 hash=c7ab74c4")
+    endif()
+    # Nothing outside the app and the system is loaded, and the signature still verifies.
+    add_test(NAME macos_app_self_contained COMMAND ${CMAKE_COMMAND} -DAPP=${app}
+        -P ${LLAMA_PACKAGING_DIR}/macos/check_bundle.cmake)
+    if(LLAMA_SDL2_SHARED AND (target STREQUAL "llamatron" OR target STREQUAL "llamatron_title"))
+        # The SDL the app really loads (dyld's own list, which includes run-time loads such as
+        # sdl2-compat's SDL3) is the bundled one, never Homebrew's.
+        add_test(NAME macos_app_bundled_sdl COMMAND ${app}/Contents/MacOS/Llamatron --frames 2 --vga --mute
+            WORKING_DIRECTORY /)
+        set_tests_properties(macos_app_bundled_sdl PROPERTIES
+            ENVIRONMENT "LLAMATRON_PREF_DIR=${work}/test-prefs;DYLD_PRINT_LIBRARIES=1"
+            PASS_REGULAR_EXPRESSION "Llamatron\\.app/Contents/Frameworks/libSDL2"
+            FAIL_REGULAR_EXPRESSION "/opt/homebrew/|/usr/local/")
     endif()
 endfunction()
 

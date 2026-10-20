@@ -86,12 +86,20 @@ cmake --build build            # -> build/Llamatron.app
   `Contents/Resources`.
 - Ad-hoc signed only (`codesign --sign -`) so it runs on this Mac: no Apple account, no
   Developer ID, no notarisation.
-- SDL2 is still linked from Homebrew (`brew install sdl2`), so the app runs on a Mac with
-  Homebrew's SDL2 installed; it is not a self-contained bundle. **TODO (M7):** copy SDL (with
-  the SDL3 library that sdl2-compat loads) into `Contents/Frameworks`, fix the install names and
-  re-sign ad hoc.
+- Self-contained: building needs Homebrew's SDL2 (`brew install sdl2`), running does not.
+  `macos/bundle_dylibs.cmake` copies the SDL2 dylib into `Contents/Frameworks`. Homebrew's
+  SDL2 is sdl2-compat, which loads SDL3 at run time, so `libSDL3.dylib` goes beside it. The
+  script points the install names at `@executable_path/../Frameworks`, drops rpaths that lead
+  out of the app (the build's `/opt/homebrew/lib`), and signs the copies ad hoc before the app
+  is signed.
 - Settings are stored in `~/Library/Application Support/llamatron-port/llamatron/llama.inf`.
-- Test: `ctest --test-dir build -R macos_app_title`.
+- Tests: `ctest --test-dir build -R macos_app`:
+  - `macos_app_title` runs the bundled binary from `/`;
+  - `macos_app_self_contained` checks that every Mach-O file in the app loads only `/usr/lib`,
+    `/System` and the app's own Frameworks, that no rpath points outside the app, and that
+    `codesign --verify --deep --strict` passes;
+  - `macos_app_bundled_sdl` runs the app with `DYLD_PRINT_LIBRARIES=1` and fails if anything
+    under `/opt/homebrew` or `/usr/local` is loaded, including the SDL3 loaded at run time.
 
 ### Web folder
 
