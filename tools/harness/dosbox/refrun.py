@@ -208,7 +208,7 @@ def probe(ticks: int, original: Path = DEFAULT_ORIGINAL, workdir: Path = DEFAULT
     assemble_probe(drive / "PROBE.COM")
     autotype = " ".join(["q"] * 8)
     if keys is not None:
-        events = sorted(keys)
+        events = sorted(keys, key=lambda e: e[0])     # stable: same-IRQ events keep their order
         if not any(sc == SCAN_Q for _, sc in events):
             # game86 clears the last make code at times (e.g. around a respawn), so a
             # single q can be lost: press it every 100 IRQs until the game quits.

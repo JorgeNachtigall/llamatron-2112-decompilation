@@ -91,9 +91,14 @@ foreach(_test IN LISTS _dosbox_tests)
                    --rootdir "${CMAKE_CURRENT_SOURCE_DIR}"
                    --basetemp "${CMAKE_CURRENT_BINARY_DIR}/pytest-tmp/dosbox.${_name}" "${_test}"
            WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")
+  # the golden runs (12 scenarios, the warped levels 3000 IRQs each) take ~17 min
+  set(_timeout 300)
+  if(_name STREQUAL "reference_golden")
+    set(_timeout 2400)
+  endif()
   set_tests_properties(dosbox.${_name} PROPERTIES
     ENVIRONMENT "${_harness_env};LLAMATRON_ORIGINAL_DIR=${_original_dir};LLAMATRON_DOSBOX_WORKDIR=${CMAKE_CURRENT_BINARY_DIR}/dosbox"
-    LABELS "dosbox" TIMEOUT 300
+    LABELS "dosbox" TIMEOUT ${_timeout}
     SKIP_REGULAR_EXPRESSION "\n[0-9]+ skipped in ")
 endforeach()
 

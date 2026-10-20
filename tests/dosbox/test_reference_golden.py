@@ -83,16 +83,13 @@ RUNS = {
         keys=[(1150, RIGHT), (1156, RIGHT_UP), (1170, RIGHT), (1176, RIGHT_UP),
               (1200, SPACE), (1210, SPACE_UP), (1400, RIGHT), (1480, RIGHT_UP)],
         quit_after=1900, tick_phase=0.3, start_delay=5, time_limit=150,  # delay 5: 0.1..0.5
-        # the port is a tick behind in the title menu (from 1100) and in play (from the start
-        # switch after the fire at 1200, which stays put: it causes that switch)
-        input_shift=[(1100, 1, 1200), (1250, 1, None)]),
+        input_shift=[(1100, 1, None)]),         # a tick behind from the title menu on
     "warp": dict(
         summary="walk_vga with wave_result poked to 4 (warp) at 300: banner, level 0 -> 5, "
                 "next wave from ~375",
         ticks=SEED, machine="vga", interval=25, max_snapshots=40, keys=START + WALK,
         pokes=[(300, WAVE_RESULT, WAVE_WARP)], quit_after=1000,
-        tick_phase=0.55, start_delay=0,                         # 0.425..0.7
-        input_shift=[(375, 1, None)]),          # behind from the next wave's switch on
+        tick_phase=0.55, start_delay=0),                        # 0.425..0.7
     "death_continue": dict(
         summary="lives poked to 1 at 250, idle death ~560, continue prompt (0816), fire at "
                 "700 continues with 5 lives",
@@ -110,14 +107,39 @@ RUNS = {
 }
 
 
+# Warped levels (M4, Prism): level_sweep's own input (tests/oracle/level_sweep.py key_script /
+# poke_script, pure, shared with the port-only sweep): fire at 150 starts a game, at 300 the
+# level is poked to L - 5 and wave_result to 4 (warp, +5), then walking and fire bursts every 30
+# ticks, lives topped up to 5 every 50. A change to those functions regenerates these entries.
+LEVEL_TICKS = 3000
+
+
+def level_run(level: int) -> dict:
+    sys.path.insert(0, str(ROOT / "tests" / "oracle"))
+    import level_sweep
+    keys = level_sweep.key_script(level, LEVEL_TICKS)
+    return dict(
+        summary=f"level {level} through the warp (level_sweep's script): walk and fire, "
+                "lives topped up",
+        ticks=SEED, machine="vga", interval=50, max_snapshots=LEVEL_TICKS // 50,
+        keys=[(t, code) for t in sorted(keys) for code in keys[t]],
+        pokes=level_sweep.poke_script(level, LEVEL_TICKS), quit_after=LEVEL_TICKS + 10,
+        tick_phase=0.55, start_delay=0, time_limit=300)         # warp's start
+
+
+RUNS.update({f"level_{level:02d}": level_run(level) for level in (10, 25, 50, 75, 99)})
+
 # input_shift [(start, ticks, end)]: the port replay's keys from `start` to `end` (exclusive,
 # None = the end) come `ticks` later, where the port is a tick behind after a timing-classed
 # switch (port_script; the report checks each segment against the timing shift at its start).
 #
-# Resolved: two_player 1150 (title menu) and warp 400 (walk keys) were input reaching both runs
-# at one IRQ while the port was a tick behind, and so was two_player 1450 (shots, entities[21]):
-# input_shift. two_player 1300 entities[8]+1e was a follower's trail as address vs player index
-# (compare.py TRAIL_ADDRESS).
+# Resolved: two_player 1150 (title menu) and 1450 (shots, entities[21]) were input reaching
+# both runs at one IRQ while the port was a tick behind: input_shift. Keel's 379b7ab (main_sm
+# loops test their exit after frame_run's wait, as the original) removed the play lag in warp
+# (400, 425..600), death_continue (800, the continue -> play switch) and two_player (the start
+# switch, 1200). two_player 1300 / warp 625 entities[8]+1e: a follower's trail as address vs
+# player index, also stale in a reused slot (compare.py TRAIL_ADDRESS).
+#
 # Triage of the real divergences (compare.py's first ones per run and those after them that are
 # not consequences): (run, tick, field, owner, status). Printed under each run's report; update
 # when a re-run after a fix moves them.
@@ -128,15 +150,6 @@ TRIAGE = [
     *[(run, tick, *_LEFTOVER_20) for run, tick in (
         ("walk_vga", 200), ("walk_ega", 200), ("warp", 175), ("death_continue", 200),
         ("game_over_hiscore", 175), ("two_player", 1250))],
-    ("two_player", 1200, "loop_count (port's tick 1201 has 1): the fire key that starts the "
-     "game is not shifted (it causes the switch), so at its own tick the port is ahead of its "
-     "shifted state", "Sentinel", "open: the one snapshot on an input-caused switch"),
-    ("warp", 425, "entities[8,10] x, [12,13] sprite; then [8..11] x/y +-1 (450..600)", "Keel",
-     "sent"),
-    ("death_continue", 800, "entities[8]+02 x (15 vs 13), +0c sprite (2A vs 29), llama think_05: "
-     "the first play tick after the continue runs at IRQ 741 in the original, 742 in the port, "
-     "with tick_count equal, so think_05's even-tick moves fall on the other parity (Moss)",
-     "Keel", "sent: continue -> play switch a tick late in the port (main_sm)"),
 ]
 
 
@@ -254,7 +267,9 @@ def reference(request):
     cfg = probe_args(RUNS[name])
     result = refrun.probe(original=ORIGINAL, workdir=WORKDIR / f"golden-{name}",
                           time_limit=RUNS[name].get("time_limit", 90), **cfg)
-    assert result.exit_type == 0 and result.exit_code == 0, result
+    # game86 exits with whatever AL holds at 1000:5f55 (INT 21h/4Ch): 0 for most runs, 8 when
+    # q ends the warped levels. It is part of the golden summary, not an error code.
+    assert result.exit_type == 0, result
     return name, cfg, result
 
 
