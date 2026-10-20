@@ -36,8 +36,8 @@ enum {
     PENDING_LAST_RESCUE_2P_ALT = 8,
 };
 
-/* Which ship's trail a follower walks (stored in kill_action; followers are never solid, so
- * no kill action runs for them). The original stores the trail's DS address there. */
+/* Which ship's trail a follower walks (llama.ship, the kill-action word; followers are never
+ * solid, so no kill action runs for them). The original stores the trail's DS address there. */
 enum { FOLLOW_P1 = 0, FOLLOW_P2 = 1 };
 
 static const SoundRequest SOUND_LAST_RESCUE = { SAMPLE_ID_ALERT, 1, 6 };   /* 1000:4ce3 */
@@ -84,8 +84,8 @@ static void llama_follow(GameState *game, Entity *e, int player)
     if (game->rescue_marker_pending)
         game->rescue_marker_y[player] = wrap16(game->ship[player].y - RESCUE_MARKER_ABOVE);
     game->follower_lag[player] = wrap16(game->follower_lag[player] + FOLLOWER_SPACING);
-    e->timer = wrap16(game->follower_lag[player] * 8);  /* the original's trail byte offset */
-    e->kill_action = player == 1 ? FOLLOW_P2 : FOLLOW_P1;
+    e->llama.trail_lag = wrap16(game->follower_lag[player] * 8);  /* the original's trail byte offset */
+    e->llama.ship = player == 1 ? FOLLOW_P2 : FOLLOW_P1;
 }
 
 /* game86 1000:4ca3..4df2 */
@@ -131,8 +131,7 @@ static void llama_rescue(GameState *game, Entity *e, unsigned touched)
 }
 
 /* Llama. Wanders at random while the power-up state is negative, otherwise walks towards its
- * target ship; moves every other tick. aux16 = sprite offset of the direction, aux30 = sprite
- * base, timer = ticks to the next random turn. game86 1000:4c46 */
+ * target ship; moves every other tick. game86 1000:4c46 */
 void think_05(GameState *game, Entity *e)
 {
     e->solid = 0;
@@ -145,40 +144,41 @@ void think_05(GameState *game, Entity *e)
     }
 
     if (game->player.powerup < 0) {
-        if (--e->timer < 0) {
+        if (--e->llama.turn_timer < 0) {
             const EnemyTables *tables = asset_enemy_tables();
-            e->timer = (int16_t)((rng_next_byte(&game->rng) & 0x0f) + WANDER_MIN_TICKS);
+            e->llama.turn_timer =
+                (int16_t)((rng_next_byte(&game->rng) & 0x0f) + WANDER_MIN_TICKS);
             unsigned dir = rng_next_byte(&game->rng) & 7;
             e->vx = tables->wander_vx[dir];
             e->vy = tables->wander_vy[dir];
-            e->aux16 = tables->wander_sprite[dir];
+            e->llama.facing = tables->wander_sprite[dir];
         }
     } else {
         bool right = wrap16(e->x - game->target.x) < 0;
         e->vx = right ? 1 : -1;
-        e->aux16 = right ? 6 : 0;
+        e->llama.facing = right ? 6 : 0;
         e->vy = wrap16(e->y - game->target.y) < 0 ? 1 : -1;
     }
     if ((game->tick_count & 1) == 0)
         entity_move_bounce(game, e);
     int16_t frame = step_frame(e->vx == 0 ? e->y : e->x);
-    e->sprite = wrap16(frame + e->aux16 + e->aux30);
+    e->sprite = wrap16(frame + e->llama.facing + e->llama.sprite_base);
 }
 
 /* ---- think_06 ------------------------------------------------------------------------- */
 
-/* Rescued llama: sits `timer` bytes (8 per entry) behind the newest point of its ship's trail
+/* Rescued llama: sits `trail_lag` bytes (8 per entry) behind the newest point of its ship's trail
  * and takes the direction sprite stored there. game86 1000:4bfb */
 void think_06(GameState *game, Entity *e)
 {
-    int player = e->kill_action == FOLLOW_P2 ? 1 : 0;
-    unsigned index = ((unsigned)(uint16_t)(game->trail_head[player] * 8 - e->timer) & 0x3f8) / 8;
+    int player = e->llama.ship == FOLLOW_P2 ? 1 : 0;
+    unsigned index = ((unsigned)(uint16_t)(game->trail_head[player] * 8 - e->llama.trail_lag) & 0x3f8) / 8;
     const TrailPoint *point = &game->trail[player][index];
     e->x = point->x;
     e->y = point->y;
     int16_t direction = point->flag;
     bool horizontal = direction == 0 || direction == 6;
-    e->sprite = wrap16(direction + step_frame(horizontal ? e->x : e->y) + e->aux30);
+    e->sprite = wrap16(direction + step_frame(horizontal ? e->x : e->y) + e->llama.sprite_base);
 }
 
 /* ---- think_08 ------------------------------------------------------------------------- */
@@ -190,23 +190,22 @@ void think_06(GameState *game, Entity *e)
  * port does not reproduce that.) game86 1000:4a22..4a36 */
 static Entity *hunter_quarry(GameState *game, const Entity *e)
 {
-    if (e->timer == QUARRY_NONE)
+    if (e->hunter.quarry == QUARRY_NONE)
         return &game->companion;
-    if (e->timer == 0 && game->entities[0].think == THINK_LLAMA)
+    if (e->hunter.quarry == 0 && game->entities[0].think == THINK_LLAMA)
         return &game->entities[0];
     return NULL;
 }
 
-/* Hunter. Every 8th tick it claims a llama (timer = its slot) and walks to it at up to 3
+/* Hunter. Every 8th tick it claims a llama (quarry = its slot) and walks to it at up to 3
  * pixels per axis; when it gets there the llama is turned into a timer. With no llama left
- * (timer = -2) it walks to the companion, which follows its target ship. aux16 = frames left
- * of the "hit" sprite. game86 1000:495f */
+ * (quarry = -2) it walks to the companion, which follows its target ship. game86 1000:495f */
 void think_08(GameState *game, Entity *e)
 {
     if (game->wave_intro_timer != 0 || (game->tick_count & 7) != 0)
         return;
-    if (e->timer < 0) {
-        if (e->timer != QUARRY_NONE) {
+    if (e->hunter.quarry < 0) {
+        if (e->hunter.quarry != QUARRY_NONE) {
             herder_claim_llama(game, e);
             return;
         }
@@ -219,8 +218,8 @@ void think_08(GameState *game, Entity *e)
         frame = (int16_t)((e->vy >= 0 ? 4 : 2) + step_frame(e->y));
     else
         frame = (int16_t)((e->vx >= 0 ? 6 : 0) + step_frame(e->x));
-    if (e->aux16 != 0) {
-        e->aux16--;
+    if (e->hunter.hit_frames != 0) {
+        e->hunter.hit_frames--;
         frame += HUNTER_FLASH_OFFSET;
     }
     e->sprite = (int16_t)(frame + HUNTER_SPRITE);
@@ -236,12 +235,12 @@ void think_08(GameState *game, Entity *e)
     int16_t dx = wrap16(quarry->x - e->x);
     int16_t dy = wrap16(quarry->y - e->y);
     if (magnitude16(dx) < HUNTER_REACH && magnitude16(dy) < HUNTER_REACH) {
-        if (e->timer != QUARRY_NONE) {
+        if (e->hunter.quarry != QUARRY_NONE) {
             entity_set_type(quarry, THINK_TIMER, 0);
             game->unhatched--;
             quarry->kind = -1;
         }
-        e->timer = -1;
+        e->hunter.quarry = -1;
         quarry->sprite = CAUGHT_SPRITE;
         quarry->timer = CAUGHT_TICKS;
         play(SOUND_CAUGHT);
