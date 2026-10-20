@@ -358,51 +358,15 @@ static uint16_t llama_record_word(const AttractLlama *l, unsigned n)
     }
 }
 
-/* Stores `v` as word `n` (at +2n) of an entity record (state.h Entity field offsets). */
-static void entity_record_word_set(Entity *e, unsigned n, uint16_t v)
-{
-    uint8_t lo = (uint8_t)(v & 0xff), hi = (uint8_t)(v >> 8);
-    int16_t w = (int16_t)v;
-    switch (n) {
-    case 0x00: e->think = (int8_t)lo; e->hatch_into = (int8_t)hi; break;
-    case 0x01: e->x = w; break;
-    case 0x02: e->y = w; break;
-    case 0x03: e->anim = w; break;
-    case 0x04: e->vx = w; break;
-    case 0x05: e->vy = w; break;
-    case 0x06: e->sprite = w; break;
-    case 0x07: e->scale = w; break;
-    case 0x08: e->solid = w; break;
-    case 0x09: e->aux12 = w; break;
-    case 0x0a: e->timer = w; break;
-    case 0x0b: e->aux16 = w; break;
-    case 0x0c: e->hp = w; break;
-    case 0x0d: e->aux1a = w; break;
-    case 0x0e: e->aux1c = w; break;
-    case 0x0f: e->kill_action = w; break;
-    case 0x10: e->sub_mode = w; break;
-    case 0x11: e->reload = lo; e->countdown = hi; break;
-    case 0x12: e->aux24 = w; break;
-    case 0x13: e->aux26 = w; break;
-    case 0x14: e->anim_toggle = w; break;
-    case 0x15: e->aux2a = w; break;
-    case 0x16: e->sprite_ref = w; break;
-    case 0x17: e->aux2e = w; break;
-    case 0x18: e->aux30 = w; break;
-    case 0x19: e->overlay.x = w; break;
-    case 0x1a: e->overlay.y = w; break;
-    case 0x1b: e->overlay.sprite = w; break;
-    case 0x1c: e->overlay.frames = w; break;
-    case 0x1d: e->kind = w; break;
-    case 0x1e: e->death_sample = lo; e->death_rate = hi; break;
-    default: e->hit_handler = w; break;
-    }
-}
-
 void attract_end(GameState *game)
 {
-    for (unsigned n = 0; n < ATTRACT_LLAMAS * LLAMA_RECORD_WORDS; n++)
-        entity_record_word_set(&game->entities[n / ENTITY_RECORD_WORDS], n % ENTITY_RECORD_WORDS,
-                               llama_record_word(&llamas[n / LLAMA_RECORD_WORDS],
-                                                 n % LLAMA_RECORD_WORDS));
+    for (unsigned slot = 0; slot < RESIDUE_SLOTS; slot++) {
+        EntityWords record = { .entity = game->entities[slot] };
+        for (unsigned w = 0; w < ENTITY_RECORD_WORDS; w++) {
+            unsigned n = slot * ENTITY_RECORD_WORDS + w;   /* word n of the llama records */
+            record.words[w] = llama_record_word(&llamas[n / LLAMA_RECORD_WORDS],
+                                                n % LLAMA_RECORD_WORDS);
+        }
+        game->entities[slot] = record.entity;
+    }
 }
