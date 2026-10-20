@@ -11,10 +11,11 @@ Where the port stands against the milestones in `docs/PLAN.md` §6.
   - the whole-game lockstep sample (`tests/oracle/lockstep_check.py --sample`): 12 of 12 match.
 - On `af88aab` I also ran the 100-level lockstep sweep with pages (1500 ticks per level): 99 of 100 match (M6).
 - On `c3657ab`, the release check (lead's request), from a clean export:
-  - all 21 DOSBox-X reference runs in strict mode (`LLAMATRON_GOLDEN_SET=all LLAMATRON_REPLAY_STRICT=1`): 60 passed, 2 skipped, 1 failed. The failure is in the original game, not the port (M6).
+  - all 21 DOSBox-X reference runs in strict mode (`LLAMATRON_GOLDEN_SET=all LLAMATRON_REPLAY_STRICT=1`): 60 passed, 2 skipped, 1 failed. The failure was in the test's capture timing, not the game, and is settled (M6).
   - `tests/oracle/lockstep_check.py --all -j 6`, with its own fresh build: 100 of 100 levels match over 3000 ticks, in 28 minutes.
 - Anything else below is quoted from a commit message and marked *(unverified)*.
-- Commits after `c3657ab` have not been run here.
+- On `e1ac3fc`: the 21 DOSBox-X reference runs in strict mode again, after Sentinel's fix: 61 passed, 2 skipped, with no reruns.
+- Commits after `e1ac3fc` have not been run here.
 
 Words used below:
 - **diff-tested**: the port's function is run side by side with the original machine code on the same inputs, and the results must match.
@@ -83,7 +84,8 @@ The original game ran in DOSBox-X for 12 core scripted sessions, and the port re
   - The port replay is identical apart from timing and the pinned rows on every run. The long set's pinned rows are:
     - level_30 at 900 and level_25_ega at 2550: play resumes one tick later after a death (DEVIATIONS #20);
     - level_20 at 1450 and level_40_two_player at 1300 and 1550: overlay frame counts (frame phase).
-  - 20 of 21 original runs reproduce their recorded hashes. level_40_two_player does not: at IRQ 2400 the game state matches, but the screen capture lands at IRQ 2402 instead of the recorded 2401. A rerun gives the same result. This is in the test's capture timing, not the game. Reported to Sentinel; the lead reports all 21 green *(not reproduced here)*.
+  - All 21 original runs reproduce their recorded hashes on `e1ac3fc`. On `c3657ab`, level_40_two_player failed: at IRQ 2400 the game state matched, but the screen capture landed at IRQ 2402 on this Mac (every run) instead of the recorded 2401. Since `96e8e37` the capture IRQ counts as frame phase (Sentinel). A different one is reported, and that snapshot's shown page is not compared. Game state and the background page must still match.
+  - Since `d45f8b3`, a run whose snapshots differ is run once more in a fresh workdir, and that second run decides. A rerun is reported as a warning. This guards against a heavily loaded machine; none was needed here.
 - Since `911295c` the snapshot hash leaves out the blitter's mode bytes DS:39D9..39DD, as it already did the page bookkeeping at 39D3..39D8. They are left over from the last draw call, so they depend on where in the frame the snapshot was taken (Sentinel).
 - Whole-game lockstep (`tests/oracle/`, game86 in unicorn against the port, game state and drawn pages after every tick and frame):
   - `lockstep_check.py --sample` (10 levels for 1500 ticks, plus a two-player and an EGA warp; about 5 minutes; ctest `oracle_long.lockstep_sample` with `-DLLAMATRON_ORACLE_LONG=ON`): 12 of 12 match on `61fc59e`.
