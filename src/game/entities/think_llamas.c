@@ -27,6 +27,7 @@ enum {
     CAUGHT_SPRITE = 0x33, CAUGHT_TICKS = 0x14,
     QUARRY_NONE = -2,                   /* herder_claim_llama found none: go to the companion */
     RESCUE_BONUS_RATE = 0x50,           /* level_flags after a rescue, before the halvings */
+    TRAIL_POINT_BYTES = (int)sizeof(TrailPoint),    /* llama.trail_lag is in trail bytes */
 };
 
 /* Sprite offsets of the four walking directions in a walker's sprite set. */
@@ -92,7 +93,7 @@ static void llama_follow(GameState *game, Entity *e, int player)
     if (game->rescue_marker_pending)
         game->rescue_marker_y[player] = wrap16(game->ship[player].y - RESCUE_MARKER_ABOVE);
     game->follower_lag[player] = wrap16(game->follower_lag[player] + FOLLOWER_SPACING);
-    e->llama.trail_lag = wrap16(game->follower_lag[player] * (int)sizeof(TrailPoint));
+    e->llama.trail_lag = wrap16(game->follower_lag[player] * TRAIL_POINT_BYTES);
     e->llama.ship = player == 1 ? FOLLOW_P2 : FOLLOW_P1;
 }
 
@@ -182,9 +183,9 @@ void think_05(GameState *game, Entity *e)
 void think_06(GameState *game, Entity *e)
 {
     int player = e->llama.ship == FOLLOW_P2 ? 1 : 0;
-    uint16_t offset = (uint16_t)(game->trail_head[player] * sizeof(TrailPoint)
+    uint16_t offset = (uint16_t)(game->trail_head[player] * TRAIL_POINT_BYTES
                                  - (uint16_t)e->llama.trail_lag);
-    const TrailPoint *point = &game->trail[player][offset / sizeof(TrailPoint) % TRAIL_LENGTH];
+    const TrailPoint *point = &game->trail[player][offset / TRAIL_POINT_BYTES % TRAIL_LENGTH];
     e->x = point->x;
     e->y = point->y;
     int16_t direction = point->flag;

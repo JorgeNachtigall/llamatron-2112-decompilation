@@ -8,6 +8,7 @@
 
 enum {
     TRAIL_POINTS = 4,
+    TRAIL_POINT_BYTES = (int)sizeof(Point16),   /* chaser.newest is a byte offset */
     COLUMN_X = 0xa0,                    /* think_18 */
     COLUMN_Y_MIN = 0x10, COLUMN_Y_END = 0xb8,
     FLIP_CHANCE = 5,                    /* out of 256 per tick */
@@ -30,9 +31,9 @@ void think_17(GameState *game, Entity *e)
     if (entity_check_touch(game, e))
         return;
     e->sprite = (int16_t)(CHASER_SPRITE + ((game->tick_count >> 1) & 3));
-    int16_t newest = (int16_t)((e->chaser.newest + sizeof(Point16))
-                               & ((TRAIL_POINTS - 1) * sizeof(Point16)));
-    e->chaser.trail[newest / sizeof(Point16)] = (Point16){ e->x, e->y };
+    int16_t newest = (int16_t)((e->chaser.newest + TRAIL_POINT_BYTES)
+                               & ((TRAIL_POINTS - 1) * TRAIL_POINT_BYTES));
+    e->chaser.trail[newest / TRAIL_POINT_BYTES] = (Point16){ e->x, e->y };
     e->chaser.newest = newest;
 
     int8_t axis = e->chaser.steer.axis;
