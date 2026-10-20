@@ -13,13 +13,52 @@ uploaded or published**. Details: `src/platform/README.md`.
 
 ## Build
 
+### What you need
+
+- **Your copy of the original game**, as a folder holding these files (lower case):
+  `llama.exe`, `game86.exe`, `fs.exe`, `install.exe`, `f.cmp`, `g3.cmp`, `s.cmp`,
+  `llatron.spl`, `newtit.lbm`, `newtit2.lbm`, `tronega.lbm` and `sblaster.bin`. The build
+  checks each one's hash (`tools/manifest/original-files.json`). `llama.inf` (settings) and
+  `scores.yak` (high scores) are optional: they are read if present.
+  Either put the folder's files in `<repo>/original/` (the default, gitignored) or pass
+  `-DLLAMATRON_ORIGINAL_DIR=/path/to/llamatron` to every configure.
+- Xcode's command line tools, CMake, Ninja, Python 3 and Homebrew's `sdl2`.
+- For the web build: Emscripten (Homebrew's `emscripten` or emsdk), and Google Chrome or
+  Chromium for the web tests (they report *Skipped* without it).
+- For the DOSBox-X reference runs: `dosbox-x` and `nasm`.
+
+Versions known to work: DOSBox-X 2026.10.01, NASM 3.02, Emscripten 6.0.12 (Homebrew).
+
+### Native
+
 ```sh
+sh tools/harness/setup_venv.sh               # once: the Python venv for the oracle tests
 cmake --preset macos-native -DLLAMATRON_ORIGINAL_DIR=/path/to/llamatron
-cmake --build --preset macos-native
-ctest --preset macos-native
+cmake --build --preset macos-native          # -> build/src/platform/llamatron
+ctest --preset macos-native                  # about 100 tests
 ```
 
-Web: `emcmake cmake --preset web-emscripten && cmake --build build-web`.
+Without the venv, configure prints "Oracle tests disabled" and ctest quietly runs only the C
+tests (about 44). Run `setup_venv.sh` and configure again.
+
+### Web
+
+```sh
+emcmake cmake --preset web-emscripten -DLLAMATRON_ORIGINAL_DIR=/path/to/llamatron
+cmake --build build-web
+cmake --build build-web --target web-dist    # -> build-web/dist/ (serve it on 127.0.0.1 only)
+ctest --test-dir build-web -j1               # C tests under node, page tests in headless Chrome
+```
+
+Serving `dist/` and what it contains: `src/platform/README.md` (Web folder).
+
+### DOSBox-X reference runs
+
+The original game in DOSBox-X, replayed against the port. They are slow and opt-in. Configure
+with `-DLLAMATRON_DOSBOX_TESTS=ON`, then run `ctest --preset macos-native -L dosbox -LE dosbox_long`.
+Details are in `tests/README.md` (Run).
+
+How to play: `docs/PLAYING.md`. What is verified and how: `docs/STATUS.md`.
 
 ### The macOS app, in one command
 
@@ -29,8 +68,9 @@ cmake --workflow --preset macos-app        # -> build-app/Llamatron.app
 
 This configures `build-app/` (Release, `LLAMATRON_MACOS_BUNDLE=ON`), builds a self-contained
 `Llamatron.app` and runs its checks: SDL is bundled, so the app runs without Homebrew; the
-signature verifies; and the icon is drawn from the title picture. The workflow reads the game
-files from `original/`. For another folder, run the steps by hand:
+signature verifies; and the icon is drawn from the title picture. A workflow preset takes no
+`-D` options, so this one command only works with the game files in `<repo>/original/`. For
+another folder, run the three steps by hand:
 
 ```sh
 cmake --preset macos-app -DLLAMATRON_ORIGINAL_DIR=/path/to/llamatron
@@ -38,6 +78,5 @@ cmake --build --preset macos-app
 ctest --preset macos-app
 ```
 
-Building needs Xcode's command line tools, Ninja, Python 3 and Homebrew's `sdl2`; running the
-app does not. The app is ad-hoc signed for this Mac only (no Apple account, no notarisation).
+Building needs the native tools above; running the app needs none of them. The app is ad-hoc signed for this Mac only (no Apple account, no notarisation).
 Like every build it contains the original's assets: personal use only (above).
