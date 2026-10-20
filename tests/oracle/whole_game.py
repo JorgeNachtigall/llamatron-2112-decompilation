@@ -12,7 +12,8 @@ every tick and every frame the DGROUP bytes the adapter maps must match.
 The original's surroundings, all inside this file:
   - DOS (INT 21h): memory resize, get/set vector (into the real IVT), and read-only access to
     the user's original files (g3.cmp, f.cmp, s.cmp, scores.yak; $LLAMATRON_ORIGINAL_DIR, else
-    original/); nothing is written.
+    original/). A file the game creates (scores.yak after a name entry) is kept in memory
+    (OriginalGame.saved); nothing is written to disk.
   - BIOS: INT 10h mode 0Dh resets the EGA plane model (palette calls are only logged);
     INT 16h has no keys; the tick word 0040:006C holds the seed and stands still.
   - The command tail as the launcher passes it: VGA or EGA, keyboard, no sound (PSP:89h = FF
@@ -53,6 +54,11 @@ from llamatron_harness.runner import linear  # noqa: E402
 
 GAME_INIT_END = (0x1000, 0x00C2)     # main_sm_start: the flow from video_init on
 WAIT_VSYNC = (0x1000, 0xE5F3)        # every frame ends at the entry of this wait
+# Busy loops that wait on game state alone (no retrace): main_sm turns each poll into a
+# frame, so the loop head ends a frame as well. 5d47: the hi-score table waits for fire or
+# 1000 ticks ([0625] / [39e6], main_sm.c table_wait).
+BUSY_WAITS = [(0x1000, 0x5D47)]
+WAITS = [WAIT_VSYNC] + BUSY_WAITS
 WAIT_VSYNC_END = 0xE605              # 3DAh reads outside e5f3..e604 are another wait
 INT_TIMER, INT_KEYBOARD = 0x08, 0x09
 STACK = range(0x84D0, 0x85E2)        # game86's stack (interrupt frames), not state
@@ -68,6 +74,14 @@ P2_TRAIL_HEAD, P2_TRAIL_HEAD_LOADED = 0x2CF9, 2
 # leaves behind and the original never reads before writing (tests/dosbox/llama_residue.py);
 # skipped while the original keeps the value it had when play started and the port holds 0.
 LEFTOVER_FIELDS = range(0x02, 0x40)
+# A follower (think_06, 1000:4bfb) keeps the trail it walks in kill_action (+1e): the original
+# as the trail's DS address (think_05 1000:4d04..4d97), the port as the player index
+# (think_llamas.c FOLLOW_P1/P2). Same value, two representations (compare.py TRAIL_ADDRESS,
+# test_think_llamas.py follower_fixup). Skipped while the slot is a follower, and after it
+# stops being one while the original keeps that address there (a reused slot keeps it).
+THINK_FOLLOWER, FOLLOWER_TRAIL = 0x06, 0x1E
+TRAIL_ADDRESS = {0x6CC9: 0, 0x70C9: 1}
+ENTITY_COUNT = 70
 
 STUB_SEG = 0x9F00                    # our IRET for the chained BIOS vectors
 DOS_PATH_MAX = 128
@@ -122,6 +136,8 @@ class OriginalGame:
         self.files: dict[int, bytes] = {}
         self.positions: dict[int, int] = {}
         self.next_handle = 5
+        self.written: dict[int, str] = {}       # handle -> name, files the game creates
+        self.saved: dict[str, bytes] = {}       # what it wrote (kept here, never on disk)
         self.key_byte: int | None = None
         self.stray_waits: list[tuple[int, int]] = []
         self.mode = "run"
@@ -150,8 +166,9 @@ class OriginalGame:
         m.write(STUB_SEG, 0, b"\xCF")                       # IRET
         for vec in (INT_TIMER, INT_KEYBOARD, 0x1C):
             m.write(0, 4 * vec, struct.pack("<HH", 0, STUB_SEG))
-        self.uc.hook_add(unicorn.UC_HOOK_CODE, self._at_wait, None,
-                         linear(*WAIT_VSYNC), linear(*WAIT_VSYNC))
+        self.waits = {linear(*w) for w in WAITS}
+        for lin in self.waits:
+            self.uc.hook_add(unicorn.UC_HOOK_CODE, self._at_wait, None, lin, lin)
         self._stop_at = None
         self.stop_hook = None
 
@@ -197,27 +214,28 @@ class OriginalGame:
             uc.emu_stop()
         elif self.mode == "interrupt":
             sp = uc.reg_read(X.UC_X86_REG_SP)
-            if self.int_return and sp == self.int_return[2]:
+            if self.int_return and sp == self.int_return[2] and \
+                    address == linear(self.int_return[0], self.int_return[1]):
                 uc.emu_stop()
 
     def frame(self) -> None:
-        """Everything up to the next entry of wait_vsync."""
+        """Everything up to the next entry of wait_vsync (or of a busy wait, BUSY_WAITS)."""
         self.mode = "frame"
-        self.resume_skip = self._pc() == linear(*WAIT_VSYNC)
+        self.resume_skip = self._pc() in self.waits
         try:
             self._go()
         finally:
             self.mode = "run"
-        if self._pc() != linear(*WAIT_VSYNC):
+        if self._pc() not in self.waits:
             r = self.m.get_regs()
             raise OriginalFault(f"frame did not reach the retrace wait (at {r['cs']:04x}:{r['ip']:04x})")
 
     def raise_interrupt(self, vec: int) -> None:
-        """A hardware interrupt at the current instruction (the entry of wait_vsync): FLAGS,
+        """A hardware interrupt at the current instruction (the entry of a wait): FLAGS,
         CS, IP pushed, IF cleared, run until the handler's IRET is back here."""
         uc = self.uc
         cs, ip = uc.reg_read(X.UC_X86_REG_CS), uc.reg_read(X.UC_X86_REG_IP)
-        assert linear(cs, ip) == linear(*WAIT_VSYNC), "interrupts are raised at the retrace wait"
+        assert linear(cs, ip) in self.waits, "interrupts are raised at a wait"
         ss, sp = uc.reg_read(X.UC_X86_REG_SS), uc.reg_read(X.UC_X86_REG_SP)
         flags = uc.reg_read(X.UC_X86_REG_EFLAGS) & 0xFFFF
         sp2 = (sp - 6) & 0xFFFF
@@ -312,6 +330,27 @@ class OriginalGame:
             self.files[h], self.positions[h] = path.read_bytes(), 0
             m.set_regs({"ax": h})
             self._flags(carry=False)
+        elif ah == 0x3C:                                # create: kept in memory only
+            name = self._c_string(r["ds"], r["dx"])
+            h = self.next_handle
+            self.next_handle += 1
+            self.files[h], self.positions[h] = b"", 0
+            self.written[h] = name
+            m.set_regs({"ax": h})
+            self._flags(carry=False)
+        elif ah == 0x40:                                # write (to a created file)
+            h = r["bx"]
+            if h not in self.written:
+                m.set_regs({"ax": 5})
+                self._flags(carry=True)
+                return
+            data = m.read(r["ds"], r["dx"], r["cx"])
+            pos = self.positions[h]
+            buf = self.files[h]
+            self.files[h] = buf[:pos] + data + buf[pos + len(data):]
+            self.positions[h] = pos + len(data)
+            m.set_regs({"ax": len(data)})
+            self._flags(carry=False)
         elif ah == 0x3F:                                # read
             h = r["bx"]
             if h not in self.files:
@@ -325,7 +364,10 @@ class OriginalGame:
             m.set_regs({"ax": len(data)})
             self._flags(carry=False)
         elif ah == 0x3E:                                # close
-            self.files.pop(r["bx"], None)
+            h = r["bx"]
+            if h in self.written:
+                self.saved[self.written.pop(h)] = self.files[h]
+            self.files.pop(h, None)
             self._flags(carry=False)
         elif ah == 0x42:                                # seek
             h = r["bx"]
@@ -420,6 +462,7 @@ class Result:
     offsets: list[int] = field(default_factory=list)
     detail: str = ""
     values: dict[int, tuple[int, int]] = field(default_factory=dict)   # off -> (orig, port)
+    images: tuple[bytes, bytes] | None = None       # (original, port) DGROUP at the divergence
 
 
 class Comparer:
@@ -473,6 +516,20 @@ def run_lockstep(lib, script: Script, ticks: int, seed: int, machine: str = "vga
 
     play_start: bytes | None = None
     in_title = False
+    trails: dict[int, int] = {}             # slot: trail address it held as a follower
+
+    def follower_trails(a: bytes, b: bytes) -> set[int]:
+        skip = set()
+        for i in range(ENTITY_COUNT):
+            at = ENTITY_TABLE + ENTITY_SIZE * i + FOLLOWER_TRAIL
+            trail = struct.unpack_from("<H", a, at)[0]
+            if a[ENTITY_TABLE + ENTITY_SIZE * i] == THINK_FOLLOWER and trail in TRAIL_ADDRESS:
+                trails[i] = trail
+            elif trails.get(i) != trail:
+                trails.pop(i, None)
+            if i in trails and TRAIL_ADDRESS[trails[i]] == struct.unpack_from("<h", b, at)[0]:
+                skip.update((at, at + 1))
+        return skip
 
     def check(where: str) -> Result | None:
         nonlocal play_start, in_title
@@ -483,12 +540,13 @@ def run_lockstep(lib, script: Script, ticks: int, seed: int, machine: str = "vga
             in_title, play_start = True, None
         elif in_title:
             in_title, play_start = False, a
+        skip = follower_trails(a, b)
         bad = cmp.differ(a, b)
-        bad = [o for o in bad if not known(o, a, b, play_start)]
+        bad = [o for o in bad if o not in skip and not known(o, a, b, play_start)]
         if bad:
             hooks = (struct.unpack_from("<H", a, DRAW_HOOK)[0], struct.unpack_from("<H", a, TICK_HOOK)[0])
             return Result(False, tick, frame, where, bad,
-                          values={o: (a[o], b[o]) for o in bad},
+                          values={o: (a[o], b[o]) for o in bad}, images=(a, b),
                           detail=f"draw hook {hooks[0]:04x}, tick hook {hooks[1]:04x}")
         return None
 
@@ -593,6 +651,8 @@ def main() -> int:
                     help="tick phase (fraction of a tick, as llamatron_replay --tick-phase)")
     ap.add_argument("--levels", default="0-99:5")
     ap.add_argument("--game86", default=os.environ.get("LLAMATRON_GAME86_IMAGE"))
+    ap.add_argument("--dump", type=Path,
+                    help="write the original's and the port's DGROUP at the divergence here")
     ap.add_argument("--ignore", default="",
                     help="DS offsets (hex, a-b ranges) to leave out, e.g. known divergences")
     args = ap.parse_args()
@@ -612,6 +672,10 @@ def main() -> int:
                            cfg.get("machine", "vga"), phase, game86=args.game86, ignore=ignore,
                            progress=lambda t, f: print(f"  tick {t} frame {f}", flush=True))
         print(f"{args.run}: {describe(res)}")
+        if args.dump and res.images:
+            args.dump.mkdir(parents=True, exist_ok=True)
+            for side, img in zip(("original", "port"), res.images):
+                (args.dump / f"{args.run}_{res.tick}_{res.frame}_{side}.bin").write_bytes(img)
         return 0 if res.ok else 1
     print("sweep: not yet", file=sys.stderr)
     return 2
