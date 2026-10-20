@@ -18,9 +18,6 @@
 # replacement. Remove an entry once its owner has switched; a stale entry is only reported.
 
 set(ALLOWED
-    # W5a/W6: Entity.sprite_ref holds the frame's 218C bank offset (enemy_init 00 copies it from
-    # the ref table); storing the frame or ref index instead removes this lookup
-    "src/game/entities/anim.c|asset_sprite_index_at("
     # The word views' own definitions and offset asserts
     "src/game/entity_layout.h|EntityWords"
     "src/game/entity_layout.h|raw.words"

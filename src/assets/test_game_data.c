@@ -32,6 +32,11 @@ static void check_bank(SpriteBankId id, unsigned expected)
         CHECK(s && s->mask == NULL && s->width == (int16_t)f->width && s->width % 16 == 0);
         CHECK(f->kind == 3 && f->hotspot_y == (f->height - 1) >> 1);
         CHECK(asset_sprite_index_at(id, f->bank_offset) == (int)i);
+        if (id == SPRITE_BANK_GAME) {
+            SpriteBankRef ref = 0;
+            CHECK(asset_sprite_bank_ref(i, &ref) && ref == f->bank_offset);
+            CHECK(asset_sprite_bank_ref_gfx(ref) == s);
+        }
         size_t bad_pixels = 0; /* colours are 0..15 or GFX_TRANSPARENT */
         for (size_t p = 0; p < (size_t)f->width * f->height; p++)
             bad_pixels += f->pixels[p] > 15 && f->pixels[p] != GFX_TRANSPARENT;

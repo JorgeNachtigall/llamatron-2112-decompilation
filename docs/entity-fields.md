@@ -486,9 +486,28 @@ one reproduces the original's overrun, the other is a memory map.
 - **Scratch.** It is the high word of `homing.position_y`, and `remember_home` stores y there.
 
 In the views the second life becomes `homing.position_y.whole`, so `sprite_ref` remains
-only as the type 01 drawing input. Converting that from a bank offset to a frame or ref
-index is Thorn's and Prism's allow-listed item in `NoDsOffsets.cmake`. It is independent of
-this change, but it touches the same field.
+only as the type 01 drawing input.
+
+**It stays a bank offset, as a type: `SpriteBankRef`** (formats.h), the frame named by its
+offset in the game bank as game86 names it and sprites.bin stores it (not a DS address).
+`asset_sprite_bank_ref(index, &ref)` gives a frame's ref (enemy_setup_01) and
+`asset_sprite_bank_ref_gfx(ref)` the frame to draw (anim.c `entity_sprite`). The plan was
+to store a frame index instead and have the adapter translate +2c while `sprite < 0` (the
+1000:44ab rule). It cannot be exact:
+
+- `attract_end` writes the original's title-llama words over slots 0..8 (DEVIATIONS #26),
+  +0c and +2c included: +0c is often negative (a high word of vy), +2c any low or high word
+  of a 16.16 value, for example 0. The port keeps those raw words, and play compares them
+  byte for byte (7b4ed95).
+- With a frame index in +2c, a raw residue word and a frame index are the same port value:
+  the residue 0 would be frame 0 and go back to the original as frame 0's offset 0x3ce
+  (test_attract, slot 5). No 16-bit encoding tells the two apart, and the record cannot
+  grow.
+- A smaller problem, fixable in the adapter: a llama killed in a step keeps +2c with a
+  sprite >= 0, so the write could not key on the final sprite (test_w5a_types).
+
+Agreed by the lead, Sentinel and Prism (2026-10-19); the guard's allow-list entry for
+anim.c's `asset_sprite_index_at` call went with it.
 
 ### 7.5 Migration
 

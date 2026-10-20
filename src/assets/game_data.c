@@ -159,6 +159,20 @@ int asset_sprite_index_at(SpriteBankId bank, uint16_t bank_offset)
     return b ? sprite_bank_find(b, bank_offset) : -1;
 }
 
+const GfxSprite *asset_sprite_bank_ref_gfx(SpriteBankRef ref)
+{
+    int index = asset_sprite_index_at(SPRITE_BANK_GAME, ref);
+    return index < 0 ? NULL : asset_sprite_gfx(SPRITE_BANK_GAME, (unsigned)index);
+}
+
+bool asset_sprite_bank_ref(unsigned index, SpriteBankRef *ref)
+{
+    const SpriteFrame *f = asset_sprite_frame(SPRITE_BANK_GAME, index);
+    if (f)
+        *ref = f->bank_offset;
+    return f != NULL;
+}
+
 const SpriteRefTable *asset_sprite_refs(void)
 {
     return data.loaded ? &data.refs : NULL;

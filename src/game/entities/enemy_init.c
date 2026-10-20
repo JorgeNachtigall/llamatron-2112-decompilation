@@ -162,12 +162,8 @@ void enemy_setup_01(GameState *game, Entity *e)
     const SpriteRefTable *refs = asset_sprite_refs();
     unsigned ref = SPRITE_REF_LLAMA_BY_WAVE + 2u * (unsigned)game->player.wave +
                    (unsigned)(e->anim_toggle & 1);
-    /* The original copies the table word, the frame's offset in the 218C bank. */
-    if (refs && ref < refs->count && !(refs->refs[ref] & SPRITE_REF_LINK)) {
-        const SpriteFrame *frame = asset_sprite_frame(SPRITE_BANK_GAME, refs->refs[ref]);
-        if (frame)
-            e->sprite_ref = (int16_t)frame->bank_offset;
-    }
+    if (refs && ref < refs->count && !(refs->refs[ref] & SPRITE_REF_LINK))
+        asset_sprite_bank_ref(refs->refs[ref], &e->sprite_ref);
     game->enemies_alive++;
 }
 

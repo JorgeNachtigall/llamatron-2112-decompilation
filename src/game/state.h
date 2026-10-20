@@ -82,10 +82,8 @@ typedef struct Entity {
             int16_t aux24, aux26;       /* +24/+26 handler-specific accumulators */
             int16_t anim_toggle;        /* +28 anim_01 */
             int16_t aux2a;              /* +2a */
-            int16_t sprite_ref;         /* +2c explicit sprite when sprite < 0: the frame's offset in the
-                                           original game bank (218C:xxxx, SpriteFrame.bank_offset), kept
-                                           as the original holds it; some thinks keep y or the homing
-                                           position's high word here instead */
+            SpriteBankRef sprite_ref;   /* +2c the frame drawn while sprite < 0 (formats.h; why it
+                                           stays a bank offset: docs/entity-fields.md 7.4) */
             int16_t aux2e, aux30;       /* +2e/+30 */
         };
         LlamaView llama;

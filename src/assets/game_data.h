@@ -31,6 +31,10 @@ const SpriteFrame *asset_sprite_frame(SpriteBankId bank, unsigned index);
 const GfxSprite *asset_sprite_gfx(SpriteBankId bank, unsigned index);
 /* Frame index of an original sprite pointer (offset within its bank), or -1. */
 int asset_sprite_index_at(SpriteBankId bank, uint16_t bank_offset);
+/* The game-bank frame `ref` names, or NULL when no frame starts there. */
+const GfxSprite *asset_sprite_bank_ref_gfx(SpriteBankRef ref);
+/* The SpriteBankRef of game-bank frame `index`; false when there is no such frame. */
+bool asset_sprite_bank_ref(unsigned index, SpriteBankRef *ref);
 
 const SpriteRefTable *asset_sprite_refs(void);
 /* sprite_refs.bin entry `ref_index` (original offset 218C:ref_index*2) as a frame of the game

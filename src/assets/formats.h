@@ -56,6 +56,13 @@ typedef struct SpriteFrame {
     const uint8_t *pixels;   /* width x height, colour 0..15 or GFX_TRANSPARENT */
 } SpriteFrame;
 
+/* A frame of the game bank (sprites.bin, game86's segment 218C) named the way game86 names
+ * it: by the frame's offset in the bank. Entity.sprite_ref holds one, drawn while the sprite
+ * word is < 0 (game86 1000:44ab). It stays an offset rather than a frame index because the
+ * same word also carries the raw title-llama words attract_end leaves (docs/entity-fields.md
+ * section 7.4). */
+typedef uint16_t SpriteBankRef;
+
 typedef struct SpriteBank {
     uint16_t frame_count;
     SpriteFrame *frames;
