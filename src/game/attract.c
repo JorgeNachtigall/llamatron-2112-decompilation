@@ -26,6 +26,17 @@ enum {
     LLAMA_GRAVITY = 0xa00,                          /* 16.16 per tick */
     LLAMA_BOUNCE_SPEED = -0x20000,
     LLAMA_FACING_RIGHT = 6,
+    LLAMA_ROW_CENTRE_X = 0xa0, LLAMA_ROW_SPACING = 4,
+    LLAMA_HEIGHT_BASE = 0x12,
+    LLAMA_SPEED_STEP = 0x1000,                      /* 16.16: llama n moves (n + 1) / 16 px */
+    /* the frame and the two logo halves on the background page */
+    BORDER_RIGHT = 0x13e, BORDER_BOTTOM = 0xc6, BORDER_COLOR = 0x0b,
+    LOGO_LEFT_X = 0x41, LOGO_RIGHT_X = 0x101, LOGO_HALVES_Y = 0x50,
+    /* the menu shown once the logo is complete */
+    BOB_X = 0x9b, BOB_Y = 0x78,
+    PLAYERS_X = 0x9c, PLAYERS_Y = 0x5f,
+    START_DIGIT_X = 0x9b, START_DIGIT_Y = 0x4b,
+    FOOTER_X = 0xa0,
 };
 
 static const SoundRequest SOUND_LETTER_LANDS = { SAMPLE_ID_LETTER_LANDS, 1, 2 };  /* 1000:3f8f */
@@ -123,13 +134,16 @@ void title_draw(GameState *game, const AttractArt *art)
     game->title_timer = TITLE_TIMER_START;
 
     gfx_clear(GFX_PAGE_BACKGROUND, 0);
-    draw_rect_outline(GFX_PAGE_BACKGROUND, 0, 0, 0x13e, 0xc6, 0x0b);
+    draw_rect_outline(GFX_PAGE_BACKGROUND, 0, 0, BORDER_RIGHT, BORDER_BOTTOM, BORDER_COLOR);
     DrawTarget background = draw_target_page(GFX_PAGE_BACKGROUND);
     draw_set_dirty_recording(false);
-    draw_plain(&background, art->shape(TITLE_SHAPE_LOGO_LEFT), 0x41, 0x50);
-    draw_plain(&background, art->shape(TITLE_SHAPE_LOGO_RIGHT), 0x101, 0x50);
+    draw_plain(&background, art->shape(TITLE_SHAPE_LOGO_LEFT), LOGO_LEFT_X, LOGO_HALVES_Y);
+    draw_plain(&background, art->shape(TITLE_SHAPE_LOGO_RIGHT), LOGO_RIGHT_X, LOGO_HALVES_Y);
 }
 
+/* The bouncing llamas under the menu start in a row across the middle, 4 pixels apart, at
+ * heights along a sine wave, each a little faster than the one before; every 8 share a sprite
+ * set. game86 1000:44d7 */
 void attract_llamas_init(void)
 {
     const int8_t *sine = (const int8_t *)asset_sine()->sine8;
@@ -137,9 +151,9 @@ void attract_llamas_init(void)
     for (int i = 0; i < ATTRACT_LLAMAS; i++) {
         int n = ATTRACT_LLAMAS - 1 - i;     /* the original counts down */
         AttractLlama *l = &llamas[i];
-        l->x = (int32_t)(((n - 15) * 4 + 0xa0) * 0x10000);
-        l->height = (int32_t)(((sine[(n * 8) & 0xff] >> 3) + 0x12) * 0x10000);
-        l->vx = (int32_t)((n + 1) << 12);
+        l->x = (int32_t)(((n - 15) * LLAMA_ROW_SPACING + LLAMA_ROW_CENTRE_X) * 0x10000);
+        l->height = (int32_t)(((sine[(n * 8) & 0xff] >> 3) + LLAMA_HEIGHT_BASE) * 0x10000);
+        l->vx = (int32_t)((n + 1) * LLAMA_SPEED_STEP);
         l->vy = 0;
         l->sprite_base = (int16_t)tables->llama_sprites[(n >> 3) & 3];
     }
@@ -189,11 +203,11 @@ static void attract_llamas_draw(const DrawTarget *target, const AttractArt *art)
 void title_tick_hook(GameState *game)
 {
     if (game->title_timer == TITLE_TIMER_START) {
-        /* Quirk kept: the original's "still dropping" flag is AX (1000:3f85 MOV AX,1), and
-         * the landing sound's driver call (3f97) overwrites it before the test at 3fa1. The
-         * driver leaves AX = 0300h (nonzero); with sound off the stub 1000:e785 returns
-         * AX = 0. So with sound off, a tick on which the last dropping letter lands already
-         * counts as done and starts title_timer one tick early. */
+        /* Quirk kept: in the original the landing sound's call (1000:3f97) clobbers the
+         * "still dropping" flag (set at 3f85, tested at 3fa1). The sound driver leaves it
+         * set; with sound off the stub (1000:e785) clears it. So with sound off, the tick on
+         * which the last letter lands already counts as "all landed" and the logo starts
+         * one tick early. */
         bool dropping = false;
         for (int i = 0; i < TITLE_LETTERS; i++) {
             if (game->title_objects[i] <= 0)
@@ -293,16 +307,16 @@ void title_draw_hook(GameState *game, const DrawTarget *frame, const AttractArt 
     int16_t timer = game->title_timer;
     if (timer < 0) {                        /* game86 1000:4130 */
         uint16_t ticks = game->tick_count;
-        draw_plain(frame, art->shape(TITLE_SHAPE_BOB_A), 0x9b, 0x78 + bob(ticks, 0));
-        draw_plain(frame, art->shape(TITLE_SHAPE_BOB_B), 0x9b, 0x78 + bob(ticks, 8));
+        draw_plain(frame, art->shape(TITLE_SHAPE_BOB_A), BOB_X, BOB_Y + bob(ticks, 0));
+        draw_plain(frame, art->shape(TITLE_SHAPE_BOB_B), BOB_X, BOB_Y + bob(ticks, 8));
         TitleShapeId players = TITLE_SHAPE_ONE_PLAYER;
         if (game->options & OPT_TWO_PLAYERS)
             players = (game->options & OPT_DOUBLE_CONTROLLER) ? TITLE_SHAPE_TWO_PLAYERS_TEAM
                                                               : TITLE_SHAPE_TWO_PLAYERS_DROID;
-        draw_plain(frame, art->shape(players), 0x9c, 0x5f);
+        draw_plain(frame, art->shape(players), PLAYERS_X, PLAYERS_Y);
         draw_plain(frame, art->shape((game->options & OPT_SHARED_START) ? TITLE_SHAPE_DIGIT_2
                                                                         : TITLE_SHAPE_DIGIT_1),
-                   0x9b, 0x4b);
+                   START_DIGIT_X, START_DIGIT_Y);
         attract_llamas_draw(frame, art);
     } else if (timer == 0) {                /* the logo is complete: game86 1000:41c3 */
         draw_set_dirty_recording(false);
@@ -318,7 +332,7 @@ void title_draw_hook(GameState *game, const DrawTarget *frame, const AttractArt 
         for (int f = 0; f < 3; f++) {
             for (int p = 0; p < 3; p++) {
                 DrawTarget page = draw_target_page(pages[p]);
-                draw_plain(&page, art->shape(footer[f].shape), 0xa0, footer[f].y);
+                draw_plain(&page, art->shape(footer[f].shape), FOOTER_X, footer[f].y);
             }
         }
         game->title_timer = LOGO_DONE;
