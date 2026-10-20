@@ -24,7 +24,8 @@ DGROUP_SIZE = 0x10000
 LRPL_HEADER = "<4sHHII"
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from adapters.gamestate import ATTRACT_LLAMAS, follower_trail_equal  # noqa: E402
+from adapters.gamestate import (ATTRACT_LLAMAS, CHAIN_TAIL, chain_tail_past_rings,  # noqa: E402
+                                follower_trail_equal)
 
 # The reference run's phase, from its tick hook (g_tick_hook, not part of GameState).
 TICK_HOOK = 0x39E4
@@ -40,6 +41,12 @@ WAVE_INTRO_TIMER = 0x08FC      # counts down; reloaded when a wave (re)starts (e
 # original (e.g. the title llamas) and whatever the port leaves there; only its type word
 # is state. Compared again as soon as either side allocates the slot.
 ENTITIES, ENTITY_COUNT, ENTITY_SIZE = 0x48C1, 70, 0x40
+# overlay.frames (+38) counts display frames (entities_animate_all 1000:4374), not ticks: at a
+# tick snapshot it depends on where the frames fell between the IRQs, which differs between
+# DOSBox-X and the replay (Prism; the unicorn lockstep, with one frame schedule on both sides,
+# matches it through level 99). Timing when the reference's value lies between the port's at
+# the neighbouring ticks.
+OVERLAY_FRAMES = 0x38
 
 # A follower's trail (+1E) as the original's DS address and the port's player index is the same
 # value: adapters.gamestate.follower_trail_equal.
@@ -207,7 +214,8 @@ def compare(port: PortRun, reference: dict[int, bytes], ignore=()) -> list[TickD
     hook, the title llamas (ATTRACT_LLAMAS) are skipped and listed as ignored: the original
     keeps them in the entity table, the port in attract.c. hook_nop transitions in between
     stay in the attract phase, because the bytes survive until entities_clear. P2's trail
-    head is skipped while the reference still holds its loaded value (DEVIATIONS #10).
+    head is skipped while the reference still holds its loaded value (DEVIATIONS #10), and
+    chain_tail while the reference read it past the trail rings (DEVIATIONS #14).
     Entity slots free on both sides are compared by their type word only. In play the title
     llamas' leftovers in slots 0..8 are compared: the port keeps them as the original does
     (attract_end at new_game, 7b4ed95), and some are read (DEVIATIONS #26).
@@ -230,7 +238,8 @@ def compare(port: PortRun, reference: dict[int, bytes], ignore=()) -> list[TickD
     reloaded from tune.period at 0) and is frozen after that hook is replaced, so a tune hook
     that ran one tick longer or shorter leaves a lasting one-step difference. With the tune
     hook not running in the reference, a countdown one step (mod the period) from the port's
-    is timing too."""
+    is timing too. So is a live entity's overlay.frames between the port's values at the
+    neighbouring ticks (OVERLAY_FRAMES: it counts frames)."""
     ignore = set(ignore)
     out = []
     attract = False
@@ -285,6 +294,10 @@ def compare(port: PortRun, reference: dict[int, bytes], ignore=()) -> list[TickD
             frozen = range(TUNE_COUNTDOWN, TUNE_COUNTDOWN + 2)
             timing = timing + [o for o in offs if o in frozen]
             offs = [o for o in offs if o not in frozen]
+        frames = _frame_counted(a, port.snapshots, tick + shift, offs)
+        if frames:
+            timing = timing + frames
+            offs = [o for o in offs if o not in frames]
         carried = shift
         prev_ref_hooks = _hooks(a)
         prev_tick, prev_counts, prev_intro = tick, counts, intro
@@ -316,6 +329,23 @@ def _tune_step(a: bytes, b: bytes) -> bool:
     return (mine - ref) % period in (1, period - 1)
 
 
+def _frame_counted(a: bytes, snapshots: dict[int, bytes], tick: int, offs) -> list[int]:
+    """Bytes of live entities' overlay.frames whose reference value lies between the port's at
+    tick - 1 and tick + 1 (frame phase, not a different count)."""
+    before, after = snapshots.get(tick - 1), snapshots.get(tick + 1)
+    if before is None or after is None:
+        return []
+    out = []
+    for i in range(ENTITY_COUNT):
+        at = ENTITIES + ENTITY_SIZE * i + OVERLAY_FRAMES
+        if (at not in offs and at + 1 not in offs) or _type(a, i) < 0:
+            continue
+        ref, lo, hi = (struct.unpack_from("<h", x, at)[0] for x in (a, before, after))
+        if min(lo, hi) <= ref <= max(lo, hi):
+            out += [o for o in (at, at + 1) if o in offs]
+    return out
+
+
 def _counted(before: int, after: int, ticks: int) -> bool:
     """The tick counter went from `before` to `after` by just counting `ticks` ticks."""
     return (before + ticks) & 0xFFFF == after
@@ -335,6 +365,9 @@ def _differences(a: bytes, b: bytes, mask: bytes, ignore: set, attract: bool):
         base = ENTITIES + ENTITY_SIZE * i
         skip.update(range(base + 2, base + ENTITY_SIZE))
     skip |= follower_trail_equal(a, b)
+    if chain_tail_past_rings(a):
+        skipped.append((CHAIN_TAIL, "chain_tail read past the trail rings (DEVIATIONS #14)"))
+        skip.update(CHAIN_TAIL)
     offs = [i for i in range(DGROUP_SIZE)
             if mask[i] and a[i] != b[i] and i not in ignore and i not in skip]
     return offs, skipped
@@ -388,6 +421,9 @@ def report(diffs: list[TickDiff], input_shift=()) -> str:
                 notes.append("tick counter set one tick apart")
             if TUNE_COUNTDOWN in d.timing:
                 notes.append("tune.countdown frozen one tick apart")
+            if any((o - ENTITIES) % ENTITY_SIZE in (OVERLAY_FRAMES, OVERLAY_FRAMES + 1)
+                   and ENTITIES <= o < ENTITIES + ENTITY_COUNT * ENTITY_SIZE for o in d.timing):
+                notes.append("overlay.frames at another frame phase")
             state += f"  [timing: {', '.join(notes)}]"
         skipped = "".join(f"  [ignored {name} {r.start:04X}..{r.stop - 1:04X}]" if r else
                           f"  [ignored {name}]" for r, name in d.ignored)

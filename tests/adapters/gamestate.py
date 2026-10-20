@@ -56,6 +56,25 @@ def follower_trail_equal(original: bytes, port: bytes) -> set[int]:
     return same
 
 
+# DEVIATIONS #14: chain_tail (06A4/06A6) is P1's trail entry at trail_head[0] + follower_lag[0]
+# (1000:194f, unmasked, in bytes from P1's ring at 6CC9). Past the end of P2's ring (74C9) the
+# original reads BSS and then the LZSS loader's ring buffer at SS:0000, which the port does not
+# model (it wraps to P1's start). Skipped on such a snapshot only (Moss): an entry >= 512, with
+# the head as it is or one step back (the tick read the tail before the head moved on: level 99
+# lockstep tick 1414, head 0 after 3F8 with lag 438).
+CHAIN_TAIL = range(0x06A4, 0x06A8)
+TRAIL_HEAD_P1, FOLLOWER_LAG_P1 = 0x2CF7, 0x06BA
+TRAIL_STEP, TRAIL_HEAD_MASK = 8, 0x3F8
+TRAILS_END = 0x800                     # P1's ring and P2's, in bytes from 6CC9
+
+
+def chain_tail_past_rings(original: bytes) -> set[int]:
+    """CHAIN_TAIL's offsets when the original read it past P2's ring, else nothing."""
+    head, lag = (struct.unpack_from("<H", original, at)[0] for at in (TRAIL_HEAD_P1, FOLLOWER_LAG_P1))
+    before = (head - TRAIL_STEP) & TRAIL_HEAD_MASK
+    return set(CHAIN_TAIL) if max(head, before) + lag >= TRAILS_END else set()
+
+
 class DgroupMap:
     def __init__(self, lib: ctypes.CDLL):
         self.lib = lib
@@ -92,8 +111,9 @@ class DgroupMap:
 
     def mismatches(self, original: bytes, port: bytes, ignore=SCRATCH) -> list[int]:
         """Mapped DS offsets where the two images differ (a follower's trail held as address
-        and as player index is the same: follower_trail_equal)."""
-        same = follower_trail_equal(original, port)
+        and as player index is the same: follower_trail_equal; chain_tail read past the trail
+        rings is DEVIATIONS #14: chain_tail_past_rings)."""
+        same = follower_trail_equal(original, port) | chain_tail_past_rings(original)
         return [i for i in range(DGROUP_SIZE)
                 if self.mask[i] != MASK_UNMAPPED and original[i] != port[i] and i not in ignore
                 and i not in same]

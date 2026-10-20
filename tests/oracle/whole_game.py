@@ -50,7 +50,7 @@ import unicorn.x86_const as X  # noqa: E402
 
 from adapters.cport import bind, load_testlib  # noqa: E402
 from adapters.gamestate import (ATTRACT_LLAMAS, DGROUP_SIZE, MASK_UNMAPPED, DgroupMap,  # noqa: E402
-                                follower_trail_equal)
+                                chain_tail_past_rings, follower_trail_equal)
 from llamatron_harness import Machine  # noqa: E402
 from llamatron_harness.runner import linear  # noqa: E402
 
@@ -76,7 +76,8 @@ DRAW_HOOK_TITLE = 0x402C
 # while the original still holds the loaded 2 (only before the first wave).
 P2_TRAIL_HEAD, P2_TRAIL_HEAD_LOADED = 0x2CF9, 2
 # A follower's trail (+1e) as the original's DS address and the port's player index is the same
-# value: adapters.gamestate.follower_trail_equal (also in DgroupMap.mismatches).
+# value: adapters.gamestate.follower_trail_equal (also in DgroupMap.mismatches). chain_tail read
+# past the trail rings: chain_tail_past_rings (DEVIATIONS #14).
 
 SOUND_BLASTER = 0x0C                 # PSP:89h for llama.inf's S (docs/re-notes-sound-data.md)
 STUB_SEG = 0x9F00                    # our IRET for the chained BIOS vectors
@@ -556,7 +557,7 @@ def run_lockstep(lib, script: Script, ticks: int, seed: int, machine: str = "vga
     def check(where: str) -> Result | None:
         a = orig.dgroup()
         b = port.dgroup(a)
-        skip = follower_trail_equal(a, b)
+        skip = follower_trail_equal(a, b) | chain_tail_past_rings(a)    # DEVIATIONS #14
         bad = cmp.differ(a, b)
         bad = [o for o in bad if o not in skip and not known(o, a, b)]
         if bad:

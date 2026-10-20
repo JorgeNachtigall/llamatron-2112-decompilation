@@ -145,16 +145,18 @@ RUNS["level_50"]["input_shift"] = [(1059, 1, None)]
 # player index, also stale in a reused slot (adapters.gamestate.follower_trail_equal). The
 # title llamas' leftover in slots 0..8 (+20 read in play, DEVIATIONS #26): Keel's 7b4ed95
 # (attract_end at new_game) keeps it in the port, compare.py no longer skips any of it.
+# level_99 700 / 2800 overlay.frames: frame phase (compare.py OVERLAY_FRAMES; Prism, Moss),
+# level_99 2250..2900 chain_tail: DEVIATIONS #14 (adapters.gamestate.chain_tail_past_rings).
 #
 # Triage of the real divergences (compare.py's first ones per run and those after them that are
 # not consequences): (run, tick, field, owner, status). Printed under each run's report; update
 # when a re-run after a fix moves them.
 TRIAGE = [
-    ("level_50", 1150, "entities[2] hit: the port kills it (type 0101 -> 0002, kills_toward_bonus "
-     "and scores move), the original's is alive with shot 0 still flying at x 76h", "Keel",
-     "open"),
-    ("level_99", 700, "entities[51]+38 overlay.frames: original 12, port 13/11/10 at t-1/t/t+1, "
-     "at every tick_phase (entities_animate_all 1000:4374 overlay count)", "Prism / Keel", "open"),
+    ("level_50", 1150, "entities[2] killed in the port only: from the respawn at ~1058 the port's "
+     "state is a tick behind the original's while tick_count (39E6) agrees at each IRQ, so shot 0 "
+     "is fired on an even count in the port, odd in the original, and shots_update's parity turn "
+     "(1000:0cd1) tests it in the port only", "Keel",
+     "explained: DEVIATIONS #20 (timing shift); the unicorn lockstep matches all 3010 ticks"),
 ]
 
 

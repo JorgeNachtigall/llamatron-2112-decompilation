@@ -309,6 +309,50 @@ def test_compare_wave_restart_between_snapshots_is_a_transition():
     assert compare.input_shift_check(diffs, (40, 1, None))      # no shift at 0..40
 
 
+def test_compare_overlay_frames_between_neighbouring_ticks_is_timing():
+    """overlay.frames counts display frames: a reference value between the port's at t - 1 and
+    t + 1 is frame phase (level_99 700: 12 vs 13 / 11 / 10); outside that range it is real."""
+    mask = bytearray(compare.DGROUP_SIZE)
+    frames = 0x48C1 + 0x40 * 51 + compare.OVERLAY_FRAMES
+    mask[frames] = mask[frames + 1] = 1
+    play = compare.PLAY_HOOK
+
+    def img(tick, value):
+        image = bytearray(_image(play, 0, tick))
+        struct.pack_into("<h", image, 0x48C1 + 0x40 * 51, 0x0A)     # slot 51 in use
+        struct.pack_into("<h", image, frames, value)
+        return bytes(image)
+
+    port = {99: img(99, 13), 100: img(100, 11), 101: img(101, 10),
+            199: img(199, 13), 200: img(200, 11), 201: img(201, 10)}
+    ref = {100: img(100, 12), 200: img(200, 14)}
+    diffs = {d.tick: d for d in compare.compare(compare.PortRun(100, bytes(mask), port), ref)}
+    assert diffs[100].offsets == [] and diffs[100].timing == [frames]
+    assert diffs[200].offsets == [frames]
+    assert "overlay.frames at another frame phase" in compare.report([diffs[100]])
+
+
+def test_compare_chain_tail_past_the_trail_rings_is_deviation_14():
+    """chain_tail read at trail_head[0] + follower_lag[0] >= 800h (past P2's ring) is the
+    loader's scratch in the original (DEVIATIONS #14): skipped there, compared otherwise."""
+    mask = bytearray(compare.DGROUP_SIZE)
+    mask[0x06A4:0x06A8] = b"\1" * 4
+    play = compare.PLAY_HOOK
+
+    def img(tick, head, lag, tail):
+        image = bytearray(_image(play, 0, tick))
+        struct.pack_into("<HH", image, 0x2CF7, head, 0)
+        struct.pack_into("<H", image, 0x06BA, lag)
+        struct.pack_into("<hh", image, 0x06A4, *tail)
+        return bytes(image)
+
+    ref = {10: img(10, 0x398, 0x4B0, (31098, 30584)), 20: img(20, 0x398, 0x460, (5, 6))}
+    port = {10: img(10, 0x398, 0x4B0, (0x82, 0x9F)), 20: img(20, 0x398, 0x460, (0x82, 0x9F))}
+    diffs = compare.compare(compare.PortRun(10, bytes(mask), port), ref)
+    assert diffs[0].offsets == [] and "DEVIATIONS #14" in compare.report(diffs[:1])
+    assert diffs[1].offsets == [0x06A4, 0x06A6]       # 7F8h: inside the rings (high bytes agree)
+
+
 def test_frames_dump_the_frames_of_dumped_ticks(driver, tmp_path):
     frames = tmp_path / "f.lrpf"
     port = run(driver, tmp_path, "fr", "--ticks", "30", "--every", "10", "--frames", str(frames))
