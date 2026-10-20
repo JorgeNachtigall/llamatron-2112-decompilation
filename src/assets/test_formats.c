@@ -224,7 +224,8 @@ static void test_levels(void)
     CHECK(set.level_count == 2 && set.levels[0].op_count == 2 && set.levels[0].ops[0].operands[0] == 0xFE);
     CHECK(set.levels[0].ops[1].handler == 7 && set.levels[0].spawns[0].enemy_type == 5);
     CHECK(set.levels[1].wave_type == 3 && set.levels[1].spawn_count == 2 && set.levels[1].spawns[1].enemy_type == 40);
-    CHECK(set.clobber_10b0.level == 1 && set.clobber_10b0.first_spawn == 0 && set.clobber_10b0.spawn_count == 2);
+    CHECK(set.spawn_pairs_clobber.level == 1 && set.spawn_pairs_clobber.first_spawn == 0 &&
+          set.spawn_pairs_clobber.spawn_count == 2);
     CHECK(set.spawn_sprites[0] == 0x20 && set.spawn_sprites[3] == 0x23 && set.warp_sprites[0] == 0x24 && set.warp_sprites[3] == 0x27);
     CHECK(set.warp_box_colours[0] == 0x31 && set.warp_box_colours[3] == 0x34);
     levels_free(&set);

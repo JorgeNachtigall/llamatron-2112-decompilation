@@ -187,8 +187,8 @@ static void check_levels(void)
     }
     CHECK(asset_level(LLAMA_LEVEL_COUNT) == NULL);
     /* the current originals: think_13's clobber hits level 21, pairs 2..3 */
-    CHECK(set && set->clobber_10b0.level == 21 && set->clobber_10b0.first_spawn == 2 &&
-          set->clobber_10b0.spawn_count == 2);
+    CHECK(set && set->spawn_pairs_clobber.level == 21 && set->spawn_pairs_clobber.first_spawn == 2 &&
+          set->spawn_pairs_clobber.spawn_count == 2);
     for (int i = 0; set && i < LEVEL_VARIANTS; i++) /* sprite numbers, entity +0C */
         CHECK(asset_sprite_number_gfx(set->spawn_sprites[i]) != NULL && asset_sprite_number_gfx(set->warp_sprites[i]) != NULL);
     for (int i = 0; set && i < WARP_BOX_COLOUR_COUNT; i++) /* colours 1..15 (0 would be invisible) */

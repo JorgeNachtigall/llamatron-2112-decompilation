@@ -376,7 +376,7 @@ typedef struct GameState {
     bool spawning_done;                 /* 0802 the whole list is out: player fire (0981) and the
                                            wave-cleared check (1665) wait for it */
     int16_t unhatched_left;             /* 08F8 [H] unhatched when the list ended, -1 at 4cb3 */
-    bool spawn_pairs_clobbered;         /* a think_13 drop has zeroed LevelSet.clobber_10b0's
+    bool spawn_pairs_clobbered;         /* a think_13 drop has zeroed LevelSet.spawn_pairs_clobber's
                                            spawn pairs (1000:123c via 10b0); never reset, as the
                                            original never reloads its script data */
 

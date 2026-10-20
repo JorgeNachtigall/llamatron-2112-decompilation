@@ -2,9 +2,9 @@
 
 In the original a think_13 entity that drops a shot (1000:2594 -> 10b0 -> enemy_shot_init)
 clears [SI+8] and [SI+0A] with SI = think_13's code offset, which zeroes two spawn pairs of
-the level script stored at that DS offset (levels.dat clobber_10b0). The test runs a real
+the level script stored at that DS offset (levels.dat spawn_pairs_clobber). The test runs a real
 drop through the think loop (1000:432b) in unicorn, checks which pairs it zeroed against
-clobber_10b0, then walks that level's spawn list with 1000:3d09 and compares each pair with
+spawn_pairs_clobber, then walks that level's spawn list with 1000:3d09 and compares each pair with
 script_next_spawn_pair, on the dropped image and on a fresh one (the adapter maps the zeroed
 bytes to spawn_pairs_clobbered), and checks that script_clobber_spawns writes back the
 same bytes as the drop.
@@ -50,7 +50,7 @@ def port(cgame):
 
         @staticmethod
         def target(levels):
-            # LevelSet.clobber_10b0 is the struct's first member (formats.h)
+            # LevelSet.spawn_pairs_clobber is the struct's first member (formats.h)
             return LevelSpawnClobber.from_address(levels)
     if not Port.dg.has_data or not Port.levels:
         pytest.skip("extracted data not available")

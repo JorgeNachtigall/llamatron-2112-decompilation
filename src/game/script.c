@@ -104,7 +104,7 @@ void script_clobber_spawns(GameState *game)
 static bool spawn_is_clobbered(const GameState *game, const LevelSet *levels, int level,
                                unsigned index)
 {
-    const LevelSpawnClobber *clobber = &levels->clobber_10b0;
+    const LevelSpawnClobber *clobber = &levels->spawn_pairs_clobber;
     return game->spawn_pairs_clobbered && level == clobber->level &&
            index >= clobber->first_spawn && index - clobber->first_spawn < clobber->spawn_count;
 }

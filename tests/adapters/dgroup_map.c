@@ -458,19 +458,20 @@ static void spawn_from(SpawnCursor *c, uint16_t off)
 }
 
 /* The spawn pairs a think_13 drop zeroes (game86 1000:123c..1241 via 10b0, levels.dat
- * clobber_10b0): DS address, length and the intact pairs, false if this extraction has none. */
+ * spawn_pairs_clobber): DS address, length and the intact pairs, false if this extraction has
+ * none. */
 static bool clobber_bytes(unsigned *off, unsigned *n, const LevelSpawn **intact)
 {
     const LevelSet *set = asset_levels();
-    if (!set || set->clobber_10b0.level == LEVEL_NONE)
+    if (!set || set->spawn_pairs_clobber.level == LEVEL_NONE)
         return false;
-    const LevelScript *level = asset_level(set->clobber_10b0.level);
-    if (!level || set->clobber_10b0.first_spawn + set->clobber_10b0.spawn_count
+    const LevelScript *level = asset_level(set->spawn_pairs_clobber.level);
+    if (!level || set->spawn_pairs_clobber.first_spawn + set->spawn_pairs_clobber.spawn_count
                       > level->spawn_count)
         return false;
-    *off = level_spawn_list(level) + 2u * set->clobber_10b0.first_spawn;
-    *n = 2u * set->clobber_10b0.spawn_count;
-    *intact = level->spawns + set->clobber_10b0.first_spawn;
+    *off = level_spawn_list(level) + 2u * set->spawn_pairs_clobber.first_spawn;
+    *n = 2u * set->spawn_pairs_clobber.spawn_count;
+    *intact = level->spawns + set->spawn_pairs_clobber.first_spawn;
     return true;
 }
 

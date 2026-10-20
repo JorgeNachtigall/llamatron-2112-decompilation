@@ -347,7 +347,7 @@ typedef struct LevelSpawnClobber {
 enum { LEVEL_VARIANTS = 4, WARP_BOX_COLOUR_COUNT = 4 };
 
 typedef struct LevelSet {
-    LevelSpawnClobber clobber_10b0;
+    LevelSpawnClobber spawn_pairs_clobber;   /* the think_13 quirk via 1000:10b0, above */
     /* Sprite number of each spawned enemy (entity +0C via spawn_sprite DS:0806), by level & 3,
      * or by rng_next & 3 when DS:21B0 is non-zero (wave_spawn_next 1000:1d97..1dae). DS:0808. */
     uint16_t spawn_sprites[LEVEL_VARIANTS];

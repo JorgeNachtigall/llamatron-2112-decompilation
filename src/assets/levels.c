@@ -73,7 +73,7 @@ bool levels_parse(const uint8_t *data, size_t size, LevelSet *out)
         (clobber.level >= level_count || clobber.first_spawn > out->levels[clobber.level].spawn_count ||
          clobber.spawn_count > out->levels[clobber.level].spawn_count - clobber.first_spawn))
         ok = format_fail("LLVL: spawn clobber outside level %u's spawns", (unsigned)clobber.level);
-    out->clobber_10b0 = clobber;
+    out->spawn_pairs_clobber = clobber;
     memcpy(out->spawn_sprites, spawn_sprites, sizeof spawn_sprites);
     memcpy(out->warp_sprites, warp_sprites, sizeof warp_sprites);
     memcpy(out->warp_box_colours, warp_box_colours, WARP_BOX_COLOUR_COUNT);
