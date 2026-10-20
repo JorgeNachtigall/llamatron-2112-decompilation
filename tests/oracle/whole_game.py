@@ -23,9 +23,10 @@ The original's surroundings, all inside this file:
 Usage (from tests/, with the testlib built):
   LLAMATRON_GAME_TESTLIB=<build>/tests/libllamatron_game_testlib.dylib \\
       ../tools/harness/.venv/bin/python oracle/whole_game.py walk_vga
-  ... oracle/whole_game.py sweep --levels 0-99:5 [--ticks N] [--pages] [--json FILE]
+  ... oracle/whole_game.py sweep --levels 0-99:5 [--ticks N] [--pages] [--json FILE] [-j N]
 (sweep: every level through the warp poke with level_sweep.lockstep_script's play, seed
-0x12ABCD, one child process per level; prints the first divergence and its fields per level)
+0x12ABCD, one child process per level, N of them at a time; prints the first divergence and
+its fields per level as each one ends, then all of them in level order)
 """
 
 from __future__ import annotations
@@ -723,7 +724,10 @@ def main() -> int:
     ap.add_argument("--one", type=int, help="sweep: run this level here, print JSON")
     ap.add_argument("--pages", action="store_true",
                     help="also compare the pages each frame (tests/oracle/whole_game_pages.py)")
-    ap.add_argument("--json", help="sweep: also write the results here")
+    ap.add_argument("--json", help="sweep: also write the results here (kept up to date as "
+                    "levels end)")
+    ap.add_argument("-j", "--jobs", type=int, default=1,
+                    help="sweep: levels run at a time (one process, one unicorn each)")
     ap.add_argument("--dump", type=Path,
                     help="write the original's and the port's DGROUP at the divergence here")
     ap.add_argument("--ignore", default="",
@@ -754,13 +758,21 @@ def main() -> int:
         print(json.dumps(sweep_level(lib, args.one, args.ticks or SWEEP_TICKS, args.pages,
                                      args.game86, ignore)), flush=True)
         return 0
+    from concurrent.futures import ThreadPoolExecutor, as_completed
     results = []
-    for level in parse_levels(args.levels):
-        r = sweep_child(level, args.ticks or SWEEP_TICKS, args.pages, args.game86, args.ignore)
-        results.append(r)
-        print(f"level {level}: {r['report']}", flush=True)
-    if args.json:
-        Path(args.json).write_text(json.dumps(results, indent=1))
+    with ThreadPoolExecutor(max_workers=max(1, args.jobs)) as pool:
+        runs = [pool.submit(sweep_child, level, args.ticks or SWEEP_TICKS, args.pages,
+                            args.game86, args.ignore) for level in parse_levels(args.levels)]
+        for run in as_completed(runs):
+            r = run.result()
+            results.append(r)
+            results.sort(key=lambda r: r["level"])
+            print(f"level {r['level']}: {r['report']}", flush=True)
+            if args.json:
+                Path(args.json).write_text(json.dumps(results, indent=1))
+    if args.jobs > 1:
+        for r in results:
+            print(f"  {r['level']:3}: {r['report']}")
     bad = [r for r in results if not r["ok"]]
     print(f"{len(results) - len(bad)}/{len(results)} levels match")
     return 1 if bad else 0
