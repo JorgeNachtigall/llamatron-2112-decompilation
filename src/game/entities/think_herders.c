@@ -3,9 +3,9 @@
  * llama still waiting to be rescued (think_05, see think_llamas.c), turn it into something
  * according to their mode, then return to the companion and pick the next llama.
  *
- * Record use: the herder view (entity_views.h). herder.target = slot index of the llama being
- * fetched, HERDER_SEEK = pick one, HERDER_RETURN = walk back to the companion. A llama is
- * claimed by setting llama.claimed to 1. (game->unhatched counts the llamas left.)
+ * The fields are HerderView's (entity_views.h). herder.target is the slot of the llama being
+ * fetched, or HERDER_SEEK (pick one) / HERDER_RETURN (walk back to the companion). A claimed
+ * llama (llama.claimed) is left to its herder; game->unhatched counts the llamas left.
  */
 #include "entities.h"
 #include "sound.h"
@@ -25,19 +25,21 @@ enum {
     SPAWN_CHANCE_16 = 4,                /* out of 256 per period */
 };
 
-/* What a herder does to the llama it reaches, by sub-mode (CS:3AFF). */
+/* What a herder does to the llama it reaches, by herder.mode (CS:3AFF). */
 enum { LLAMA_TO_TIMER, LLAMA_TO_HERDER, LLAMA_BURSTS, LLAMA_TO_TIMER_ARM_PICKUP };
 
 static const SoundRequest SOUND_CAUGHT = { SAMPLE_ID_NONE, 1, 4 };        /* 1000:3b80 */
 static const SoundRequest SOUND_NEW_HERDER = { SAMPLE_ID_ALERT, 0, 3 };    /* 1000:3b17 */
 static const SoundRequest SOUND_PROXIMITY = { SAMPLE_ID_GAME_OVER, 2, 0x0c };  /* 1000:2484 */
-static const SoundRequest SOUND_SPAWN_16 = { 0x07, 1, 4 };      /* 1000:23f5 */
+static const SoundRequest SOUND_SPAWN_16 = { SAMPLE_ID_POP, 1, 4 };            /* 1000:23f5 */
+
+/* Sprite offsets of the four walking directions in a walker's sprite set. */
+enum { FACE_LEFT = 0, FACE_UP = 2, FACE_DOWN = 4, FACE_RIGHT = 6 };
 
 static void play(SoundRequest s)
 {
     game_sound_play(s.sample, s.rate_index, s.priority);
 }
-
 
 static int16_t magnitude16(int16_t v)
 {
@@ -68,14 +70,15 @@ void herder_claim_llama(GameState *game, Entity *e)
     e->herder.target = HERDER_RETURN;
 }
 
-/* The direction it walks in picks one of 8 sprites, two frames each by position. */
+/* The direction it mostly walks in picks the sprite pair; the frame alternates every 4
+ * pixels along that axis. */
 static int16_t herder_sprite(const Entity *e)
 {
     int16_t frame;
     if (magnitude16(e->vy) > magnitude16(e->vx))
-        frame = (int16_t)((e->vy >= 0 ? 4 : 2) + ((e->y >> 2) & 1));
+        frame = (int16_t)((e->vy >= 0 ? FACE_DOWN : FACE_UP) + ((e->y >> 2) & 1));
     else
-        frame = (int16_t)((e->vx >= 0 ? 6 : 0) + ((e->x >> 2) & 1));
+        frame = (int16_t)((e->vx >= 0 ? FACE_RIGHT : FACE_LEFT) + ((e->x >> 2) & 1));
     return (int16_t)(frame + e->herder.sprite_base);
 }
 
@@ -89,7 +92,8 @@ static void herder_drop(Entity *e, Entity *marker)
     play(SOUND_CAUGHT);
 }
 
-/* game86 1000:3b63 */
+/* The llama is taken: it no longer counts as one and vanishes after the "caught" sprite.
+ * game86 1000:3b63 */
 static void llama_to_timer(GameState *game, Entity *e, Entity *llama)
 {
     entity_set_type(llama, THINK_TIMER, 0);
@@ -105,16 +109,18 @@ static void herder_handle_llama(GameState *game, Entity *e, Entity *llama)
     case LLAMA_TO_TIMER:
         llama_to_timer(game, e, llama);
         break;
-    case LLAMA_TO_HERDER:            /* 3b0f; the herder keeps its target index */
+    case LLAMA_TO_HERDER:               /* 3b0f: the llama becomes an enemy; the herder keeps
+                                           the slot as target and, as it is no longer a llama,
+                                           claims another on its next step */
         game->unhatched--;
         enemy_setup_0c(game, llama);
         play(SOUND_NEW_HERDER);
         break;
-    case LLAMA_BURSTS:                    /* 3b21 */
+    case LLAMA_BURSTS:                  /* 3b21: four children fly apart */
         entity_burst_four(game, e);
         llama_to_timer(game, e, llama);
         break;
-    case LLAMA_TO_TIMER_ARM_PICKUP:          /* 3b07 */
+    case LLAMA_TO_TIMER_ARM_PICKUP:     /* 3b07 */
         game->player.pickup_pending = PENDING_DEADLY_PICKUP;
         llama_to_timer(game, e, llama);
         break;
@@ -124,7 +130,8 @@ static void herder_handle_llama(GameState *game, Entity *e, Entity *llama)
     }
 }
 
-/* game86 1000:39e9 */
+/* Herder: once per herder.step period it walks (up to 3 pixels per axis) to its llama, or
+ * back to the companion, which stands on its target ship meanwhile. game86 1000:39e9 */
 void think_0e(GameState *game, Entity *e)
 {
     if (game->wave_intro_timer != 0)
@@ -172,8 +179,8 @@ void think_0e(GameState *game, Entity *e)
     e->y = (int16_t)(uint16_t)(e->y + dy);
 }
 
-/* Herder that hums when it is close to its target ship, unless that sound (priority 0x0c)
- * is what plays or played last. game86 1000:2457 */
+/* Herder that hums when it is within 30 pixels (x plus y) of its target ship, unless the hum
+ * is already what plays (or played last). game86 1000:2457 */
 void think_15(GameState *game, Entity *e)
 {
     int distance = magnitude16((int16_t)(uint16_t)(e->x - game->target.x))
@@ -184,8 +191,8 @@ void think_15(GameState *game, Entity *e)
     think_0e(game, e);
 }
 
-/* Herder that now and then (4/256 per reload period) leaves a think_17 chaser behind. The
- * slot is not taken from free_slots. game86 1000:23a7 */
+/* Herder that now and then (4/256 per herder.spawn period) leaves a think_17 chaser behind.
+ * The slot is not taken from free_slots. game86 1000:23a7 */
 void think_16(GameState *game, Entity *e)
 {
     if ((int8_t)--e->herder.spawn.left < 0) {
