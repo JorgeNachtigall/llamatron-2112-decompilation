@@ -145,6 +145,12 @@ RUNS["level_40_two_player"] = level_run(40, start="TWO_PLAYERS", long=True)
 # 0.69 on 2300's player+00 lands a tick off, at 0.45 an overlay count does)
 RUNS["level_40_two_player"].update(tick_phase=0.68, start_delay=4)
 RUNS["level_80"]["tick_phase"] = 0.62
+# After a death the respawn path (hook_nop 3fde) ends an IRQ earlier in the original than in the
+# port (DEVIATIONS #20, CPU-time phase of its retraces; Keel): from there the port is a tick
+# behind, so its keys come a tick later (per-tick windows: level_30 843 vs 844, level_25_ega
+# 2486 vs 2487)
+RUNS["level_30"]["input_shift"] = [(843, 1, None)]
+RUNS["level_25_ega"]["input_shift"] = [(2486, 1, None)]
 RUNS["level_50"]["input_shift"] = [(1059, 1, None)]
 
 # input_shift [(start, ticks, end)]: the port replay's keys from `start` to `end` (exclusive,
@@ -165,18 +171,7 @@ RUNS["level_50"]["input_shift"] = [(1059, 1, None)]
 # Triage of the real divergences (compare.py's first ones per run and those after them that are
 # not consequences): (run, tick, field, owner, status). Printed under each run's report; update
 # when a re-run after a fix moves them.
-TRIAGE: list[tuple[str, int, str, str, str]] = [
-    ("level_30", 900, "ship, target, trail[0], entities[8]/[9] x, shots[0]: the port one tick "
-     "behind from 850 and the ship's path apart after it; no tick_phase, start_delay or input "
-     "shift brings it back", "Sentinel (+ Keel)",
-     "open: timing, not logic (whole_game.py sweep --one 30 --ticks 3000 matches); mechanism "
-     "to find"),
-    ("level_25_ega", 2550, "ship, target, trail[0], entities[39..45] x, shots[1]: a wave "
-     "transition at ~2490 leaves the port one tick behind (2500..2750), then the ship's path "
-     "apart; no calibration or input shift brings it back", "Sentinel (+ Keel)",
-     "open: timing, not logic (lockstep_configs.py ega --one 25 --ticks 3000 matches); "
-     "mechanism to find"),
-]
+TRIAGE: list[tuple[str, int, str, str, str]] = []
 
 
 # Expected differences, pinned: a run is green only if each happens exactly as listed and
@@ -200,6 +195,28 @@ EXPECTED = {
         ("frame_phase", 1450, frozenset({0x48C1 + 0x40 * 11 + 0x38}),
          "entities[11]+38 overlay.frames, one frame apart (as level_99 700). Lockstep: "
          "whole_game.py sweep (level 20)"),
+    ],
+    "level_30": [
+        # entities[8]/[9] x (+02/+03) and sprite (+0c), both think_05 llamas
+        ("divergence", 900, frozenset({0x4AC3, 0x4AC5, 0x4B03, 0x4B05, 0x4B0D}),
+         "per-tick window 820..879: a death at IRQ 838 (wave_result 1, tick hook 3fde) runs the "
+         "respawn path (player_died, wave_spawn_enemies, wave_start's playfield draw, "
+         "screen_reveal_bg's page copies, HUD; 7 retraces in both, Keel) and play resumes at IRQ "
+         "843 in the original, 844 in the port: where wait_vsync's retraces fall depends on the "
+         "original's drawing cost (DEVIATIONS #20, CPU-time phase, not reproducible from frame "
+         "or tick counts), so the original is a game tick ahead of its tick_count from then "
+         "on; with input_shift every byte matches to 878, then think_05 llamas (move on even "
+         "tick_count only, 1000:4c46) step on the other parity. Lockstep: whole_game.py sweep "
+         "--one 30 --ticks 3000 matches"),
+    ],
+    "level_25_ega": [
+        # entities[39], [41], [42], [43] x/sprite, [45] y: all think_05 llamas
+        ("divergence", 2550, frozenset({0x5283, 0x5285, 0x5303, 0x530D, 0x5343, 0x5345, 0x5383,
+                                        0x5385, 0x5405, 0x540D}),
+         "as level_30 900: a death at IRQ 2480 (wave_result 1, wave_start's intro timer 50 at "
+         "2482), play resumes at IRQ 2486 in the original, 2487 in the port (per-tick window "
+         "2460..2519), input_shift from 2486, then think_05's even-tick move on the other "
+         "parity. Lockstep: lockstep_configs.py ega --one 25 --ticks 3000 matches"),
     ],
     "level_40_two_player": [
         ("frame_phase", 1300, frozenset({0x48C1 + 0x40 * 8 + 0x38}),

@@ -8008,6 +8008,13 @@
  },
  "level_25_ega": {
   "config": {
+   "input_shift": [
+    [
+     2486,
+     1,
+     null
+    ]
+   ],
    "interval": 50,
    "keys": [
     [
@@ -9815,6 +9822,13 @@
  },
  "level_30": {
   "config": {
+   "input_shift": [
+    [
+     843,
+     1,
+     null
+    ]
+   ],
    "interval": 50,
    "keys": [
     [
