@@ -11,8 +11,9 @@
 # @loader_path/libSDL3.dylib first: when a copy names that path, libSDL3.dylib is taken from
 # the copy's own rpath directories and put beside it.
 #
-# The tools are Xcode's otool and install_name_tool. install_name_tool breaks the copies'
-# signatures: with CODESIGN each copy is signed ad hoc again (the app itself is the caller's).
+# The tools are Xcode's otool and install_name_tool. install_name_tool would break the files'
+# signatures (and warn so): with CODESIGN each file is unsigned before it is changed and each
+# copy is signed ad hoc again afterwards (the app itself is the caller's).
 
 if(NOT APP OR NOT EXE)
     message(FATAL_ERROR "bundle_dylibs.cmake: APP and EXE are required")
@@ -22,6 +23,12 @@ find_program(INSTALL_NAME_TOOL install_name_tool REQUIRED)
 
 set(frameworks ${APP}/Contents/Frameworks)
 file(MAKE_DIRECTORY ${frameworks})
+
+macro(unsign file)
+    if(CODESIGN)
+        execute_process(COMMAND ${CODESIGN} --remove-signature ${file} COMMAND_ERROR_IS_FATAL ANY)
+    endif()
+endmacro()
 
 function(is_system path out)
     if(path MATCHES "^(/usr/lib/|/System/)" OR path MATCHES "^@(executable|loader)_path/")
@@ -66,6 +73,7 @@ macro(take source name)
         file(REAL_PATH ${source} real)
         file(COPY_FILE ${real} ${frameworks}/${name})
         file(CHMOD ${frameworks}/${name} PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ)
+        unsign(${frameworks}/${name})
         execute_process(COMMAND ${INSTALL_NAME_TOOL} -id @executable_path/../Frameworks/${name}
                         ${frameworks}/${name} COMMAND_ERROR_IS_FATAL ANY)
         list(APPEND queue "${frameworks}/${name}|${real}")
@@ -75,6 +83,7 @@ macro(take source name)
 endmacro()
 
 set(copies "")
+unsign(${APP}/Contents/MacOS/${EXE})
 set(queue "${APP}/Contents/MacOS/${EXE}|")
 while(queue)
     list(POP_FRONT queue item)

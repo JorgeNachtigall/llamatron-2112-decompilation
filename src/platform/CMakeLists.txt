@@ -1,4 +1,10 @@
 # SDL2 host layer. Native: SDL2 from the system (Homebrew on macOS). Web: Emscripten's SDL2 port.
+
+# CMake 3.29+: no repeated static libraries on link lines where the linker does not need them
+# (Apple's ld warns "ignoring duplicate libraries" for each).
+if(POLICY CMP0156)
+    cmake_policy(SET CMP0156 NEW)
+endif()
 add_library(llama_sdl2 INTERFACE)
 set(LLAMA_WEB_SHELL "${CMAKE_CURRENT_SOURCE_DIR}/web/shell.html")
 if(EMSCRIPTEN)
@@ -9,6 +15,18 @@ else()
     if(TARGET SDL2::SDL2)
         target_link_libraries(llama_sdl2 INTERFACE SDL2::SDL2)
         set(LLAMA_SDL2_SHARED ON CACHE INTERNAL "SDL2 is a shared library (packaging.cmake bundles it)")
+        if(APPLE AND NOT CMAKE_OSX_DEPLOYMENT_TARGET)
+            # Homebrew builds its dylibs for the running macOS, which can be newer than the
+            # Command Line Tools' SDK that sets clang's default target ("building for macOS-26.5,
+            # but linking with dylib ... built for newer version 27.0" on every link). What links
+            # SDL runs only where that dylib does, so link it for the dylib's own minimum.
+            get_target_property(_sdl2_dylib SDL2::SDL2 LOCATION)
+            execute_process(COMMAND otool -l ${_sdl2_dylib} OUTPUT_VARIABLE _sdl2_load_commands
+                ERROR_QUIET)
+            if(_sdl2_load_commands MATCHES "cmd LC_BUILD_VERSION\n[^\n]*\n[^\n]*\n +minos ([0-9.]+)")
+                target_link_options(llama_sdl2 INTERFACE -mmacosx-version-min=${CMAKE_MATCH_1})
+            endif()
+        endif()
     else()
         target_link_libraries(llama_sdl2 INTERFACE SDL2::SDL2-static)
         set(LLAMA_SDL2_SHARED OFF CACHE INTERNAL "SDL2 is a shared library (packaging.cmake bundles it)")
