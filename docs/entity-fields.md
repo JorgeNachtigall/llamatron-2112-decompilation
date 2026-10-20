@@ -64,7 +64,7 @@ kinds use those words freely.
 | 00 | 04 -> 05 | 0f | 00 | - | egg -> llama | the egg hands its sprite base to the llama in +30 |
 | 01 | 03 | 01 | 03 / script | script | swarm | sprite from `sprite_ref` (llama by wave) |
 | 02 | 07 -> 08 | 0c | 01 | - | hunter | |
-| 03 | 0a -> 0b | 0c | 02 | - | mother | `init_think0a_spawn(0x3c, 0x12c, 0x60, 3)` |
+| 03 | 0a -> 0b | 0c | 02 | - | mother | `init_mother(SPRITE_MOTHER, 0x12c, 0x60, 3)` |
 | 04 | 07 -> 0e | 0c | 03 | 01 | herder | leaves +20 (mode) stale: DEVIATIONS #26 |
 | 05..07 | 10 | 0d | 04/05/00 | 0 | homing (shot) | `init_as_projectile`: an enemy shot record (§6) |
 | 08 | 11 | 02 | 06 | 0 | homing + beam (horizontal) | drifter: start at rest, accel = speed |
@@ -82,14 +82,14 @@ kinds use those words freely.
 | 17 | 22 | 0d | 0b | x | edge runner | |
 | 18, 26 | 0e | 0d | 03 | 0 | herder | modes 2 / 3 |
 | 19 | 23 | 0d | 0c | 0 | homing + walker | `vx` is the fire counter |
-| 1a, 27 | 24 | 0d | 00 | - | seeker | `enemy_setup_type24`; also laid by think 23 and kill action 0a |
+| 1a, 27 | 24 | 0d | 00 | - | seeker | `enemy_setup_seeker`; also laid by think 23 and kill action 0a |
 | 1b, 1e | 25 | 0d | 0d | - | charger | callback 33E3 / 32D7 in +1c |
 | 1c | 26 | 0d | - | - | dropper | |
 | 1d | 27 | 0d | - | - | edge spawner | |
 | 1f | 1f / 28 | 0d | 0a | 0 | homing + growth | |
-| 20 | 29 | 0d | 00 | - | charger | callback 3119 (`init_think25`, then think 29 and hit 00) |
-| 21 | 0a -> 0b | 0c | 02 | - | mother | `init_think0a_spawn(0x122, 0x1e, 0x30, 0x14)` |
-| 22..25 | 2a | 0d | 0f | accel | homing + gun | `init_edge_runner` (enemy_init.c calls them edge runners; not think 22): start on an edge, `vx`/`vy` = the inward direction, which is also the child velocity |
+| 20 | 29 | 0d | 00 | - | charger | callback 3119 (`init_charger`, then think 29 and hit 00) |
+| 21 | 0a -> 0b | 0c | 02 | - | mother | `init_mother(SPRITE_MOTHER_21, 0x1e, 0x30, 0x14)` |
+| 22..25 | 2a | 0d | 0f | accel | homing + gun | `init_edge_gunner` (edge gunners; the edge runner is think 22): start on an edge, `vx`/`vy` = the inward direction, which is also the child velocity |
 | 28 | 2b -> 2c (hit 11) | 11 | 11 | - | storm | think 2b does nothing until enough hits |
 
 Further think handlers that no init sets directly:
@@ -112,7 +112,7 @@ Further think handlers that no init sets directly:
 | snake head (think 1d) | `next_trail_slot`: the `snake_trail` slot written next (then + 1, & 63) | `spawn`: byte counter (lo period, hi left), one segment step | `enemy_init_10` | `think_1d` (think_snake.c) |
 | walker (think 23) | `fire`: byte counter | - | `enemy_init_19` | `think_23` |
 | growth (think 1f/28) | `sprite_base`: the facing sprites (vx = `e->sprite` at init) | - | `init_segment`, `ent_hit_0e` | `think_1f` |
-| gun (think 2a) | `child_v.x` | `child_v.y`: the velocity its child is fired with | `init_edge_runner` | `think_2a` |
+| gun (think 2a) | `child_v.x` | `child_v.y`: the velocity its child is fired with | `init_edge_gunner` | `think_2a` |
 
 ## 5. Region +12..+31, by view
 
