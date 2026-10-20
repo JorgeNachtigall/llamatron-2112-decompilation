@@ -171,6 +171,10 @@ GAME_STACK = range(0x84D0, 0x85E2)
 # g_page_front/back, g_draw_page (re-notes §8): where game86's frames fall between IRQs, which
 # moves with host load. Checked through the pages (shown_page() and its flip rule), not here.
 PAGE_BOOKKEEPING = range(0x39D3, 0x39D9)
+# g_draw_flags/scale/mirror (re-notes-game86 §globals): the blitter's parameters, left over from
+# the last draw call, so how far the frame's drawing had got at the IRQ. Moved with host load
+# in single snapshots of level_10 (1850), level_50 (650) and two_player (1800); left out too.
+BLITTER_PARAMS = range(0x39D9, 0x39DE)
 
 
 def sha(data: bytes) -> str:
@@ -181,6 +185,7 @@ def dgroup_hash(dgroup: bytes) -> str:
     image = bytearray(dgroup)
     image[GAME_STACK.start:GAME_STACK.stop] = bytes(len(GAME_STACK))
     image[PAGE_BOOKKEEPING.start:PAGE_BOOKKEEPING.stop] = bytes(len(PAGE_BOOKKEEPING))
+    image[BLITTER_PARAMS.start:BLITTER_PARAMS.stop] = bytes(len(BLITTER_PARAMS))
     return sha(bytes(image))
 
 

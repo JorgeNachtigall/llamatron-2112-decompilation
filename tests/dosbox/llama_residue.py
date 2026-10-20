@@ -46,11 +46,12 @@ from test_reference_golden import (GAME_STACK, ORIGINAL, RUNS, probe_args,  # no
 
 ENTITIES, ENTITY_SIZE, LLAMA_SLOTS = 0x48C1, 0x40, 9
 PLAY_HOOK, TICK_HOOK = 0x1562, 0x39E4
-# g_page_front/back, g_draw_page (re-notes §8): where game86's frames fall between IRQs. Under
+# g_page_front/back, g_draw_page (re-notes §8) and the blitter's parameters 39D9..39DD
+# (g_draw_flags/scale/mirror): where game86's frames fall between IRQs. Under
 # heavy host load (8 runs at once) they moved run to run in two_player from IRQ 1300, poison
 # or not; a rerun of the same pair agreed. Not game state: skipped, and the screen is only
 # compared while they agree.
-FRAME_PHASE = range(0x39D3, 0x39D9)
+FRAME_PHASE = range(0x39D3, 0x39DE)
 
 # IRQ to poke at per scenario: the slots are free (type word -1) from entities_clear to the
 # first entity_alloc, IRQs 156..158 after fire at 150 and 1201..1203 after fire at 1200

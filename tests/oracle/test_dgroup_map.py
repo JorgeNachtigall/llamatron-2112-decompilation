@@ -109,7 +109,7 @@ def clobber_range(image):
     return range(si + 8, si + 12)
 
 
-def test_spawns_clobbered_10b0(dg, image):
+def test_spawn_pairs_clobbered(dg, image):
     if not dg.has_data:
         pytest.skip("extracted data not available")
     clobber = clobber_range(image)

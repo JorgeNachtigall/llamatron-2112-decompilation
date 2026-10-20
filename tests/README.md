@@ -71,8 +71,9 @@ Consequences:
   that IRQ's keys). `llamatron_replay --pokes` applies the same words through the adapter,
   so only mapped offsets can be poked.
 - Golden hashes: `dgroup` leaves out game86's stack (DS:84D0..85E1), whose interrupt frames
-  depend on host speed, and the page bookkeeping DS:39D3..39D8 (front/back/draw page), which
-  moved run to run under heavy host load; pages are checked through `shown_page()` and its
+  depend on host speed, and the page bookkeeping DS:39D3..39D8 (front/back/draw page) and the
+  blitter's parameters DS:39D9..39DD (left over from the last draw call), which move with
+  where game86's frame is at the IRQ under host load; pages are checked through `shown_page()` and its
   flip rule. VGA snapshots also have `vram` (raw planes), `vram_irq`, `pages`
   (sha256 of each page 0000/2000/4000 rasterised to 64000 indexed pixels, as
   `EgaPlanes.rasterise`) and `shown` (the CRTC start address at capture).
