@@ -32,9 +32,10 @@ bool game_init(GameState *game, const GameLaunch *launch)
     game->sound_on = launch->sound;
     game->flash_mode = launch->flash_mode;
 
+    uint32_t start_tick = launch->bios_ticks;      /* constant_tick's, for the whole shuffle */
     RngTickSource ticks = launch->shuffle_ticks;
     if (ticks.read == NULL)
-        ticks = (RngTickSource){ constant_tick, (void *)&launch->bios_ticks };
+        ticks = (RngTickSource){ constant_tick, &start_tick };
     rng_seed(&game->rng.mixer, launch->bios_ticks);
     rng_shuffle(&game->rng, ticks);
     init_load_data(game, launch->saved_scores);

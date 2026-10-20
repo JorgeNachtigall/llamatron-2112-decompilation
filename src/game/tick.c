@@ -155,7 +155,7 @@ void wave_spawn_tick(GameState *game)
     unsigned pick = (uint16_t)game->player.level;
     if (game->player.wave_type != 0)
         pick = rng_next_byte(&game->rng);
-    game->spawn_sprite = levels->spawn_sprites[pick & 3];
+    game->spawn_sprite = (int16_t)levels->spawn_sprites[pick & 3];
     game->spawn_remaining--;
     Entity *e = spawn_slot(game);
     e->overlay.x = 0;
