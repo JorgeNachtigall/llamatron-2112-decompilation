@@ -74,18 +74,22 @@ The original game ran in DOSBox-X for 12 core scripted sessions, and the port re
 |---|---|---|
 | attract, walk_vga, walk_ega, warp, death_continue, game_over_hiscore, two_player | yes | identical on every compared tick, apart from known one-tick timing shifts (DEVIATIONS #20) |
 | level_10, level_25, level_75, level_99 | yes | identical apart from timing and the pinned rows below |
-| level_50 | yes | differs from tick 1150, explained and pinned (below) |
+| level_50 | yes | differs from tick 2250, explained and pinned (below) |
 
 - The test pins each explained difference exactly (`EXPECTED` in `tests/dosbox/test_reference_golden.py`), so a new difference still fails it:
-  - level_50 at 1150: the port kills an entity because of its one-tick lag after a respawn (DEVIATIONS #20). In lockstep, where both sides follow one schedule, level_50 matches for all 3010 ticks.
-  - level_99 at 700 and 2800: a rescued llama's overlay frame count, one frame apart (frame phase, DEVIATIONS #24).
-  - level_99 at 2250 and 2400: the follower trail read past P2's ring (DEVIATIONS #14).
+  - level_50 at 2250: after the wave clears at IRQ 2159, play resumes one tick later in the port (DEVIATIONS #20). The port is a tick behind from 2162. Then two think_05 llamas (entities[39] and [41]) move on the other tick parity. In lockstep, where both sides follow one schedule, level_50 matches for all 3010 ticks.
+  - level_99 at 700, 2400 and 2800: an overlay frame count, one frame apart (frame phase, DEVIATIONS #24).
+  - level_99 at 2250, 2400, 2600, 2750 and 2900: the follower trail read past P2's ring (DEVIATIONS #14).
 - The long set (`LLAMATRON_GOLDEN_SET=long`) adds 9 runs: levels 20, 30, 40, 60, 70, 80 and 90, level 25 on EGA, and level 40 with two players. On `c3657ab` I ran all 21 runs in strict mode:
-  - The port replay is identical apart from timing and the pinned rows on every run. The long set's pinned rows are:
-    - level_30 at 900 and level_25_ega at 2550: play resumes one tick later after a death (DEVIATIONS #20);
-    - level_20 at 1450 and level_40_two_player at 1300 and 1550: overlay frame counts (frame phase).
+  - The port replay is identical apart from timing and the pinned rows on every run. The long set's pinned rows (as of `a1e6e2d`) are:
+    - level_25_ega at 2550: play resumes one tick later after a death (DEVIATIONS #20);
+    - level_20 at 1450 and level_40_two_player at 1550: overlay frame counts (frame phase).
+  - level_30 is identical since `a1e6e2d`. Its pin at 900 and level_40_two_player's at 1300 are gone.
   - All 21 original runs reproduce their recorded hashes on `e1ac3fc`. On `c3657ab`, level_40_two_player failed: at IRQ 2400 the game state matched, but the screen capture landed at IRQ 2402 on this Mac (every run) instead of the recorded 2401. Since `96e8e37` the capture IRQ counts as frame phase (Sentinel). A different one is reported, and that snapshot's shown page is not compared. Game state and the background page must still match.
   - Since `d45f8b3`, a run whose snapshots differ is run once more in a fresh workdir, and that second run decides. A rerun is reported as a warning. This guards against a heavily loaded machine; none was needed here.
+- Since `a1e6e2d` the reference runs no longer depend on the workdir path (Sentinel). refrun runs DOSBox-X in the workdir and mounts C: as a relative `c`. Before, the length of the autoexec mount line shifted game86's start in emulated time, so a deeper build tree moved every later timer phase. The goldens were regenerated and the pins above re-fit.
+  - Sentinel regenerated from a shallow and a 259-char-deep workdir and got byte-identical snapshots. The full core and long suites, strict with no rerun, gave 35 passed / 1 skipped and 26 passed / 1 skipped *(unverified: not run here)*.
+  - The lead's fresh-clone repeat, with the game files outside the repo via `LLAMATRON_ORIGINAL_DIR` only: `ctest -LE dosbox` 101/101, DOSBox core 5/5, web 38/38 plus dist, macos-app workflow 4/4, zero warnings *(unverified: not run here)*.
 - Since `911295c` the snapshot hash leaves out the blitter's mode bytes DS:39D9..39DD, as it already did the page bookkeeping at 39D3..39D8. They are left over from the last draw call, so they depend on where in the frame the snapshot was taken (Sentinel).
 - Whole-game lockstep (`tests/oracle/`, game86 in unicorn against the port, game state and drawn pages after every tick and frame):
   - `lockstep_check.py --sample` (10 levels for 1500 ticks, plus a two-player and an EGA warp; about 5 minutes; ctest `oracle_long.lockstep_sample` with `-DLLAMATRON_ORACLE_LONG=ON`): 12 of 12 match on `61fc59e`.
