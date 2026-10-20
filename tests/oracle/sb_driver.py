@@ -15,7 +15,9 @@ says ready). 40h sets the time constant, D0h halts the transfer (no IRQ follows)
 16-bit count starts an 8-bit DMA transfer of count + 1 bytes, which ends with an IRQ after
 (count + 1) * (256 - tc) microseconds. The IRQ runs the driver's handler (04FAh): it starts
 the second half of a sample split at a 64 KB DMA page (0511h..0545h) or marks the sample
-finished (0553h). DMA controller and PIC writes are ignored.
+finished (0553h). Of the DMA controller only channel 1's address (02h, low then high byte after a
+flip-flop clear on 0Ch) and page (83h) are kept, so `played` knows the bytes each transfer
+sends to the DAC (`card_output`); PIC writes are ignored.
 
 Time is counted in units of 1/315 us, like src/engine/snd.c: a game tick (PIT divisor 5CECh)
 is 0x5CEC * 264 units.
@@ -34,6 +36,9 @@ from fs_oracle import original_dir
 from llamatron_harness.runner import linear
 
 UNITS_PER_US = 315
+UNITS_PER_SECOND = UNITS_PER_US * 1_000_000
+SILENCE = 0x80                      # unsigned 8-bit centre: the DAC between transfers
+DMA_CLEAR_FLIP_FLOP, DMA1_ADDRESS, DMA1_PAGE = 0x0C, 0x02, 0x83
 TICK_UNITS = 0x5CEC * 264
 BANK_OFFSET = 0x767                 # llatron.spl right after the driver (llama.exe 1000:03c8)
 DSP_WRITE = 0x22C
@@ -63,6 +68,20 @@ class Transfer:
     bytes: int
 
 
+@dataclass
+class Played:
+    """One DSP 14h transfer: `bytes` bytes from linear `address`, each held (256 - tc) us from
+    `start`, cut at `end` by a halt (D0h)."""
+    start: int          # units
+    bytes: int
+    tc: int
+    address: int
+    end: int
+
+    def byte_units(self) -> int:
+        return (256 - self.tc) * UNITS_PER_US
+
+
 class SoundBlasterDriver:
     """sblaster.bin at `seg` in `machine` (a harness Machine), plus the card model."""
 
@@ -79,6 +98,9 @@ class SoundBlasterDriver:
         self.now = 0                    # units: the time of what runs next
         self.transfer: Transfer | None = None
         self.started: list[tuple[int, int, int, bool]] = []  # DSP 14h: time, bytes, tc, from the IRQ
+        self.played: list[Played] = []
+        self._dma_address = self._dma_page = 0
+        self._dma_high = False
         self._in_irq = False
         self._dsp: list[int] = []
         self._tc = 0
@@ -112,6 +134,14 @@ class SoundBlasterDriver:
     # ---- the card --------------------------------------------------------------------------
 
     def _on_out(self, uc, port: int, size: int, value: int, _user) -> None:
+        if port == DMA_CLEAR_FLIP_FLOP:
+            self._dma_high = False
+        elif port == DMA1_ADDRESS:
+            shift = 8 if self._dma_high else 0
+            self._dma_address = self._dma_address & ~(0xFF << shift) | (value & 0xFF) << shift
+            self._dma_high = not self._dma_high
+        elif port == DMA1_PAGE:
+            self._dma_page = value & 0xFF
         if port != DSP_WRITE:
             return
         self._dsp.append(value & 0xFF)
@@ -120,11 +150,15 @@ class SoundBlasterDriver:
             self._tc = self._dsp[1]
         elif cmd == 0xD0:
             self.transfer = None        # halted: no IRQ
+            if self.played:
+                self.played[-1].end = min(self.played[-1].end, self.now)
         elif cmd == 0x14 and len(self._dsp) == 3:
             count = self._dsp[1] | self._dsp[2] << 8
             n = count + 1
             self.transfer = Transfer(self.now + n * (256 - self._tc) * UNITS_PER_US, n)
             self.started.append((self.now, n, self._tc, self._in_irq))
+            address = self._dma_page << 16 | self._dma_address
+            self.played.append(Played(self.now, n, self._tc, address, self.transfer.end))
         elif cmd in (0x40, 0x14):
             return                      # wait for the operands
         self._dsp = []
@@ -144,6 +178,22 @@ class SoundBlasterDriver:
                 self._in_irq = False
                 self.m.set_regs(regs)
         self.now = max(self.now, t)
+
+    def card_output(self, rate: int, start: int, count: int) -> bytes:
+        """What the DAC plays at output samples start .. start + count - 1 of `rate` per
+        second (sample k at time k * UNITS_PER_SECOND // rate, as src/engine/snd.c samples)."""
+        out = bytearray([SILENCE]) * count
+        for p in self.played:
+            data = bytes(self.m.uc.mem_read(p.address, p.bytes))
+            per = p.byte_units()
+            first = max(start, -(-p.start * rate // UNITS_PER_SECOND))
+            for k in range(first, start + count):
+                t = k * UNITS_PER_SECOND // rate
+                if t >= p.end:
+                    break
+                if t >= p.start:
+                    out[k - start] = data[(t - p.start) // per]
+        return bytes(out)
 
     # ---- calls -----------------------------------------------------------------------------
 
