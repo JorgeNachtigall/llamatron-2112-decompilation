@@ -1,8 +1,10 @@
 /*
- * kill_actions.c - what an ent_hit_03 entity does when its hit points run out
- * (tbl_hit_kill_actions, CS:1047, index Entity.kill_action).
+ * kill_actions.c - what a HIT_LOSE_HP entity does when its hit points run out
+ * (tbl_hit_kill_actions, CS:1047, index Entity.kill_action = KILL_*).
  *
- * Most actions leave something behind and then run the common kill; 03 and 08 replace it.
+ * Most actions leave something behind and then run the common kill; the rocks
+ * (KILL_BREAK_INTO_ROCKS) and the humming herder's respawn (KILL_RESPAWN_HUMMER) replace it.
+ * "Without power shots" means level_flags < 0, the normal state.
  */
 #include "entities.h"
 
@@ -13,29 +15,51 @@
 
 enum { KILL_ACTION_COUNT = 12 };
 
-/* Slots the debris search may look at: it gives up after this many occupied ones
- * (1000:3c0f). Kill action 04 jumps past that load and inherits DX = 0x60 from
- * shots_update (1000:0c55), the only way the hit handlers are reached. */
+/* How many occupied slots the debris search may pass before it gives up (1000:3c0f). The
+ * alternative debris (KILL_DEBRIS_ALT) enters the search after that limit is set, so it gets
+ * the 0x60 left over from shots_update's slot loop (1000:0c55), the only way the hit handlers
+ * are reached. */
 enum { DEBRIS_SEARCH_LIMIT = 0x3b, DEBRIS_SEARCH_LIMIT_INHERITED = 0x60 };
-/* Sprites of kill action 03's rocks and 04's crawlers. */
-enum { SPRITE_ROCK = 0xb7, SPRITE_CRAWLER = 0xbf };
-/* A seeker piece's turn counter (split_into_type24), as one word: period 4, left 0x20. */
+/* Sprites of the rocks and crawlers; a bounced-back fragment's sprite is this + the shot
+ * direction. */
+enum { SPRITE_ROCK = 0xb7, SPRITE_CRAWLER = 0xbf, SPRITE_FRAGMENT_BY_DIRECTION = 0xa3 };
+/* A seeker piece's turn counter (split_into_seeker), as one word: period 4, left 0x20. */
 enum { SEEKER_TURN_PIECE = 0x2004 };
+/* The level script parameter that scales the debris speed (a left shift). */
+enum { DEBRIS_SHIFT_PARAM = 2 };
+enum { ROCKS_PER_BREAK = 10, ROCK_HP = 3 };
 
+/* Think handlers named here (think_table.c). */
+enum {
+    THINK_FRAGMENT = 0x0f,              /* bounces, dies at the first wall */
+    THINK_ROCK = 0x1a,
+    THINK_CRAWLER = 0x1b,               /* deadly bouncer */
+};
+
+/* v << shift for a level-script shift count: counts are taken mod 32 (as on the 386 and
+ * later processors the oracle emulates), and 16 or more clears the word. */
 static int16_t shifted(int16_t v, int16_t shift)
 {
-    unsigned n = (unsigned)shift & 31;      /* SHL r16,CL as the 386+ oracle masks it */
+    unsigned n = (unsigned)shift & 31;
     return n >= 16 ? 0 : (int16_t)(uint16_t)((uint16_t)v << n);
 }
 
+static Entity *first_free_slot(GameState *game)
+{
+    for (int i = 0; i < ENTITY_COUNT; i++)
+        if (entity_is_free(&game->entities[i]))
+            return &game->entities[i];
+    return NULL;
+}
+
 /* game86 1000:3c09..3c81: `count` fragments from the debris templates first..first+count-1,
- * taken from the last one down, flying at the template velocity << script_param[2].
+ * taken from the last one down, flying at the template velocity << the level's debris shift.
  * Returns the slot after the last one the search looked at (see kill_after_debris). */
 static int spawn_debris_group(GameState *game, const Entity *e, int first, int count,
                               int search_limit)
 {
     const EnemyTables *tables = asset_enemy_tables();
-    int16_t shift = game->player.script_param[2];
+    int16_t shift = game->player.script_param[DEBRIS_SHIFT_PARAM];
     int left = search_limit;
     int next = count - 1;
     /* The original keeps searching past the table if `left` allows it; the port stops at
@@ -64,18 +88,18 @@ static int spawn_debris_group(GameState *game, const Entity *e, int first, int c
         d->kind = -1;
         d->death_sample = SAMPLE_ID_WARP;
         d->death_rate = 4;
-        d->hit_handler = 0x10;
-        entity_set_type(d, 0x0f, 0);
+        d->hit_handler = HIT_KILL_FRAGMENT;
+        entity_set_type(d, THINK_FRAGMENT, 0);
         if (--next < 0)
             return i + 1;
     }
     return ENTITY_COUNT;
 }
 
-/* game86 1000:3c81: the common kill after the debris. The search walked the slots with the
- * register that held the shot, so ent_hit_00 picks the pickup drop from the vx of the slot
- * after the last one searched instead of the shot direction. Past the table (only possible
- * with kill action 04's longer search) the port keeps the shot direction. */
+/* game86 1000:3c81: the common kill after the debris. The original walks the debris search
+ * with the same pointer that held the shot, so the kill afterwards takes its "shot
+ * direction" from the vx of the slot after the last one searched. Past the table (only
+ * possible with KILL_DEBRIS_ALT's longer search) the port keeps the shot direction. */
 static void kill_after_debris(GameState *game, Entity *e, const EntityHit *hit, int walker)
 {
     Shot shot = *hit->shot;
@@ -86,13 +110,18 @@ static void kill_after_debris(GameState *game, Entity *e, const EntityHit *hit, 
     entity_kill(game, e, &after);
 }
 
+static void debris_then_kill(GameState *game, Entity *e, const EntityHit *hit, int first,
+                             int count, int search_limit)
+{
+    kill_after_debris(game, e, hit, spawn_debris_group(game, e, first, count, search_limit));
+}
+
 /* game86 1000:3bf6 */
 static void kill_action_01(GameState *game, Entity *e, const EntityHit *hit)
 {
     if (game->level_flags < 0) {
         game->debris_alt = 0;
-        kill_after_debris(game, e, hit,
-                          spawn_debris_group(game, e, DEBRIS_GROUP_CORNERS, 4, DEBRIS_SEARCH_LIMIT));
+        debris_then_kill(game, e, hit, DEBRIS_GROUP_CORNERS, 4, DEBRIS_SEARCH_LIMIT);
         return;
     }
     entity_kill(game, e, hit);
@@ -103,19 +132,19 @@ static void kill_action_02(GameState *game, Entity *e, const EntityHit *hit)
 {
     if (game->level_flags < 0) {
         game->debris_alt = 0;
-        kill_after_debris(game, e, hit,
-                          spawn_debris_group(game, e, DEBRIS_GROUP_SIDEWAYS, 4, DEBRIS_SEARCH_LIMIT));
+        debris_then_kill(game, e, hit, DEBRIS_GROUP_SIDEWAYS, 4, DEBRIS_SEARCH_LIMIT);
         return;
     }
     entity_kill(game, e, hit);
 }
 
-/* game86 1000:212d: breaks into up to ten small rocks (type 0x1a, hit handler 07); the
- * record itself just vanishes, without a kill or score. */
+/* game86 1000:212d: breaks into up to ten small rocks (think 1a); the record itself just
+ * vanishes, without a kill or score. The rocks carry KILL_DEBRIS_ALT, but HIT_DEFLECT kills
+ * them without running a kill action. */
 static void kill_action_03(GameState *game, Entity *e, const EntityHit *hit)
 {
     (void)hit;
-    int rocks = 10;
+    int rocks = ROCKS_PER_BREAK;
     for (int i = 0; i < ENTITY_COUNT && rocks > 0; i++) {
         Entity *r = &game->entities[i];
         if (!entity_is_free(r))
@@ -123,7 +152,7 @@ static void kill_action_03(GameState *game, Entity *e, const EntityHit *hit)
         r->x = e->x;
         r->y = e->y;
         r->anim = ANIM_PLAIN;
-        int16_t vx;
+        int16_t vx;                         /* -1, 1 or 2 */
         do {
             vx = (int16_t)((rng_next_byte(&game->rng) & 3) - 1);
         } while (vx == 0);
@@ -135,10 +164,10 @@ static void kill_action_03(GameState *game, Entity *e, const EntityHit *hit)
         r->scale = 1;
         r->solid = 1;
         r->kind = -1;
-        r->kill_action = 4;
-        r->hp = 3;
-        r->hit_handler = 7;
-        entity_set_type(r, 0x1a, 0x1a);
+        r->kill_action = KILL_DEBRIS_ALT;
+        r->hp = ROCK_HP;
+        r->hit_handler = HIT_DEFLECT;
+        entity_set_type(r, THINK_ROCK, THINK_ROCK);
         game->enemies_alive++;
         rocks--;
     }
@@ -150,20 +179,14 @@ static void kill_action_03(GameState *game, Entity *e, const EntityHit *hit)
 static void kill_action_04(GameState *game, Entity *e, const EntityHit *hit)
 {
     game->debris_alt = 1;
-    kill_after_debris(game, e, hit,
-                      spawn_debris_group(game, e, DEBRIS_GROUP_SIDEWAYS, 4,
-                                         DEBRIS_SEARCH_LIMIT_INHERITED));
+    debris_then_kill(game, e, hit, DEBRIS_GROUP_SIDEWAYS, 4, DEBRIS_SEARCH_LIMIT_INHERITED);
 }
 
-/* game86 1000:1416: with level_flags < 0, leaves a crawler (type 0x1b) moving one pixel per
+/* game86 1000:1416: without power shots, leaves a crawler (think 1b) moving one pixel per
  * tick along a random axis. */
 static void kill_action_05(GameState *game, Entity *e, const EntityHit *hit)
 {
-    Entity *c = NULL;
-    if (game->level_flags < 0)
-        for (int i = 0; i < ENTITY_COUNT && !c; i++)
-            if (entity_is_free(&game->entities[i]))
-                c = &game->entities[i];
+    Entity *c = game->level_flags < 0 ? first_free_slot(game) : NULL;
     if (c) {
         c->x = e->x;
         c->y = e->y;
@@ -179,30 +202,26 @@ static void kill_action_05(GameState *game, Entity *e, const EntityHit *hit)
         c->scale = 0;
         c->solid = 0;
         c->kind = 1;
-        entity_set_type(c, 0x1b, 0x1b);
+        entity_set_type(c, THINK_CRAWLER, THINK_CRAWLER);
     }
     entity_kill(game, e, hit);
 }
 
-/* game86 1000:13a6: with level_flags < 0, a fragment (type 0x0f) bounces back against the
- * shot, its sprite chosen by the shot's direction. */
+/* game86 1000:13a6: without power shots, a fragment (think 0f) bounces back against the
+ * shot at half its speed, its sprite chosen by the shot's direction. */
 static void kill_action_06(GameState *game, Entity *e, const EntityHit *hit)
 {
-    Entity *f = NULL;
-    if (game->level_flags < 0)
-        for (int i = 0; i < ENTITY_COUNT && !f; i++)
-            if (entity_is_free(&game->entities[i]))
-                f = &game->entities[i];
+    Entity *f = game->level_flags < 0 ? first_free_slot(game) : NULL;
     if (f) {
         f->x = e->x;
         f->y = e->y;
         f->vx = (int16_t)((int16_t)(uint16_t)-hit->shot->vx >> 1);
         f->vy = (int16_t)((int16_t)(uint16_t)-hit->shot->vy >> 1);
-        f->sprite = (int16_t)(hit->shot->direction + 0xa3);
+        f->sprite = (int16_t)(hit->shot->direction + SPRITE_FRAGMENT_BY_DIRECTION);
         f->anim = ANIM_PLAIN;
         f->scale = 0;
         f->solid = 0;
-        entity_set_type(f, 0x0f, 0x0f);
+        entity_set_type(f, THINK_FRAGMENT, THINK_FRAGMENT);
         f->kind = -1;
         game->enemies_alive++;
     }
@@ -216,8 +235,8 @@ static void kill_action_07(GameState *game, Entity *e, const EntityHit *hit)
     entity_kill(game, e, hit);
 }
 
-/* game86 1000:12c6: comes back as a fresh enemy_init_0c record where it died, not counted
- * again. */
+/* game86 1000:12c6: comes back as a fresh humming herder (enemy_init_0c) where it died, not
+ * counted again. */
 static void kill_action_08(GameState *game, Entity *e, const EntityHit *hit)
 {
     (void)hit;
@@ -229,21 +248,21 @@ static void kill_action_08(GameState *game, Entity *e, const EntityHit *hit)
 static void kill_action_09(GameState *game, Entity *e, const EntityHit *hit)
 {
     game->debris_alt = 0;
-    kill_after_debris(game, e, hit,
-                      spawn_debris_group(game, e, DEBRIS_GROUP_STAR, 8, DEBRIS_SEARCH_LIMIT));
+    debris_then_kill(game, e, hit, DEBRIS_GROUP_STAR, 8, DEBRIS_SEARCH_LIMIT);
 }
 
-/* game86 1000:3d71 / 3dac: meant to fill slots with type 0x24 records at phases first,
- * first + step, ... below 8, but entity_alloc_next (1000:3d4e) is entered with BP = -1 from
- * the successful alloc and reports a full table at once, so only the first one appears. */
-static void split_into_type24(GameState *game, Entity *e, const EntityHit *hit, int16_t phase)
+/* game86 1000:3d71 / 3dac: meant to fill slots with seekers at phases first, first + step,
+ * ... below 8, but entity_alloc_next (1000:3d4e) continues from a slot count the first
+ * allocation already used up, so it reports a full table at once and only the first seeker
+ * appears. */
+static void split_into_seeker(GameState *game, Entity *e, const EntityHit *hit, int16_t phase)
 {
     Entity *s = entity_alloc(game);
     if (s) {
         s->x = e->x;
         s->y = e->y;
         s->kind = -1;
-        enemy_setup_type24(game, s, phase, SEEKER_TURN_PIECE);
+        enemy_setup_seeker(game, s, phase, SEEKER_TURN_PIECE);
     }
     entity_kill(game, e, hit);
 }
@@ -251,19 +270,29 @@ static void split_into_type24(GameState *game, Entity *e, const EntityHit *hit, 
 /* game86 1000:3d71 */
 static void kill_action_0a(GameState *game, Entity *e, const EntityHit *hit)
 {
-    split_into_type24(game, e, hit, 1);
+    split_into_seeker(game, e, hit, 1);
 }
 
 /* game86 1000:3dac */
 static void kill_action_0b(GameState *game, Entity *e, const EntityHit *hit)
 {
-    split_into_type24(game, e, hit, 0);
+    split_into_seeker(game, e, hit, 0);
 }
 
-/* CS:1047. Index 00 is the plain kill. */
+/* CS:1047 */
 static const HitFn kill_actions[KILL_ACTION_COUNT] = {
-    entity_kill, kill_action_01, kill_action_02, kill_action_03, kill_action_04, kill_action_05,
-    kill_action_06, kill_action_07, kill_action_08, kill_action_09, kill_action_0a, kill_action_0b,
+    [KILL_PLAIN] = entity_kill,
+    [KILL_DEBRIS_CORNERS] = kill_action_01,
+    [KILL_DEBRIS_SIDEWAYS] = kill_action_02,
+    [KILL_BREAK_INTO_ROCKS] = kill_action_03,
+    [KILL_DEBRIS_ALT] = kill_action_04,
+    [KILL_LEAVE_CRAWLER] = kill_action_05,
+    [KILL_LEAVE_FRAGMENT] = kill_action_06,
+    [KILL_BURST_FOUR] = kill_action_07,
+    [KILL_RESPAWN_HUMMER] = kill_action_08,
+    [KILL_DEBRIS_STAR] = kill_action_09,
+    [KILL_SPLIT_SEEKER_1] = kill_action_0a,
+    [KILL_SPLIT_SEEKER_0] = kill_action_0b,
 };
 
 /* game86 1000:106a */

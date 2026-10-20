@@ -19,9 +19,9 @@ enum {
     SHOT_REACH_X = 0x0c,        /* hit when |entity x - shot x| <= 12 ... */
     SHOT_REACH_Y_DEFAULT = 8,   /* ... and |entity y - shot y| <= the sprite's rows - 1, or 8
                                    for an entity drawn through sprite_ref */
-    THINK_NO_SPEEDUP_RELOAD = 0x13,
-    SHOT_SPRITES_DEFAULT = 0x9e,    /* sprite number of direction d: d + 0x9e, or d while
-                                       level_flags < 0 */
+    THINK_BOMBER = 0x13,        /* hits on it leave the speed-up countdown running */
+    SHOT_SPRITES_POWER = 0x9e,  /* sprite number of direction d: d normally, d + 0x9e with
+                                   power shots (level_flags >= 0) */
 };
 
 typedef enum { EDGE_LEFT_RIGHT, EDGE_TOP_BOTTOM } ShotEdge;
@@ -36,8 +36,8 @@ static bool shot_is_free(const Shot *s)
     return s->x < 0;
 }
 
-/* |a - b| as the original computes it with SUB / NEG: -32768 stays negative, and so counts
- * as near. */
+/* |a - b| in 16 bits as the original computes it: a difference of -32768 stays negative,
+ * and so counts as near. */
 static int16_t distance16(int16_t a, int16_t b)
 {
     int16_t d = (int16_t)(uint16_t)(a - b);
@@ -145,8 +145,8 @@ static void shot_smart_bomb(GameState *game, int first, const EntityHit *hit)
     game->smart_bomb = false;
 }
 
-/* The first solid entity the shot touches is hit. With level_flags < 0 the shot dies on the
- * hit; any hit but on a think 0x13 entity restarts the speed-up countdown.
+/* The first solid entity the shot touches is hit. Without power shots (level_flags < 0) the
+ * shot dies on the hit; any hit but on a bomber (think 13) restarts the speed-up countdown.
  * game86 1000:0ce0..0da7 */
 static void shot_collide(GameState *game, Shot *s, Point16 at)
 {
@@ -164,7 +164,7 @@ static void shot_collide(GameState *game, Shot *s, Point16 at)
             continue;
         if (game->level_flags < 0)
             shot_free(s);
-        if (e->think != THINK_NO_SPEEDUP_RELOAD)
+        if (e->think != THINK_BOMBER)
             game->speedup_timer = game->speedup_period;
         entity_hit(game, e, &hit);
         return;
@@ -196,7 +196,7 @@ void shots_update(GameState *game)
 /* game86 1000:1499 */
 void shots_draw(const GameState *game, const DrawTarget *target)
 {
-    int base = game->level_flags < 0 ? 0 : SHOT_SPRITES_DEFAULT;
+    int base = game->level_flags < 0 ? 0 : SHOT_SPRITES_POWER;
     for (int i = 0; i < SHOT_COUNT; i++) {
         const Shot *s = &game->shots[i];
         if (shot_is_free(s))

@@ -163,18 +163,19 @@ enum {
 void enemy_random_spawn_pos(GameState *game, Entity *e);
 
 /* Enemy projectile template (game86's scratch words 0419..0421). fire_back fills the
- * velocities transposed, as the original does: velocity_x from the player shot's vy. */
+ * velocities swapped, as the original does: velocity_x from the player shot's vy. */
 typedef struct EnemyShot {
-    int16_t velocity_x;         /* 0419 -> homing.velocity_x.whole (+16) */
-    int16_t velocity_y;         /* 041B -> homing.velocity_y.whole (+1a) */
-    int16_t sprite;             /* 041D -> +0c (and homing.sprite_base) */
-    int16_t speed;              /* 041F -> homing.accel_x / accel_y fractions */
-    int16_t hit_handler;        /* 0421 -> +3e */
+    int16_t velocity_x;         /* -> homing.velocity_x (whole part) */
+    int16_t velocity_y;         /* -> homing.velocity_y (whole part) */
+    int16_t sprite;             /* -> sprite and homing.sprite_base */
+    int16_t speed;              /* -> the fractions of homing.accel_x / accel_y */
+    int16_t hit_handler;        /* -> hit_handler (HIT_*) */
 } EnemyShot;
 
-/* Turns `shot` into a projectile of type 0x10 at `from`'s position. The original also writes
- * zero to [SI+8] and [SI+0Ah] of whatever record its caller had in SI; callers do that
- * themselves where it matters. game86 1000:1232 */
+/* Turns `shot` into a homing projectile (think_10) at `from`'s position. The original also
+ * clears two words of the record its caller is working on (the shooter's velocity, or a
+ * player shot's direction in fire_back); callers do that themselves where it matters.
+ * game86 1000:1232 */
 void enemy_shot_init(GameState *game, Entity *shot, const Entity *from, const EnemyShot *tmpl);
 /* First free slot made into a projectile, or NULL when the table is full. game86 1000:1221 */
 Entity *enemy_shot_alloc(GameState *game, const Entity *from, const EnemyShot *tmpl);
@@ -205,8 +206,9 @@ void enemy_setup_01(GameState *game, Entity *e);                    /* 1000:1edf
 void enemy_setup_0c(GameState *game, Entity *e);                    /* 1000:2407 */
 void enemy_setup_0e(GameState *game, Entity *e);                    /* 1000:21af */
 void enemy_setup_1a(GameState *game, Entity *e);                    /* 1000:33e3 */
-/* Type 0x24 record with sprite 0x136 + phase. game86 1000:3441 */
-void enemy_setup_type24(GameState *game, Entity *e, int16_t phase, int16_t turn);
+/* Eight-direction seeker (think_24) facing direction `phase` (0..7), its turn counter given
+ * as one word (period in the low byte). game86 1000:3441 */
+void enemy_setup_seeker(GameState *game, Entity *e, int16_t phase, int16_t turn);
 
 /* ---- think_w5a.c (Thorn) -------------------------------------------------------------- */
 
@@ -216,6 +218,66 @@ void think_26(GameState *game, Entity *e);      /* 1000:3014 dropper */
 void think_27(GameState *game, Entity *e);      /* 1000:2f87 edge spawner */
 
 /* ---- hit.c / pickups.c (Thorn) -------------------------------------------------------- */
+
+/* Entity.hit_handler: what a player shot does to the entity (entity_hit_handlers, hit.c).
+ * "Without power shots" below means level_flags < 0, the normal state. */
+enum {
+    HIT_KILL = 0x00,            /* the common kill: score, explosion, pickup drop */
+    HIT_PUSH_BACK = 0x01,       /* pushed back by half the shot's velocity */
+    HIT_PICKUP_CHANCE = 0x02,   /* killed, with a chance of queueing a pickup first */
+    HIT_LOSE_HP = 0x03,         /* loses a hit point; below 0 its kill action (KILL_*) runs */
+    HIT_FIRE_BACK_PAIR = 0x04,  /* killed; without power shots it fires two projectiles back */
+    HIT_FIRE_BACK_X = 0x05,     /* killed; without power shots, four projectiles in an X */
+    HIT_KNOCK_AWAY = 0x06,      /* knocked away at four times the shot's velocity */
+    HIT_DEFLECT = 0x07,         /* loses a hit point and drifts off with the shot */
+    HIT_SNAKE_HEAD = 0x08,      /* every few hits a snake segment turns into an egg */
+    HIT_SNAKE_SEGMENT = 0x09,   /* only flashes */
+    HIT_SEGMENT = 0x0a,         /* loses a hit and is flung away; killed when they run out */
+    HIT_COUNT_DOWN = 0x0b,      /* killed when its hits_left runs out */
+    HIT_WALKER = 0x0c,          /* vanishes after its hits, without a kill */
+    HIT_CHARGER = 0x0d,         /* killed only while charging */
+    HIT_LEAVE_SEGMENT = 0x0e,   /* killed, leaving a segment behind */
+    HIT_EDGE_GUNNER = 0x0f,     /* killed when its gun_hits_left runs out */
+    HIT_KILL_FRAGMENT = 0x10,   /* the common kill again (debris fragments) */
+    HIT_STORM_CENTRE = 0x11,    /* after its hits it turns into the storm */
+};
+
+/* Entity.kill_action: what a HIT_LOSE_HP entity does when its hit points run out
+ * (kill_actions.c). */
+enum {
+    KILL_PLAIN = 0x00,              /* the common kill */
+    KILL_DEBRIS_CORNERS = 0x01,     /* without power shots, four fragments to the corners */
+    KILL_DEBRIS_SIDEWAYS = 0x02,    /* without power shots, four fragments sideways */
+    KILL_BREAK_INTO_ROCKS = 0x03,   /* ten rocks, without a kill */
+    KILL_DEBRIS_ALT = 0x04,         /* four fragments sideways, always, as the alternative debris */
+    KILL_LEAVE_CRAWLER = 0x05,      /* without power shots, a crawler */
+    KILL_LEAVE_FRAGMENT = 0x06,     /* without power shots, a fragment bouncing back */
+    KILL_BURST_FOUR = 0x07,         /* entity_burst_four */
+    KILL_RESPAWN_HUMMER = 0x08,     /* comes back as enemy_init_0c's humming herder */
+    KILL_DEBRIS_STAR = 0x09,        /* eight fragments, always */
+    KILL_SPLIT_SEEKER_1 = 0x0a,     /* leaves a seeker facing direction 1 */
+    KILL_SPLIT_SEEKER_0 = 0x0b,     /* leaves a seeker facing direction 0 */
+};
+
+/* Pickup kinds (Entity.pickup.pickup_kind; their effects are in pickups.c). The next killed
+ * enemy becomes kind k while Player.pickup_pending is k + 1 (pickup_pending_for). */
+typedef enum PickupKind {
+    PICKUP_LLAMA_POWERUP = 0,   /* sets player.powerup */
+    PICKUP_WARP = 1,
+    PICKUP_EXTRA_LIFE = 2,
+    PICKUP_POWER_SHOTS = 3,     /* level_flags >= 0 for the rest of the level */
+    PICKUP_MULTI_SHOT = 4,
+    PICKUP_SMART_BOMB = 5,
+    PICKUP_SHIELD = 6,
+    PICKUP_BOUNCE = 7,
+    PICKUP_POINTS = 8,
+    PICKUP_DEADLY = 9,
+} PickupKind;
+
+static inline int16_t pickup_pending_for(PickupKind kind)
+{
+    return (int16_t)(kind + 1);
+}
 
 /* The common kill: score, explosion, pickup drop. ent_hit_00, game86 1000:0dfe */
 void entity_kill(GameState *game, Entity *e, const EntityHit *hit);

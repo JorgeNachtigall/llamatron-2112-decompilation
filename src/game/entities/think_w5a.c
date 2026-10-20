@@ -72,7 +72,7 @@ void think_24(GameState *game, Entity *e)
         e->seeker.direction = turn_towards(e->seeker.direction,
                                            (uint8_t)tables->seek_dir_by_quadrant[quadrant]);
     }
-    /* Always 0..7: enemy_setup_type24 and the turn above set it. */
+    /* Always 0..7: enemy_setup_seeker and the turn above set it. */
     int dir = e->seeker.direction & (ENEMY_DIRECTIONS - 1);
     e->sprite = (int16_t)(e->seeker.direction + e->seeker.sprite_base);
     if (tables) {
@@ -107,7 +107,7 @@ void think_23(GameState *game, Entity *e)
                 child->kind = -1;
                 child->x = e->x;
                 child->y = e->y;
-                enemy_setup_type24(game, child, facing_left ? 0 : WALKER_CHILD_PHASE_RIGHT,
+                enemy_setup_seeker(game, child, facing_left ? 0 : WALKER_CHILD_PHASE_RIGHT,
                                    WALKER_CHILD_TURN);
             }
         }

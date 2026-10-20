@@ -132,7 +132,7 @@ game86,1000:32d7,39,charger_spawn_pair,spawn_pair,src/game/entities/think_charge
 game86,1000:32fe,,line_walk,line_walk,src/game/entities/movement.c,diff-tested,W5,C,"Bresenham state in DS:0832..0848 (re-notes-game86 §8.2), set up from the arguments on every call, so the port keeps it in locals; tests/oracle/test_movement.py (called directly) and test_think_basic think_1c (0f10)"
 game86,1000:33e0,76,enemy_init_1a,enemy_init_1a,src/game/entities/enemy_init.c,diff-tested,W5a,C,
 game86,1000:342c,100,enemy_init_27,enemy_init_27,src/game/entities/enemy_init.c,diff-tested,W5a,C,
-game86,1000:3441,,entity_init_type24,enemy_setup_type24,src/game/entities/enemy_init.c,diff-tested,W5a,C,via enemy_init_27 (test_enemy_init.py) / think_23 (test_think_w5a.py) / kill actions 0a/0b (test_hit.py)
+game86,1000:3441,,entity_init_type24,enemy_setup_seeker,src/game/entities/enemy_init.c,diff-tested,W5a,C,via enemy_init_27 (test_enemy_init.py) / think_23 (test_think_w5a.py) / kill actions 0a/0b (test_hit.py)
 game86,1000:3490,142,think_24,think_24,src/game/entities/think_w5a.c,diff-tested,W5a,C,
 game86,1000:351e,150,enemy_init_19,enemy_init_19,src/game/entities/enemy_init.c,diff-tested,W5a,C,
 game86,1000:35b4,136,think_23,think_23,src/game/entities/think_w5a.c,diff-tested,W5a,C,
@@ -163,7 +163,7 @@ game86,1000:3ca3,,entity_init_child,entity_init_child,src/game/entities/spawn.c,
 game86,1000:3cea,31,think_0f,think_0f,src/game/entities/think_basic.c,diff-tested,W5,C,
 game86,1000:3d09,58,wave_spawn_done,script_next_spawn_pair,src/game/script.c,diff-tested,W4,C,next (type; count) pair of the spawn list; tests/oracle/test_script.py (row added by W4)
 game86,1000:3d43,46,entity_alloc,entity_alloc,src/game/entity_loop.c,diff-tested,W4,C,W4 service per entity_dispatch.h; tests/oracle/test_entity_loop.py
-game86,1000:3d4e,,entity_alloc_next,split_into_type24,src/game/entities/kill_actions.c,diff-tested,W5a,C,inlined in split_into_type24: entered with BP=-1 so it always reports a full table; via kill actions 0a/0b (test_hit.py)
+game86,1000:3d4e,,entity_alloc_next,split_into_seeker,src/game/entities/kill_actions.c,diff-tested,W5a,C,inlined in split_into_seeker: it continues from the slot count the first allocation used up so it always reports a full table; via kill actions 0a/0b (test_hit.py)
 game86,1000:3d71,59,hit_kill_action_0a,kill_action_0a,src/game/entities/kill_actions.c,diff-tested,W5a,C,via ent_hit_03 (tests/oracle/test_hit.py)
 game86,1000:3dac,56,hit_kill_action_0b,kill_action_0b,src/game/entities/kill_actions.c,diff-tested,W5a,C,via ent_hit_03 (tests/oracle/test_hit.py)
 game86,1000:3de4,252,irq08_timer,timing_run_timer_ticks,src/engine/timing.c,ported,W2,D,"dispatch: driver tick 3e02 (snd_tick) then the game tick 3e08..3ebd (game_tick, W4; colour-1 pulse 3e4e..3eb5 = palette_pulse_tick, see row 3e4e); fire refresh 3e12..3e4e = input_tick_fire, diff-tested in test_engine_input.py; BIOS chain 3ec2 = bios_accumulator in timing_take_tick; reentry flag [428] not needed (ticks run between frames)"

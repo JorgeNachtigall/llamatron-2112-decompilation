@@ -21,12 +21,24 @@ enum {
     SPRITE_BURST_FAR_RIGHT = 0xee,
 };
 
+/* A random spawn keeps this far from the ships on each axis, and its y stays above
+ * SPAWN_Y_MAX. */
+enum { SPAWN_SHIP_DISTANCE = 0x20, SPAWN_Y_MAX = 0xb2 };
+/* The bomber's (think_13) bomb falls faster than any other enemy shot. */
+enum { BOMB_SPEED = 0xa00 };
+
+/* Think handlers named here (think_table.c). */
+enum {
+    THINK_FRAGMENT = 0x0f,              /* plain child: bounces, dies at the first wall */
+    THINK_HOMING_SHOT = 0x10,           /* enemy projectile (homing, animated) */
+};
+
 static int16_t word(int value)
 {
     return (int16_t)(uint16_t)value;
 }
 
-/* |a - b| as the original computes it with SUB / NEG: -32768 stays negative. */
+/* |a - b| in 16 bits as the original computes it: a difference of -32768 stays negative. */
 static int16_t distance16(int16_t a, int16_t b)
 {
     int16_t d = word(a - b);
@@ -48,8 +60,8 @@ void enemy_random_spawn_pos(GameState *game, Entity *e)
     int16_t x;
     do {
         x = word((rng_next_byte(&game->rng) & 0xff) + (rng_next_byte(&game->rng) & 0x1f) + 0x10);
-    } while (distance16(game->ship[0].x, x) < 0x20 ||
-             (two_players && distance16(game->ship[1].x, x) < 0x20));
+    } while (distance16(game->ship[0].x, x) < SPAWN_SHIP_DISTANCE ||
+             (two_players && distance16(game->ship[1].x, x) < SPAWN_SHIP_DISTANCE));
     e->x = x;
 
     /* The distance to P1 is only checked when the spawn lies below P1 (the original skips the
@@ -58,16 +70,16 @@ void enemy_random_spawn_pos(GameState *game, Entity *e)
     for (;;) {
         y = word((rng_next_byte(&game->rng) & 0x7f) + (rng_next_byte(&game->rng) & 0x3f) + 0x20);
         int16_t below_p1 = word(game->ship[0].y - y);
-        if (below_p1 < 0 && word(-below_p1) < 0x20)
+        if (below_p1 < 0 && word(-below_p1) < SPAWN_SHIP_DISTANCE)
             continue;
-        if (two_players && distance16(game->ship[1].y, y) < 0x20)
+        if (two_players && distance16(game->ship[1].y, y) < SPAWN_SHIP_DISTANCE)
             continue;
         break;
     }
     if (y < 0)
         y = 0;
-    if (y > 0xb2)
-        y = 0xb2;
+    if (y > SPAWN_Y_MAX)
+        y = SPAWN_Y_MAX;
     e->y = y;
 }
 
@@ -92,7 +104,7 @@ void enemy_shot_init(GameState *game, Entity *shot, const Entity *from, const En
     h->position_y = (Fixed16){ .frac = 0, .whole = shot->y };
     h->start_delay = (int16_t)((rng_next_byte(&game->rng) & 7) + 3);
     shot->hit_handler = tmpl->hit_handler;
-    entity_set_type(shot, 0x10, 0x10);
+    entity_set_type(shot, THINK_HOMING_SHOT, THINK_HOMING_SHOT);
     game->enemies_alive++;
 }
 
@@ -107,9 +119,9 @@ Entity *enemy_shot_alloc(GameState *game, const Entity *from, const EnemyShot *t
     return shot;
 }
 
-/* game86 1000:10b0. Its enemy_shot_init call (1000:10ea) runs with think_13's code offset
- * in SI, so the "parent" words it clears are two spawn pairs of a level script; the script
- * side reproduces that (script_clobber_spawns). */
+/* game86 1000:10b0: the bomber's bomb. Its enemy_shot_init call (1000:10ea) has no caller
+ * record to clear: the pointer it uses holds a code address there, so the two words it
+ * clears are spawn pairs of the level script, which script_clobber_spawns reproduces. */
 Entity *enemy_shot_drop(GameState *game, const Entity *from)
 {
     Entity *shot = first_free_slot(game);
@@ -117,8 +129,8 @@ Entity *enemy_shot_drop(GameState *game, const Entity *from)
         return NULL;
     shot->anim = ANIM_IDLE;
     shot->scale = 0;
-    const EnemyShot bomb = { .velocity_x = 0, .velocity_y = 0, .sprite = SPRITE_BOMB, .speed = 0xa00,
-                             .hit_handler = 0 };
+    const EnemyShot bomb = { .velocity_x = 0, .velocity_y = 0, .sprite = SPRITE_BOMB,
+                             .speed = BOMB_SPEED, .hit_handler = HIT_KILL };
     enemy_shot_init(game, shot, from, &bomb);
     script_clobber_spawns(game);
     shot->kind = -1;
@@ -143,10 +155,10 @@ void entity_init_child(GameState *game, Entity *child, const Entity *parent, int
     child->solid = 1;
     child->death_sample = SAMPLE_ID_POP;
     child->death_rate = 3;
-    child->hit_handler = 0;
+    child->hit_handler = HIT_KILL;
     child->overlay.x = 0;
     child->kind = -1;
-    entity_set_type(child, 0x0f, 0);
+    entity_set_type(child, THINK_FRAGMENT, 0);
 }
 
 /* game86 1000:3c91 */
@@ -194,7 +206,7 @@ Entity *entity_spawn_debris(GameState *game, const Entity *at)
     d->solid = 1;
     d->death_sample = SAMPLE_ID_ENEMY_DEATH;
     d->death_rate = 0;
-    d->hit_handler = 0;
+    d->hit_handler = HIT_KILL;
     d->anim = ANIM_PLAIN;
     d->overlay.x = 0;
     d->kind = -1;

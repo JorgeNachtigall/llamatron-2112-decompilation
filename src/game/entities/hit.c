@@ -1,9 +1,11 @@
 /*
  * hit.c - what happens when a player shot (or the smart bomb) hits an entity: the 18 hit
- * handlers (tbl_hit_handlers, CS:0C04), the common kill and the pickup drop.
+ * handlers (tbl_hit_handlers, CS:0C04, index Entity.hit_handler = HIT_*), the common kill
+ * and the pickup drop.
  *
  * `hit->shot` is the shot that hit; with the smart bomb it is the shot whose move triggered
- * the sweep (W4's shots_update), and handlers read it the same way.
+ * the sweep (W4's shots_update), and handlers read it the same way. "Without power shots"
+ * means level_flags < 0, the normal state (PICKUP_POWER_SHOTS lifts it).
  */
 #include "entities.h"
 
@@ -18,6 +20,31 @@ enum { KILLS_PER_BONUS = 200 };
 enum { LAST_WARP_LEVEL = 0x5a };
 /* Sprites: the pickup-chance overlay; the fire-back shots (as enemy types 06 and 07). */
 enum { SPRITE_PICKUP_CHANCE = 0x46, SPRITE_SHOT_MEDIUM = 0x7f, SPRITE_SHOT_FAST = 0x83 };
+/* Ticks a dropped pickup stays on the field. */
+enum { PICKUP_LIFE = 200 };
+/* ent_hit_02's roll out of 256: below the first limit (higher during the wave intro) it
+ * queues one pickup, below PICKUP_ROLL_OTHER another. */
+enum { PICKUP_ROLL_INTRO = 0xa0, PICKUP_ROLL = 0x3c, PICKUP_ROLL_OTHER = 0x8c };
+/* Shot directions (Shot.direction) start here; the low two bits pick the explosion's slant. */
+enum { SHOT_DIRECTION_FIRST = 0x1d };
+/* Fire-back projectile speeds (the fractions of their homing acceleration). */
+enum { FIRE_BACK_SPEED_MEDIUM = 0x400, FIRE_BACK_SPEED_FAST = 0x600 };
+
+/* Think handlers named here (think_table.c). */
+enum {
+    THINK_STATIC = 0x01,                /* never counted as alive */
+    THINK_EXPLOSION = 0x02,
+    THINK_PICKUP = 0x1c,
+    THINK_SNAKE_HEAD = 0x1d,
+    THINK_SNAKE_SEGMENT = 0x1e,
+    THINK_SEGMENT_ANIMATED = 0x28,
+    THINK_STORM = 0x2c,
+};
+/* The explosion's animation: scaled and slanted through three states, then nothing. */
+enum { ANIM_EXPLOSION = 0x05 };
+
+/* Roster kinds of the fire-back projectiles: those of enemy types 06 and 07. */
+enum { KIND_SHOT_MEDIUM = 6, KIND_SHOT_FAST = 7 };
 
 static int16_t word(int value)
 {
@@ -30,7 +57,7 @@ void entity_start_flash(GameState *game, FlashListId id)
     game->flash_pos = 0;
 }
 
-/* game86 1000:0eb8: the dying entity becomes pickup kind pickup_pending - 1. */
+/* game86 1000:0eb8: the dying entity becomes the queued pickup (kind pickup_pending - 1). */
 static void become_pickup(GameState *game, Entity *e)
 {
     if (game->wave_result == WAVE_CLEARED)
@@ -38,7 +65,7 @@ static void become_pickup(GameState *game, Entity *e)
     int16_t kind = word(game->player.pickup_pending - 1);
     game->player.pickup_pending = 0;
     e->pickup.pickup_kind = kind;
-    e->pickup.life = 200;
+    e->pickup.life = PICKUP_LIFE;
     const EnemyTables *tables = asset_enemy_tables();
     if (tables && kind >= 0 && kind < PICKUP_KINDS)
         e->sprite = (int16_t)tables->pickup_sprites[kind];
@@ -46,7 +73,7 @@ static void become_pickup(GameState *game, Entity *e)
     e->kind = -1;
     e->vx = 0;
     e->vy = 0;
-    entity_set_type(e, 0x1c, 0x1c);
+    entity_set_type(e, THINK_PICKUP, THINK_PICKUP);
     e->pickup.sprite_base = e->sprite;
     e->solid = 0;
     game->enemies_alive++;
@@ -56,11 +83,12 @@ static void become_pickup(GameState *game, Entity *e)
 /* ent_hit_00, game86 1000:0dfe */
 void entity_kill(GameState *game, Entity *e, const EntityHit *hit)
 {
+    /* The explosion's slant (timer, for its scaled-and-slanted animation) by shot direction. */
     const EnemyTables *tables = asset_enemy_tables();
     if (tables)
-        e->timer = tables->drop_by_direction[(hit->shot->direction - 0x1d) & 3];
+        e->timer = tables->drop_by_direction[(hit->shot->direction - SHOT_DIRECTION_FIRST) & 3];
     e->kind = -1;
-    if (e->think != 0x01)
+    if (e->think != THINK_STATIC)
         game->enemies_alive--;
 
     /* Score by think index. The table's last record (FFFF FFFF, think 0x2c) is never used:
@@ -72,18 +100,21 @@ void entity_kill(GameState *game, Entity *e, const EntityHit *hit)
             score_add(game, award.digit, award.count_minus_1 + 1);
     }
 
-    entity_set_type(e, 0x02, 0);            /* think_02: the explosion fades */
-    e->anim = 0x05;
+    entity_set_type(e, THINK_EXPLOSION, 0);
+    e->anim = ANIM_EXPLOSION;
     e->solid = 0;
     entity_start_flash(game, FLASH_LIST_KILL);
 
+    /* Every KILLS_PER_BONUS kills the victim becomes the llama power-up, or the warp (below
+     * LAST_WARP_LEVEL) when bonus_countdown runs out, from then on every second bonus. A
+     * pickup queued meanwhile stays queued. */
     if (++game->kills_toward_bonus >= KILLS_PER_BONUS) {
         int16_t queued = game->player.pickup_pending;
         game->kills_toward_bonus = 0;
-        game->player.pickup_pending = 1;
+        game->player.pickup_pending = pickup_pending_for(PICKUP_LLAMA_POWERUP);
         if (--game->player.bonus_countdown == 0) {
             if (game->player.level < LAST_WARP_LEVEL)
-                game->player.pickup_pending = 2;
+                game->player.pickup_pending = pickup_pending_for(PICKUP_WARP);
             game->player.bonus_countdown = 2;
         }
         become_pickup(game, e);
@@ -95,19 +126,22 @@ void entity_kill(GameState *game, Entity *e, const EntityHit *hit)
     }
 }
 
-/* game86 1000:0dbf: a chance of queueing a pickup before the kill. */
+/* game86 1000:0dbf: a chance of queueing a pickup before the kill: power shots (points when
+ * they are already on), or else the bounce power-up (points when it is already on). */
 static void ent_hit_02(GameState *game, Entity *e, const EntityHit *hit)
 {
     e->overlay.sprite = SPRITE_PICKUP_CHANCE;
     e->overlay.frames = 0x14;
     e->overlay.x = e->x;
     e->overlay.y = e->y;
-    int limit = game->wave_intro_timer != 0 ? 0xa0 : 0x3c;
+    int limit = game->wave_intro_timer != 0 ? PICKUP_ROLL_INTRO : PICKUP_ROLL;
     int roll = rng_next_byte(&game->rng);
     if (roll < limit)
-        game->player.pickup_pending = game->level_flags < 0 ? 4 : 9;
-    else if (roll < 0x8c)
-        game->player.pickup_pending = game->shots_bounce ? 9 : 8;
+        game->player.pickup_pending =
+            pickup_pending_for(game->level_flags < 0 ? PICKUP_POWER_SHOTS : PICKUP_POINTS);
+    else if (roll < PICKUP_ROLL_OTHER)
+        game->player.pickup_pending =
+            pickup_pending_for(game->shots_bounce ? PICKUP_POINTS : PICKUP_BOUNCE);
     entity_kill(game, e, hit);
 }
 
@@ -122,12 +156,12 @@ static void ent_hit_01(GameState *game, Entity *e, const EntityHit *hit)
     if (y >= 0x18 && y < 0xb8)
         e->y = y;
     /* The hunter's (think 08) hit sprite frames; ent_hit_03 brings other kinds here, whose
-     * thinks do not read +16. */
+     * thinks never read that field. */
     e->hunter.hit_frames = 5;
     game_sound_play(SAMPLE_ID_KNOCK, 1, 3);
 }
 
-/* game86 1000:105f: hit points; at < 0 the record's kill action runs. */
+/* game86 1000:105f: hit points; below 0 the record's kill action (KILL_*) runs. */
 static void ent_hit_03(GameState *game, Entity *e, const EntityHit *hit)
 {
     entity_start_flash(game, FLASH_LIST_HIT);
@@ -138,10 +172,11 @@ static void ent_hit_03(GameState *game, Entity *e, const EntityHit *hit)
 }
 
 /* Projectiles fanned out along the shot's velocity, each marked with roster kind `kind`.
- * The original fills the template transposed (the shot's vx * 2 into 041B, which the shot
- * flies as velocity_y, and vy * 2 into 0419, velocity_x), so they fly mirrored across the
- * diagonal. enemy_shot_init also zeroes the shot's direction and +0a word (its SI is the shot here),
- * so the kill that follows reads direction 0. game86 1000:1108 / 11e2 */
+ * The original fills the template with the shot's velocity swapped (its vx, doubled, becomes
+ * the projectiles' y speed and its vy their x speed), so they fly mirrored across the
+ * diagonal. enemy_shot_init's clearing of its caller's record lands on the player shot here,
+ * zeroing its direction, so the kill that follows slants as for direction 0.
+ * game86 1000:1108 / 11e2 */
 static void fire_back(GameState *game, Entity *e, const EntityHit *hit, EnemyShot *tmpl,
                       int16_t kind, const bool *negate_vx, const bool *negate_vy, int count)
 {
@@ -161,25 +196,27 @@ static void fire_back(GameState *game, Entity *e, const EntityHit *hit, EnemySho
     }
 }
 
-/* game86 1000:11d2: with level_flags < 0, two projectiles back along the shot. */
+/* game86 1000:11d2: without power shots, two projectiles back along the shot. */
 static void ent_hit_04(GameState *game, Entity *e, const EntityHit *hit)
 {
     if (game->level_flags < 0) {
-        EnemyShot tmpl = { .sprite = SPRITE_SHOT_MEDIUM, .speed = 0x400, .hit_handler = 5 };
+        EnemyShot tmpl = { .sprite = SPRITE_SHOT_MEDIUM, .speed = FIRE_BACK_SPEED_MEDIUM,
+                           .hit_handler = HIT_FIRE_BACK_X };
         static const bool flip_vx[] = { false, true }, flip_vy[] = { false, true };
-        fire_back(game, e, hit, &tmpl, 6, flip_vx, flip_vy, 2);
+        fire_back(game, e, hit, &tmpl, KIND_SHOT_MEDIUM, flip_vx, flip_vy, 2);
     }
     entity_kill(game, e, hit);
 }
 
-/* game86 1000:10f8: with level_flags < 0, four projectiles in an X. */
+/* game86 1000:10f8: without power shots, four projectiles in an X. */
 static void ent_hit_05(GameState *game, Entity *e, const EntityHit *hit)
 {
     if (game->level_flags < 0) {
-        EnemyShot tmpl = { .sprite = SPRITE_SHOT_FAST, .speed = 0x600, .hit_handler = 0 };
+        EnemyShot tmpl = { .sprite = SPRITE_SHOT_FAST, .speed = FIRE_BACK_SPEED_FAST,
+                           .hit_handler = HIT_KILL };
         static const bool flip_vx[] = { false, true, false, true };
         static const bool flip_vy[] = { false, false, true, false };
-        fire_back(game, e, hit, &tmpl, 7, flip_vx, flip_vy, 4);
+        fire_back(game, e, hit, &tmpl, KIND_SHOT_FAST, flip_vx, flip_vy, 4);
     }
     entity_kill(game, e, hit);
 }
@@ -194,7 +231,8 @@ static void ent_hit_06(GameState *game, Entity *e, const EntityHit *hit)
     game_sound_play(SAMPLE_ID_KNOCK, 1, 3);
 }
 
-/* game86 1000:1022 */
+/* game86 1000:1022: hit points; until they run out it drifts off at half the shot's
+ * velocity. */
 static void ent_hit_07(GameState *game, Entity *e, const EntityHit *hit)
 {
     game_sound_play(SAMPLE_ID_KNOCK, 0, 3);
@@ -207,8 +245,7 @@ static void ent_hit_07(GameState *game, Entity *e, const EntityHit *hit)
 }
 
 /* game86 1000:115d: the snake head (think 1d). Every egg_hits period of hits the first
- * segment left becomes an egg; with none left the head
- * goes, without a kill. */
+ * segment left becomes an egg; with none left the head goes, without a kill. */
 static void ent_hit_08(GameState *game, Entity *e, const EntityHit *hit)
 {
     entity_start_flash(game, FLASH_LIST_HIT);
@@ -221,20 +258,22 @@ static void ent_hit_08(GameState *game, Entity *e, const EntityHit *hit)
     }
     egg_hits->left = egg_hits->period;
 
+    /* The segments sit in the slots before their head (enemy_init_10), so the search stops
+     * at the head. */
     for (int i = 0; i < ENTITY_COUNT; i++) {
         Entity *s = &game->entities[i];
-        if (s->think == 0x1e && s->hatch_into == 0x1e) {
+        if (s->think == THINK_SNAKE_SEGMENT && s->hatch_into == THINK_SNAKE_SEGMENT) {
             enemy_setup_00(game, s, true);
             return;
         }
-        if (s->think == 0x1d && s->hatch_into == 0x1d)
+        if (s->think == THINK_SNAKE_HEAD && s->hatch_into == THINK_SNAKE_HEAD)
             break;
     }
     entity_vanish(e);
     game->enemies_alive--;
 }
 
-/* game86 1000:11b0 */
+/* game86 1000:11b0: a snake segment only flashes. */
 static void ent_hit_09(GameState *game, Entity *e, const EntityHit *hit)
 {
     (void)game;
@@ -242,7 +281,7 @@ static void ent_hit_09(GameState *game, Entity *e, const EntityHit *hit)
     e->segment.flash_frames = 0x28;
 }
 
-/* game86 1000:2da7 */
+/* game86 1000:2da7: a segment (think 1f / 28) is flung off until its hits run out. */
 static void ent_hit_0a(GameState *game, Entity *e, const EntityHit *hit)
 {
     HomingView *h = &e->homing;
@@ -251,7 +290,8 @@ static void ent_hit_0a(GameState *game, Entity *e, const EntityHit *hit)
         return;
     }
     entity_start_flash(game, FLASH_LIST_HIT);
-    /* The fractions only, from the shot's y and vx: the original's own choice of words. */
+    /* Only the fractions, and from the shot's y and vx (not vx and vy), as the original
+     * does. */
     h->velocity_x.frac = (uint16_t)(hit->shot->y * 4);
     h->velocity_y.frac = (uint16_t)(hit->shot->vx * 4);
     h->accel_x = (Fixed16){ .frac = 0x200, .whole = 0 };
@@ -260,8 +300,8 @@ static void ent_hit_0a(GameState *game, Entity *e, const EntityHit *hit)
     game_sound_play(SAMPLE_ID_POP, 1, 3);
 }
 
-/* game86 1000:2ae1: the orbiters (think 20, 21) and the edge runner (think 22), whose
- * views agree here: hits_left at +16, and +1a restarts (hit_frames, intro_frames). */
+/* game86 1000:2ae1: the orbiters (think 20, 21) and the runner (think 22), whose views share
+ * hits_left and the hit flash counter (the runner's intro frames). */
 static void ent_hit_0b(GameState *game, Entity *e, const EntityHit *hit)
 {
     e->orbit.hit_frames = 0x10;
@@ -289,7 +329,7 @@ static void ent_hit_0c(GameState *game, Entity *e, const EntityHit *hit)
 }
 
 /* game86 1000:31d8: the chargers (think 25, 29), only killed once the intro is over and
- * while charging. */
+ * while charging; otherwise they dash off with the shot. */
 static void ent_hit_0d(GameState *game, Entity *e, const EntityHit *hit)
 {
     if (game->wave_intro_timer == 0 && e->charger.charging != 0) {
@@ -302,7 +342,8 @@ static void ent_hit_0d(GameState *game, Entity *e, const EntityHit *hit)
     game_sound_play(SAMPLE_ID_POP, 3, 4);
 }
 
-/* game86 1000:12ed: leaves a segment of the current segment family behind (type 0x28). */
+/* game86 1000:12ed: leaves a segment of the current segment family behind (think 28), set
+ * up like enemy_init.c's segments but where the victim was. */
 static void ent_hit_0e(GameState *game, Entity *e, const EntityHit *hit)
 {
     Entity *s = NULL;
@@ -327,18 +368,18 @@ static void ent_hit_0e(GameState *game, Entity *e, const EntityHit *hit)
         h->position_y.whole = 0;
         h->start_delay = 0;
         h->segment_family = game->tuning.segment_family;
-        s->hit_handler = 0x0a;
+        s->hit_handler = HIT_SEGMENT;
         s->anim = ANIM_PLAIN;
         s->growth.unused_0a = 0;
         s->growth.sprite_base = s->sprite;
-        entity_set_type(s, 0x28, 0x28);
+        entity_set_type(s, THINK_SEGMENT_ANIMATED, THINK_SEGMENT_ANIMATED);
         game->enemies_alive++;
         s->kind = -1;
     }
     entity_kill(game, e, hit);
 }
 
-/* game86 1000:12d2 */
+/* game86 1000:12d2: the edge gunners (think 2a). */
 static void ent_hit_0f(GameState *game, Entity *e, const EntityHit *hit)
 {
     entity_start_flash(game, FLASH_LIST_HIT_ALT);
@@ -349,7 +390,8 @@ static void ent_hit_0f(GameState *game, Entity *e, const EntityHit *hit)
     game_sound_play(SAMPLE_ID_HIT_0F, 3, 4);
 }
 
-/* game86 1000:270a: after enough hits it turns into think 2c (and starts over). */
+/* game86 1000:270a: the storm centre; after enough hits it turns into the storm (think 2c),
+ * which strikes strikes_left times, one every period of strike. */
 static void ent_hit_11(GameState *game, Entity *e, const EntityHit *hit)
 {
     (void)hit;
@@ -360,12 +402,27 @@ static void ent_hit_11(GameState *game, Entity *e, const EntityHit *hit)
     e->anim = ANIM_IDLE;
     e->storm.strikes_left = 0x96;
     e->storm.strike = (ByteCounter){ .period = 4, .left = 4 };
-    entity_set_type(e, 0x2c, 0x2c);
+    entity_set_type(e, THINK_STORM, THINK_STORM);
 }
 
-/* CS:0C04. Index 00 and 10 are the plain kill. */
+/* CS:0C04 */
 const HitFn entity_hit_handlers[HIT_HANDLER_COUNT] = {
-    entity_kill, ent_hit_01, ent_hit_02, ent_hit_03, ent_hit_04, ent_hit_05,
-    ent_hit_06, ent_hit_07, ent_hit_08, ent_hit_09, ent_hit_0a, ent_hit_0b,
-    ent_hit_0c, ent_hit_0d, ent_hit_0e, ent_hit_0f, entity_kill, ent_hit_11,
+    [HIT_KILL] = entity_kill,
+    [HIT_PUSH_BACK] = ent_hit_01,
+    [HIT_PICKUP_CHANCE] = ent_hit_02,
+    [HIT_LOSE_HP] = ent_hit_03,
+    [HIT_FIRE_BACK_PAIR] = ent_hit_04,
+    [HIT_FIRE_BACK_X] = ent_hit_05,
+    [HIT_KNOCK_AWAY] = ent_hit_06,
+    [HIT_DEFLECT] = ent_hit_07,
+    [HIT_SNAKE_HEAD] = ent_hit_08,
+    [HIT_SNAKE_SEGMENT] = ent_hit_09,
+    [HIT_SEGMENT] = ent_hit_0a,
+    [HIT_COUNT_DOWN] = ent_hit_0b,
+    [HIT_WALKER] = ent_hit_0c,
+    [HIT_CHARGER] = ent_hit_0d,
+    [HIT_LEAVE_SEGMENT] = ent_hit_0e,
+    [HIT_EDGE_GUNNER] = ent_hit_0f,
+    [HIT_KILL_FRAGMENT] = entity_kill,
+    [HIT_STORM_CENTRE] = ent_hit_11,
 };
