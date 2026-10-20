@@ -17,11 +17,12 @@ static const Point16 WAVE_HEADING_POS = { 0x9f, 0x03 };
 static const Point16 GAME_OVER_POS = { 0xa0, 0x5a };
 
 enum {
-    G3_GAME_OVER = 1,            /* g3 shapes (30EB:0000 + 2n) */
-    G3_WAVE_HEADING = 3,
     PLAYFIELD_FRAME_COLOR = 2,
     SHIELD_RISE = 0x0f,          /* the shield is centred 15 px above the ship */
     SHIP_FRAMES = 4,             /* ship animation: (x or y) / 2 % 4 */
+    /* the companion llama's walk: sprite refs 0..3 (218C:0000..0006), one per 2 ticks */
+    SPRITE_REF_COMPANION_FIRST = 0,
+    COMPANION_FRAMES = 4,
 };
 
 static void draw_plain(const DrawTarget *target, const GfxSprite *sprite, int x, int y)
@@ -30,9 +31,10 @@ static void draw_plain(const DrawTarget *target, const GfxSprite *sprite, int x,
         draw_sprite(target, sprite, x, y);
 }
 
-static const GfxSprite *title_shape(unsigned index)
+/* hud_draw_control_labels' lookup (its id is a TitleShapeId) */
+static const GfxSprite *title_shape(unsigned id)
 {
-    return asset_sprite_gfx(SPRITE_BANK_TITLE, index);
+    return asset_title_shape((TitleShapeId)id);
 }
 
 /* The ship's frame: sprite number first_sprite + |facing| + (coordinate / 2) % 4, where the
@@ -81,7 +83,8 @@ static void draw_ship(const GameState *game, const DrawTarget *target, int playe
 static void draw_companion(const GameState *game, const DrawTarget *target)
 {
     Point16 at = game->ship[1];
-    draw_plain(target, asset_sprite_ref_gfx((game->tick_count >> 1) & 3), at.x, at.y);
+    unsigned frame = (game->tick_count >> 1) % COMPANION_FRAMES;
+    draw_plain(target, asset_sprite_ref_gfx(SPRITE_REF_COMPANION_FIRST + frame), at.x, at.y);
     draw_rescue_marker(target, at, game->rescue_marker_y[1]);
 }
 
@@ -124,7 +127,7 @@ void wave_draw_background(GameState *game)
     draw_rect_outline(GFX_PAGE_BACKGROUND, PLAYFIELD_FRAME.x0, PLAYFIELD_FRAME.y0,
                       PLAYFIELD_FRAME.x1, PLAYFIELD_FRAME.y1, PLAYFIELD_FRAME_COLOR);
     DrawTarget background = draw_target_page(GFX_PAGE_BACKGROUND);
-    draw_sprite_unrecorded(&background, title_shape(G3_WAVE_HEADING), WAVE_HEADING_POS.x,
+    draw_sprite_unrecorded(&background, asset_title_shape(TITLE_SHAPE_WAVE_HEADING), WAVE_HEADING_POS.x,
                            WAVE_HEADING_POS.y);
     if (game->player.wave_type != 0)
         print_text(&background, game, asset_text(TEXT_ID_HERD_WAVE_BANNER));
@@ -144,5 +147,5 @@ void wave_draw_warp_banner(GameState *game)
 void game_over_draw(void)
 {
     DrawTarget screen = draw_target_page(gfx_display_page_id());
-    draw_sprite_unrecorded(&screen, title_shape(G3_GAME_OVER), GAME_OVER_POS.x, GAME_OVER_POS.y);
+    draw_sprite_unrecorded(&screen, asset_title_shape(TITLE_SHAPE_GAME_OVER), GAME_OVER_POS.x, GAME_OVER_POS.y);
 }

@@ -18,14 +18,7 @@ enum {
     LEVEL_DIGIT_BASE = 10,
 };
 
-/* g3 title shapes (table offset / 2) of the control labels. game86 1000:59ab */
-enum {
-    SHAPE_ONE_PLAYER = 7,               /* 30EB:000E */
-    SHAPE_TWO_PLAYERS_DOUBLE = 8,       /* 30EB:0010 OPT_DOUBLE_CONTROLLER */
-    SHAPE_TWO_PLAYERS_SHARED = 9,       /* 30EB:0012 */
-    SHAPE_TURN_P1 = 10,                 /* 30EB:0014 */
-    SHAPE_TURN_P2 = 11,                 /* 30EB:0016 */
-};
+/* Where the control labels go. game86 1000:59ab */
 static const struct { int x, y; } CONTROL_LABEL_POS = { 0x9c, 0x23 };
 static const struct { int x, y; } TURN_LABEL_POS = { 0x9b, 0x0f };
 
@@ -136,14 +129,14 @@ void hud_draw_control_labels(const DrawTarget *target, uint8_t options, HudShape
 {
     if (!shape)
         return;
-    unsigned control = SHAPE_ONE_PLAYER;
+    TitleShapeId control = TITLE_SHAPE_ONE_PLAYER;
     if (options & OPT_TWO_PLAYERS)
-        control = (options & OPT_DOUBLE_CONTROLLER) ? SHAPE_TWO_PLAYERS_DOUBLE
-                                                    : SHAPE_TWO_PLAYERS_SHARED;
+        control = (options & OPT_DOUBLE_CONTROLLER) ? TITLE_SHAPE_TWO_PLAYERS_TEAM
+                                                    : TITLE_SHAPE_TWO_PLAYERS_DROID;
     const GfxSprite *sprite = shape(control);
     if (sprite)
         draw_sprite(target, sprite, CONTROL_LABEL_POS.x, CONTROL_LABEL_POS.y);
-    sprite = shape((options & OPT_CURRENT_IS_P2) ? SHAPE_TURN_P2 : SHAPE_TURN_P1);
+    sprite = shape((options & OPT_CURRENT_IS_P2) ? TITLE_SHAPE_DIGIT_2 : TITLE_SHAPE_DIGIT_1);
     if (sprite)
         draw_sprite(target, sprite, TURN_LABEL_POS.x, TURN_LABEL_POS.y);
 }
