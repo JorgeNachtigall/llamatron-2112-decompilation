@@ -1,5 +1,8 @@
 /*
- * draw_scroller.c - the attract-mode text scroller (see scroller.h).
+ * draw_scroller.c - the attract-mode text scroller (see scroller.h): the text printed on a
+ * 64 KB canvas that wraps, shown one window of it per frame, one row further each frame.
+ * The story run prints its late text once the window nears the canvas's end and hands over
+ * to the hi-score table after that.
  */
 #include "scroller.h"
 
@@ -7,9 +10,9 @@
 
 /* game86 checks in the scroll step (1000:58de..592a) */
 enum {
-    LATE_TEXT_OFFSET = 0xd000,   /* story: window past this -> late text, mode 2 */
-    MODE_3_OFFSET = 0xe000,      /* story, mode 2: window past this -> mode 3 */
-    HISCORE_OFFSET = 0x6c00,     /* story, mode 3: window past this (signed) -> table */
+    LATE_TEXT_OFFSET = 0xd000,   /* story: window past this -> SCROLLER_MODE_LATE_TEXT */
+    TO_HISCORE_OFFSET = 0xe000,  /* story, late text: window past this -> MODE_TO_HISCORE */
+    HISCORE_OFFSET = 0x6c00,     /* story, to hi-score: window past this (signed) -> table */
     COUNTER_START = 0xc8,        /* rows on screen */
     PAGE_STRIDE_CELLS = 0x2000,  /* the original's pages lie 8 KB apart in the canvas */
     GAME_OVER_TEXT_Y = 0xc8,
@@ -18,6 +21,7 @@ enum {
     CLEAR_BELOW_CELLS = 0xfc8 * 2,
     CLEAR_BELOW_LINE_ROWS = 2,
     CLEAR_BELOW_LINE_PLANES = 0x0b,
+    CELL_ALL_PIXELS = 0xff,
 };
 
 static uint8_t s_canvas[DRAW_CANVAS_CELLS * DRAW_CELL_PIXELS];
@@ -36,7 +40,8 @@ static uint8_t *canvas_cell(uint16_t cell)
 static void canvas_copy_out(uint16_t first, uint8_t *out, int32_t count)
 {
     for (int32_t i = 0; i < count; i++)
-        memcpy(out + (size_t)i * DRAW_CELL_PIXELS, canvas_cell((uint16_t)(first + i)), DRAW_CELL_PIXELS);
+        memcpy(out + (size_t)i * DRAW_CELL_PIXELS, canvas_cell((uint16_t)(first + i)),
+               DRAW_CELL_PIXELS);
 }
 
 static void canvas_clear(uint16_t first, int32_t count)
@@ -56,7 +61,8 @@ static void print_at(Scroller *scroller, const char *text, int16_t y)
 static void canvas_copy_in(uint16_t first, const uint8_t *in, int32_t count)
 {
     for (int32_t i = 0; i < count; i++)
-        memcpy(canvas_cell((uint16_t)(first + i)), in + (size_t)i * DRAW_CELL_PIXELS, DRAW_CELL_PIXELS);
+        memcpy(canvas_cell((uint16_t)(first + i)), in + (size_t)i * DRAW_CELL_PIXELS,
+               DRAW_CELL_PIXELS);
 }
 
 /* The three pages where the original keeps them in its VRAM; the gaps between them and
@@ -89,23 +95,27 @@ void scroller_start(Scroller *scroller, const ScrollerConfig *config, TextState 
     scroller->counter = COUNTER_START;
 }
 
-/* game86 1000:094f..095e */
+/* The game-over text run, on whatever the screen shows. game86 1000:094f..095e */
 void scroller_start_on_screen(Scroller *scroller, TextState *text)
 {
-    *scroller = (Scroller){ .text = text, .mode = draw_canvas_wrapped() ? 2 : 0 };
+    *scroller = (Scroller){ .text = text, .mode = draw_canvas_wrapped()
+                                                      ? SCROLLER_MODE_LATE_TEXT
+                                                      : SCROLLER_MODE_TEXT };
     canvas_from_vram_pages();
     text->x = 0;
     text->y = GAME_OVER_TEXT_Y;
 }
 
-/* game86 1000:639f */
+/* Clears the canvas below the window and draws a two-row line across its top (under the
+ * hi-score table). game86 1000:639f */
 void scroller_clear_below(const Scroller *scroller)
 {
     uint16_t first = (uint16_t)(scroller->offset + CLEAR_BELOW_FIRST_ROW * SCROLLER_ROW_CELLS);
     canvas_clear(first, CLEAR_BELOW_CELLS);
     DrawTarget canvas = scroller_canvas();
     for (int32_t i = 0; i < CLEAR_BELOW_LINE_ROWS * SCROLLER_ROW_CELLS; i++)
-        draw_cell_paint(&canvas, (uint16_t)(first + i), 0xff, 0, CLEAR_BELOW_LINE_PLANES);
+        draw_cell_paint(&canvas, (uint16_t)(first + i), CELL_ALL_PIXELS, 0,
+                        CLEAR_BELOW_LINE_PLANES);
 }
 
 /* The table is drawn from the row just below the window. game86 1000:5941 */
@@ -133,17 +143,17 @@ static bool scroll_step(Scroller *scroller, ScrollerStatus *status)
             *status = SCROLLER_DONE;
             return false;
         }
-    } else if (scroller->mode == 0) {
+    } else if (scroller->mode == SCROLLER_MODE_TEXT) {
         if (offset > LATE_TEXT_OFFSET) {
-            scroller->mode = 2;
+            scroller->mode = SCROLLER_MODE_LATE_TEXT;
             draw_set_canvas_wrapped(true);
             print_at(scroller, scroller->config.late_text, SCROLLER_LATE_TEXT_Y);
             scroller->skip_locked = true;
         }
-    } else if (scroller->mode == 2) {
-        if (offset > MODE_3_OFFSET) {
+    } else if (scroller->mode == SCROLLER_MODE_LATE_TEXT) {
+        if (offset > TO_HISCORE_OFFSET) {
             scroller->skip_locked = true;
-            scroller->mode = 3;
+            scroller->mode = SCROLLER_MODE_TO_HISCORE;
         }
     } else if ((int16_t)offset > HISCORE_OFFSET) {
         *status = hand_over_to_hiscore(scroller);
@@ -152,7 +162,9 @@ static bool scroll_step(Scroller *scroller, ScrollerStatus *status)
     return true;
 }
 
-/* game86 1000:5883..593e */
+/* One frame of a run: skip (Space or fire) ends it, or hands a story over to the table unless the
+ * skip is locked; pause holds it; otherwise the window moves down a row. game86
+ * 1000:5883..593e */
 ScrollerStatus scroller_frame(Scroller *scroller, ScrollerInput input)
 {
     if (scroller->stepped) {
@@ -175,7 +187,7 @@ ScrollerStatus scroller_frame(Scroller *scroller, ScrollerInput input)
     return SCROLLER_RUNNING;
 }
 
-/* game86 1000:5d19..5d22 */
+/* The window one row further, shown (the hi-score table's own scroll). game86 1000:5d19..5d22 */
 void scroller_scroll_row(Scroller *scroller)
 {
     scroller->offset = (uint16_t)(scroller->offset + SCROLLER_ROW_CELLS);
@@ -189,7 +201,8 @@ void scroller_show(const Scroller *scroller)
         gfx_flip();
 }
 
-/* game86 1000:594a */
+/* The end of a run: pages 1 and the background back from the canvas, page 0 cleared and
+ * shown. game86 1000:594a */
 void scroller_finish(Scroller *scroller)
 {
     canvas_copy_out(PAGE_STRIDE_CELLS, &gfx_page(GFX_PAGE_1)->pixels[0][0], DRAW_PAGE_CELLS);
@@ -201,7 +214,7 @@ void scroller_finish(Scroller *scroller)
         gfx_flip();
     scroller->offset = 0;
     if (scroller->config.late_text) {
-        scroller->mode = 0;
+        scroller->mode = SCROLLER_MODE_TEXT;
         draw_set_canvas_wrapped(false);
     }
 }

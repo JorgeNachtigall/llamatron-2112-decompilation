@@ -36,7 +36,9 @@ enum {
     FLASH_EGA_REGISTER = 0x17,       /* EGA: one fixed colour while a list runs */
 };
 
-/* game86 frame_run 1e7b:0196..0212 */
+/* Once a frame, with flashes on: the game palette reloaded every FLASH_PALETTE_PERIOD
+ * frames, and while a flash list runs, colour 0 set to its next word (0RGB in nibbles).
+ * game86 frame_run 1e7b:0196..0212 */
 void draw_flash_step(GameState *game)
 {
     if (game->flash_mode != FLASH_MODE_FLASHES)
@@ -59,8 +61,8 @@ void draw_flash_step(GameState *game)
     }
 
     if (game->vga) {
-        /* INT 10h AX=1010h takes red, green, blue in DH, CH, CL; the original loads CL from
-         * the word's green nibble and CH from its blue one, so the two come out swapped. */
+        /* Kept: the original hands the word's green nibble to the palette call as blue and
+         * its blue as green, so the two come out swapped. */
         const uint8_t *nibble_to_dac = asset_palettes()->nibble_to_dac;
         uint8_t rgb[1][3] = { { 0, 0, 0 } };
         if (word != 0) {

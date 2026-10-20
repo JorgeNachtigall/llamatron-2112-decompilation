@@ -1,8 +1,10 @@
 /*
- * draw_play.c - the play frame (game86 play_draw_hook 1000:1a3b).
+ * draw_play.c - what play draws on top of the background each frame (game86 play_draw_hook
+ * 1000:1a3b): the shots, the entities, the pause picture and the ships; and the pictures of
+ * a wave's start, the warp and game over.
  *
- * The original picks plain or scaled draws through the blitter's globals ([0x39d9] flags,
- * [0x39da] scale, [0x39dc] mirror); here each draw call says which.
+ * The original tells its blitter how to draw (plain or scaled, the scale, the mirror) through
+ * globals set before the call; here each draw call says which.
  */
 #include "draw_play.h"
 
@@ -82,7 +84,9 @@ static void draw_companion(const GameState *game, const DrawTarget *target)
     draw_rescue_marker(target, at, game->rescue_marker_y[1]);
 }
 
-/* game86 1000:1a3b */
+/* One play frame, back to front: the control labels while the wave is about to start, the
+ * shots, the entities, the pause picture, P1's ship, then P2's ship (a controller each) or
+ * the companion llama (one controller). game86 1000:1a3b */
 void play_draw_hook(GameState *game, const DrawTarget *target)
 {
     game->frame_drawn = true;
@@ -90,10 +94,11 @@ void play_draw_hook(GameState *game, const DrawTarget *target)
         hud_draw_control_labels(target, game->options, asset_title_shape);
     shots_draw(game, target);
     entities_animate_all(game, target);
-    if (game->pause_message != 0)
-        draw_plain(target,
-                   asset_sprite_id_gfx((SpriteId)(SPRITE_ID_PAUSE_FIRST + game->pause_message - 1)),
-                   PAUSE_PICTURE_POS.x, PAUSE_PICTURE_POS.y);
+    if (game->pause_message != 0) {      /* 1, 2, ...: the pause pictures in order */
+        SpriteId picture = (SpriteId)(SPRITE_ID_PAUSE_FIRST + game->pause_message - 1);
+        draw_plain(target, asset_sprite_id_gfx(picture), PAUSE_PICTURE_POS.x,
+                   PAUSE_PICTURE_POS.y);
+    }
 
     draw_ship(game, target, 0, game->player_label_offset);
     if (!(game->options & OPT_TWO_PLAYERS))
@@ -115,15 +120,16 @@ static void print_text(const DrawTarget *target, GameState *game, const GameText
         text_print_home(target, &game->text, text->raw);
 }
 
-/* game86 1000:055c..05cf */
+/* A wave's background page: the dotted playfield frame, the wave heading, the herd-wave and
+ * demo banners when they apply, and the level's title. game86 1000:055c..05cf */
 void wave_draw_background(GameState *game)
 {
     gfx_clear(GFX_PAGE_BACKGROUND, 0);
     draw_rect_outline(GFX_PAGE_BACKGROUND, PLAYFIELD_FRAME.x0, PLAYFIELD_FRAME.y0,
                       PLAYFIELD_FRAME.x1, PLAYFIELD_FRAME.y1, PLAYFIELD_FRAME_COLOR);
     DrawTarget background = draw_target_page(GFX_PAGE_BACKGROUND);
-    draw_sprite_unrecorded(&background, asset_title_shape(TITLE_SHAPE_WAVE_HEADING), WAVE_HEADING_POS.x,
-                           WAVE_HEADING_POS.y);
+    draw_sprite_unrecorded(&background, asset_title_shape(TITLE_SHAPE_WAVE_HEADING),
+                           WAVE_HEADING_POS.x, WAVE_HEADING_POS.y);
     if (game->player.wave_type != 0)
         print_text(&background, game, asset_text(TEXT_ID_HERD_WAVE_BANNER));
     if (game->demo_mode != 0)
@@ -131,16 +137,17 @@ void wave_draw_background(GameState *game)
     print_text(&background, game, asset_level_title(game->player.level));
 }
 
-/* game86 1000:0640..0649 */
+/* The warp banner, printed straight onto the shown screen. game86 1000:0640..0649 */
 void wave_draw_warp_banner(GameState *game)
 {
     DrawTarget screen = draw_target_page(gfx_display_page_id());
     print_text(&screen, game, asset_text(TEXT_ID_WARP_BANNER));
 }
 
-/* game86 1000:08ee..0910 */
+/* "Game over", drawn straight onto the shown screen. game86 1000:08ee..0910 */
 void game_over_draw(void)
 {
     DrawTarget screen = draw_target_page(gfx_display_page_id());
-    draw_sprite_unrecorded(&screen, asset_title_shape(TITLE_SHAPE_GAME_OVER), GAME_OVER_POS.x, GAME_OVER_POS.y);
+    draw_sprite_unrecorded(&screen, asset_title_shape(TITLE_SHAPE_GAME_OVER), GAME_OVER_POS.x,
+                           GAME_OVER_POS.y);
 }

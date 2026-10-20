@@ -59,12 +59,19 @@ typedef struct ScrollerConfig {
     const char *late_text;   /* story run: printed at (SCROLLER_TEXT_X, SCROLLER_LATE_TEXT_Y) */
 } ScrollerConfig;
 
+/* How far a story run has got (a plain run stays in SCROLLER_MODE_TEXT). */
+typedef enum ScrollerMode {
+    SCROLLER_MODE_TEXT = 0,          /* the first text */
+    SCROLLER_MODE_LATE_TEXT = 2,     /* the late text printed, the canvas wrapped */
+    SCROLLER_MODE_TO_HISCORE = 3,    /* skip locked until the hand-over to the table */
+} ScrollerMode;
+
 typedef struct Scroller {
     ScrollerConfig config;
     TextState *text;         /* the game's text pen and colour, used for both prints */
     uint16_t offset;         /* g_scroll_vram_off DS:043d: canvas cell at the window's top left */
     int16_t counter;         /* g_scroll_counter DS:0440: canvas row just below the window */
-    uint8_t mode;            /* g_scroll_mode DS:0442: 0, 2 late text printed, 3 */
+    uint8_t mode;            /* ScrollerMode (g_scroll_mode DS:0442) */
     bool skip_locked;        /* g_scroll_state DS:043f: skip ignored */
     bool stepped;            /* a frame has been shown, so input is read before the next one */
 } Scroller;

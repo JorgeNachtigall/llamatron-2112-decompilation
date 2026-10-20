@@ -5,7 +5,8 @@
 
 #include <stddef.h>
 
-/* game86 [0x442] g_scroll_mode >= 2 */
+/* The scroller's canvas has wrapped (its late text is up), which moves every cell position
+ * back (game86 g_scroll_mode >= 2). */
 static bool s_canvas_wrapped;
 
 static DrawDropStats s_drops;
@@ -38,7 +39,8 @@ bool draw_canvas_wrapped(void)
     return s_canvas_wrapped;
 }
 
-/* game86 1000:e0e5 */
+/* Where pixel (x, y) falls: its cell, and the shift of the pixel within it. A negative x
+ * stays in the row's first cell. game86 1000:e0e5 */
 DrawCellPos draw_cell_pos(int x, int y)
 {
     int32_t row = (int32_t)y * DRAW_CELLS_PER_ROW;
@@ -50,7 +52,7 @@ DrawCellPos draw_cell_pos(int x, int y)
     return (DrawCellPos){ cell, DRAW_CELL_PIXELS - x % DRAW_CELL_PIXELS };
 }
 
-/* game86 1000:e48c */
+/* The same without the wrapped canvas's shift (the sheared draws). game86 1000:e48c */
 DrawCellPos draw_cell_pos_unshifted(int x, int y)
 {
     int32_t row = (int32_t)y * DRAW_CELLS_PER_ROW;

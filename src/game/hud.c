@@ -1,5 +1,7 @@
 /*
- * hud.c - the in-game status line (see hud.h).
+ * hud.c - the in-game status line (see hud.h): each player's score, level and spare lives
+ * in 8x8 glyph cells, drawn on all three pages at once so it never needs redrawing; and the
+ * control labels shown while a wave is about to start.
  */
 #include "hud.h"
 
@@ -16,6 +18,8 @@ static const GfxPageId HUD_PAGES[] = { GFX_PAGE_0, GFX_PAGE_1, GFX_PAGE_BACKGROU
 enum {
     LIVES_SHOWN_MAX = 5,
     LEVEL_DIGIT_BASE = 10,
+    CELL_ALL_PIXELS = 0xff,
+    ALL_PLANES = 0x0f,
 };
 
 /* Where the control labels go. game86 1000:59ab */
@@ -37,15 +41,16 @@ static int current_player(const GameState *game)
     return (game->options & OPT_CURRENT_IS_P2) ? 1 : 0;
 }
 
-/* game86 1000:50ef..51c5: clear the cell on all pages, then set the glyph's pixels. */
+/* A glyph in its cell on every page: the cell cleared, then the glyph's pixels in `color`.
+ * game86 1000:50ef..51c5 */
 static void draw_glyph(int cell, const uint8_t rows[HUD_GLYPH_ROWS], uint8_t color)
 {
     for (size_t p = 0; p < sizeof HUD_PAGES / sizeof HUD_PAGES[0]; p++) {
         DrawTarget target = draw_target_page(HUD_PAGES[p]);
         for (int row = 0; row < HUD_GLYPH_ROWS; row++) {
             int32_t row_cell = cell + row * DRAW_CELLS_PER_ROW;
-            draw_cell_paint(&target, row_cell, 0xff, 0x0f, 0);
-            draw_cell_paint(&target, row_cell, rows[row], 0x0f, color);
+            draw_cell_paint(&target, row_cell, CELL_ALL_PIXELS, ALL_PLANES, 0);
+            draw_cell_paint(&target, row_cell, rows[row], ALL_PLANES, color);
         }
     }
 }
@@ -71,7 +76,8 @@ void hud_draw_player_label(int player, int cell)
         draw_glyph(cell, s_glyphs->player_label[player], HUD_LABEL_COLOR);
 }
 
-/* game86 1000:51dc */
+/* The player's spare lives as a row of their labels, at most LIVES_SHOWN_MAX.
+ * game86 1000:51dc */
 void hud_draw_lives(int player, int lives)
 {
     int first = player ? HUD_LIVES_CELL_P2 : HUD_LIVES_CELL_P1;
@@ -84,7 +90,8 @@ void hud_draw_lives(int player, int lives)
         hud_draw_player_label(player, first + i);
 }
 
-/* game86 1000:52b0 */
+/* The level as two digits, counted from 1; from level 100 on, a 1 in the cell to the left
+ * and the tens shown as 0 (the original's two-digit split). game86 1000:52b0 */
 void hud_draw_level(int player, int level)
 {
     int cell = player ? HUD_LEVEL_CELL_P2 : HUD_LEVEL_CELL_P1;
@@ -98,7 +105,7 @@ void hud_draw_level(int player, int level)
     hud_draw_digit(cell + 1, ones);
 }
 
-/* game86 1000:52e7 */
+/* The score without its leading zeros; a zero score shows as "00". game86 1000:52e7 */
 void hud_draw_score(const uint8_t digits[SCORE_DIGITS], int cell)
 {
     int first = 0;
@@ -113,7 +120,7 @@ void hud_draw_score(const uint8_t digits[SCORE_DIGITS], int cell)
         hud_draw_digit(cell + i, digits[i]);
 }
 
-/* game86 1000:0309 */
+/* The current player's level, lives and score. game86 1000:0309 */
 void hud_refresh(const GameState *game)
 {
     int player = current_player(game);
@@ -124,7 +131,9 @@ void hud_refresh(const GameState *game)
     hud_draw_score(digits, player ? HUD_SCORE_CELL_P2 : HUD_SCORE_CELL_P1);
 }
 
-/* game86 1000:59ab; both through g3_draw 1000:42da with g_draw_flags 0xff (plain draw). */
+/* While a wave is about to start: which controls play (one player, two players with the
+ * droid, or a team of two) and whose turn it is. Both are plain draws (g3_draw 1000:42da).
+ * game86 1000:59ab */
 void hud_draw_control_labels(const DrawTarget *target, uint8_t options, HudShapeLookup shape)
 {
     if (!shape)

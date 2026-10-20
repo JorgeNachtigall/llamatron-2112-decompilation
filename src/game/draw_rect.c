@@ -1,5 +1,6 @@
 /*
- * draw_rect.c - rectangle outlines and beam lines.
+ * draw_rect.c - the dotted rectangle outlines (the playfield frame, the title's border) and
+ * the beaming enemies' beams.
  */
 #include "draw.h"
 
@@ -53,10 +54,11 @@ enum {
     BEAM_H_FIRST_CELL = 1,      /* 19 words from the row's second cell */
     BEAM_H_CELLS = 38,
     BEAM_H_RECORDED_WORDS = 20, /* the whole row */
+    CELL_ALL_PIXELS = 0xff,
     ALL_PLANES = 0x0f,
 };
 
-/* game86 1000:46cd..4746 */
+/* A one-pixel beam down the playfield at x, in the beam colour. game86 1000:46cd..4746 */
 void draw_beam_vertical(const DrawTarget *target, int x)
 {
     int32_t cell = BEAM_V_FIRST_ROW * DRAW_CELLS_PER_ROW + ((int16_t)x >> 3);
@@ -66,11 +68,13 @@ void draw_beam_vertical(const DrawTarget *target, int x)
         draw_cell_paint(target, cell, bit, ALL_PLANES, DRAW_BEAM_COLOR);
 }
 
-/* game86 1000:4795..4800 */
+/* A beam across the playfield on row y, leaving the outermost cell at each end.
+ * game86 1000:4795..4800 */
 void draw_beam_horizontal(const DrawTarget *target, int y)
 {
     int32_t row = (int32_t)y * DRAW_CELLS_PER_ROW;
     draw_record_dirty(target, row, BEAM_H_RECORDED_WORDS, 1);
     for (int i = 0; i < BEAM_H_CELLS; i++)
-        draw_cell_paint(target, row + BEAM_H_FIRST_CELL + i, 0xff, ALL_PLANES, DRAW_BEAM_COLOR);
+        draw_cell_paint(target, row + BEAM_H_FIRST_CELL + i, CELL_ALL_PIXELS, ALL_PLANES,
+                        DRAW_BEAM_COLOR);
 }

@@ -20,7 +20,8 @@ enum {
     NARROW_SHIFTED_FAST_MAX_X = 303,  /* same for unaligned ones */
 };
 
-/* game86 cs_dirty_enable */
+/* Whether draws record dirty rectangles for frame_run's erase of the next draw page
+ * (game86 cs_dirty_enable). */
 static bool s_dirty_recording;
 
 void draw_set_dirty_recording(bool on)
@@ -131,7 +132,8 @@ void draw_record_dirty(const DrawTarget *target, int32_t cell, int words, int ro
 {
     if (!s_dirty_recording || target->page < 0)
         return;
-    int32_t row = cell >= 0 ? cell / DRAW_CELLS_PER_ROW : -((-cell + DRAW_CELLS_PER_ROW - 1) / DRAW_CELLS_PER_ROW);
+    int32_t row = cell >= 0 ? cell / DRAW_CELLS_PER_ROW
+                            : -((-cell + DRAW_CELLS_PER_ROW - 1) / DRAW_CELLS_PER_ROW);
     int32_t column = cell - row * DRAW_CELLS_PER_ROW;
     gfx_mark_dirty((GfxPageId)target->page,
                    (GfxRect){ (int16_t)(column * DRAW_CELL_PIXELS), (int16_t)row,
@@ -271,7 +273,7 @@ void draw_sprite_all_pages(const GfxSprite *sprite, int x, int y)
     bool recording = s_dirty_recording;
     s_dirty_recording = false;
     static const GfxPageId pages[] = { GFX_PAGE_0, GFX_PAGE_1, GFX_PAGE_BACKGROUND };
-    for (int p = 0; p < 3; p++) {
+    for (size_t p = 0; p < sizeof pages / sizeof pages[0]; p++) {
         DrawTarget page = draw_target_page(pages[p]);
         draw_sprite(&page, sprite, x, y);
     }
@@ -306,7 +308,9 @@ static void row_aligned_clipped(const DrawTarget *target, int32_t cursor, int x,
     blit(target, cursor + 1, right);
 }
 
-/* game86 1000:e135 */
+/* The respawn and grow-in effect: a 16-pixel sprite drawn row by row, rows `row_step` pixels
+ * apart and each `shear` pixels right of the one above, around the sprite's centre; wide
+ * sprites are drawn plainly from the shifted origin. game86 1000:e135 */
 void draw_sprite_sheared(const DrawTarget *target, const GfxSprite *sprite, int x, int y,
                          int row_step, int shear)
 {

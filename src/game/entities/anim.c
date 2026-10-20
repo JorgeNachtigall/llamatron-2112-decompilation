@@ -2,10 +2,11 @@
  * anim.c - the per-frame animate/draw handlers of the entities (game86 tbl_anim_handlers
  * DS:202E, indexed by Entity.anim; called by entities_animate_all 1000:4374).
  *
- * Every handler draws into the page being drawn: the loop's target, the original's
- * [0x39d7] (which anim 04 / 09 set to [0x39d3] again, the same page during play). The
- * original tells its blitter how to draw through globals ([0x39d9] plain or scaled, [0x39da]
- * scale, [0x39dc] mirror); here each draw call says it.
+ * An entity's anim picks how it is drawn each frame: its frame plainly or scaled (growing in
+ * or shrinking out), with a beam, a mark or satellites, or not at all. Every handler draws
+ * into the page being drawn, the loop's target (anim 04 / 09 select the draw page again,
+ * the same page during play). The original tells its blitter how to draw (plain or scaled,
+ * the scale, the mirror) through globals set before the call; here each draw call says it.
  */
 #include "entity_dispatch.h"
 
@@ -17,7 +18,7 @@ enum {
     BEAM_HEAD_RISE = 10,
     /* anim 10: SPRITE_ID_POWERUP_MARK 10 px above, while player.powerup >= 0 */
     POWERUP_MARK_RISE = 10,
-    /* anim 0e: DS:0911 lists sprites 0xaf..0xb2 */
+    /* anim 0e: the satellite sprites 0xaf..0xb2 (the original's list at DS:0911) */
     SATELLITE_FIRST_SPRITE = 0xaf,
     SATELLITE_COUNT = 4,
     /* anim 01: refs[0x1b1 + 2 * wave + (anim_toggle & 1)] (the table at 218C:0362), as
@@ -42,18 +43,18 @@ static void draw_at(const DrawTarget *target, const GfxSprite *sprite, int x, in
         draw_sprite(target, sprite, x, y);
 }
 
-/* An original slip: anim 04 and 09 load the draw page's VRAM offset ([0x39d3]) into AX, the blitter's x,
- * just before their plain draw, so it lands at x = 0 in frames drawn into page 0 and at
- * x = 0x2000 in the others, which the clipping of a recorded draw rejects (dirty recording is
- * always on during play). game86 1000:4664, 4681 */
+/* An original slip: anim 04 and 09 pass the draw page's VRAM offset where their plain draw
+ * wants x, so it lands at x = 0 in frames drawn into page 0 and at x = 0x2000 in the others,
+ * which the clipping of a recorded draw rejects (dirty recording is always on during play).
+ * game86 1000:4664, 4681 */
 static void draw_at_page_offset_x(const DrawTarget *target, const GfxSprite *sprite, int y)
 {
     if (target->page == GFX_PAGE_0)
         draw_at(target, sprite, 0, y);
 }
 
-/* The original's scaled draw with g_draw_scale = e->scale: rows e->scale pixels apart,
- * slanted by the same step towards the sign of `mirror` (0: upright). game86 1000:e135 */
+/* The original's scaled draw at the entity's scale: rows e->scale pixels apart, slanted by
+ * the same step towards the sign of `mirror` (0: upright). game86 1000:e135 */
 static void draw_entity_scaled(const DrawTarget *target, const Entity *e, int16_t mirror)
 {
     const GfxSprite *sprite = entity_sprite(e);
@@ -131,7 +132,8 @@ static bool beam_on(const Entity *e)
     return e->homing.beam.left != 0;
 }
 
-/* Beam head, a horizontal beam along the entity's row, the entity. game86 1000:4779 */
+/* A beaming enemy: the beam head, the beam across the screen along its row while the beam
+ * is on, then the enemy. game86 1000:4779 */
 static void anim_beam_horizontal(GameState *game, Entity *e, const DrawTarget *target)
 {
     draw_beam_head(target, e);
@@ -140,7 +142,7 @@ static void anim_beam_horizontal(GameState *game, Entity *e, const DrawTarget *t
     anim_plain(game, e, target);
 }
 
-/* Beam head, a vertical beam down the entity's column, the entity. game86 1000:46b0 */
+/* The same with a beam down the screen along its column. game86 1000:46b0 */
 static void anim_beam_vertical(GameState *game, Entity *e, const DrawTarget *target)
 {
     draw_beam_head(target, e);
@@ -156,7 +158,8 @@ static void anim_satellites(GameState *game, Entity *e, const DrawTarget *target
     int first = (e->chaser.newest & 0x0c) >> 2;     /* byte offset 0/4/8/12 -> entry */
     for (int k = 0; k < SATELLITE_COUNT; k++) {
         Point16 at = e->chaser.trail[(first + k) % SATELLITE_COUNT];
-        draw_at(target, asset_sprite_number_gfx(SATELLITE_FIRST_SPRITE + (unsigned)k), at.x, at.y);
+        draw_at(target, asset_sprite_number_gfx(SATELLITE_FIRST_SPRITE + (unsigned)k), at.x,
+                at.y);
     }
     anim_plain(game, e, target);
 }
