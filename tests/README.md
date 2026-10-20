@@ -15,14 +15,25 @@
   between our state structs and the DGROUP byte layout (`rng.py`, `entities.py`; `dgroup_map.c` for the C `GameState`
   later); `cport.py` loads the port's `llamatron_game_testlib` via ctypes (fixture `cgame`).
 
-Run:
+Run (from the top-level native build, which does add_subdirectory(tests)):
 
-    tools/harness/setup_venv.sh
-    cmake -S tests -B build/tests && ctest --test-dir build/tests      # standalone
-    # or, from the top-level build once it does add_subdirectory(tests):
-    ctest --test-dir build -L oracle
+    tools/harness/setup_venv.sh          # Python venv with unicorn + pytest; once
+    cmake --preset macos-native -DLLAMATRON_ORIGINAL_DIR=/path/to/llamatron
+    cmake --build --preset macos-native
+    ctest --preset macos-native          # unit, oracle and platform tests
+    ctest --preset macos-native -L oracle
 
-Without a game image (`original/` not extracted), the oracle tests report *Skipped*.
+- Without the venv (`tools/harness/.venv`) configure prints "Oracle tests disabled" and
+  ctest silently runs only the C tests; run `setup_venv.sh` (or configure with
+  `-DLLAMATRON_HARNESS_SETUP=ON`) and configure again.
+- Every harness test reads the original files from `LLAMATRON_ORIGINAL_DIR` (default
+  `<repo>/original`); without them the oracle tests report *Skipped*.
+- DOSBox-X suite: also needs `dosbox-x` and `nasm` on PATH. Configure with
+  `-DLLAMATRON_DOSBOX_TESTS=ON`, then `ctest --preset macos-native -L dosbox -LE dosbox_long`
+  (core golden set, ~25 min) or `-L dosbox_long` (the long warps, ~10 min).
+- A cross build (the `web-emscripten` preset) registers none of these tests; its ctest runs
+  only the C tests under node.
+- Standalone: `cmake -S tests -B build-tests && ctest --test-dir build-tests`.
 
 ## Note: the RNG seed is not a single number
 
