@@ -16,12 +16,20 @@ enum {
     SATELLITE_FIRE_PHASE = 5,
     RUNNER_X_END = 0x138, RUNNER_Y_END = 0xbe, RUNNER_MIN = 0x10,
     BOLT_FIRST_SPRITE = 0x147, BOLT_LAST_SPRITE = 0x14a,
+    BOLT_FRAME_TICKS = 3,
+    STORM_CENTRE_X = 0xa0, STORM_CENTRE_Y = 0x64,  /* bolts land within +-128 / +-64 of it */
+    CORE_SPRITE = 0xde, CORE_HIT_SPRITE = 0xdf,
+    SATELLITE_SPRITE = 0xe0, SATELLITE_HIT_SPRITE = 0xe4,  /* + 4-frame animation */
+    SATELLITE_SHOT_SPRITE = 0xe5,       /* + 1 when flying left */
+    RUNNER_SPRITE = 0xe7,               /* + 1 horizontal, + 2 forwards; intro: 4-frame anim */
+    ANIM_PLAIN = 0x0d,
+    THINK_BOLT = 0x2d,
 };
 
 static const SoundRequest SOUND_THUNDER = { SAMPLE_ID_EXPLOSION, 3, 0x0a };    /* 1000:2748 */
 
 /* Counts the counter down; true when it passes zero (and it restarts at the period). */
-static bool pair_passed_zero(ByteCounter *c)
+static bool counter_passed_zero(ByteCounter *c)
 {
     int8_t left = (int8_t)(c->left - 1);
     bool passed = left < 0;
@@ -68,9 +76,10 @@ void think_20(GameState *game, Entity *e)
 {
     if (game->wave_intro_timer != 0)
         return;
-    if (pair_passed_zero(&e->orbit.launch)) {
+    if (counter_passed_zero(&e->orbit.launch)) {
         Entity *spawn = entity_spawn_01_at(game, e);
-        if (!spawn) /* the search leaves SI on slot 61, whose kind the caller then overwrites */
+        if (!spawn) /* with no free slot the original still marks the slot after the
+                       search's end (61) as not counted */
             spawn = &game->entities[CORE_SEARCH_SLOTS];
         spawn->kind = -1;
     }
@@ -78,10 +87,10 @@ void think_20(GameState *game, Entity *e)
     int16_t speed = (int16_t)(uint16_t)(game->orbit_angle >> 16);
     game->player.enemy_speed_x = speed;
     game->player.enemy_speed_y = speed;
-    int16_t sprite = 0xde;
+    int16_t sprite = CORE_SPRITE;
     if (e->orbit.hit_frames >= 0) {
         e->orbit.hit_frames--;
-        sprite = 0xdf;
+        sprite = CORE_HIT_SPRITE;
     }
     e->sprite = sprite;
     orbit_step(e);
@@ -92,14 +101,14 @@ void think_20(GameState *game, Entity *e)
 void think_21(GameState *game, Entity *e)
 {
     uint8_t phase = e->orbit.fire.left;
-    int16_t sprite = (int16_t)(0xe0 + ((phase >> 2) & 3));
+    int16_t sprite = (int16_t)(SATELLITE_SPRITE + ((phase >> 2) & 3));
     if (e->orbit.hit_frames >= 0) {
-        sprite = 0xe4;
+        sprite = SATELLITE_HIT_SPRITE;
         e->orbit.hit_frames--;
     }
     e->sprite = sprite;
     if (phase == SATELLITE_FIRE_PHASE) {
-        int16_t shot_sprite = 0xe5;
+        int16_t shot_sprite = SATELLITE_SHOT_SPRITE;
         int16_t vx = 2;
         if ((int16_t)(uint16_t)(e->x - game->target.x) >= 0) {
             vx = -2;
@@ -108,7 +117,7 @@ void think_21(GameState *game, Entity *e)
         int16_t vy = (int16_t)(uint16_t)(e->y - game->target.y) < 0 ? 1 : -1;
         entity_spawn_child_if(game, e, shot_sprite, vx, vy);
     }
-    pair_passed_zero(&e->orbit.fire);
+    counter_passed_zero(&e->orbit.fire);
     orbit_step(e);
 }
 
@@ -132,7 +141,9 @@ static void runner_turn(GameState *game, Entity *e)
         r->backwards = (int16_t)(uint16_t)(e->x - game->target.x) < 0 ? 0 : 1;
 }
 
-/* game86 1000:2865 */
+/* Edge runner: after its intro animation it runs along x or y, slowing down, and turns
+ * (new speed, the other axis, towards its target ship) when it stops or would leave the
+ * playfield. game86 1000:2865 */
 void think_22(GameState *game, Entity *e)
 {
     if (entity_check_touch(game, e))
@@ -141,7 +152,7 @@ void think_22(GameState *game, Entity *e)
         return;
     EdgeRunnerView *r = &e->edge_runner;
     if (r->intro_frames >= 0) {
-        e->sprite = (int16_t)(0xe7 + ((game->tick_count >> 1) & 3));
+        e->sprite = (int16_t)(RUNNER_SPRITE + ((game->tick_count >> 1) & 3));
         r->intro_frames--;
         return;
     }
@@ -149,7 +160,7 @@ void think_22(GameState *game, Entity *e)
     int32_t speed = fixed16_get(r->speed);
     bool forward = r->backwards == 0;
     bool vertical = r->axis != 0;
-    int16_t sprite = (int16_t)((vertical ? 0xe7 : 0xe8) + (forward ? 2 : 0));
+    int16_t sprite = (int16_t)(RUNNER_SPRITE + (vertical ? 0 : 1) + (forward ? 2 : 0));
     Fixed16 *axis = vertical ? &r->position_y : &r->position_x;
     int32_t position = fixed16_get(*axis);
     position = (int32_t)(forward ? (uint32_t)position + (uint32_t)speed
@@ -181,7 +192,7 @@ void think_22(GameState *game, Entity *e)
  * ends (its slot is not returned to free_slots). game86 1000:2736 */
 void think_2c(GameState *game, Entity *e)
 {
-    if (!pair_passed_zero(&e->storm.strike))
+    if (!counter_passed_zero(&e->storm.strike))
         return;
     entity_start_flash(game, FLASH_LIST_STORM);
     game_sound_play(SOUND_THUNDER.sample, SOUND_THUNDER.rate_index, SOUND_THUNDER.priority);
@@ -195,12 +206,12 @@ void think_2c(GameState *game, Entity *e)
         return;
     bolt->kind = -1;
     bolt->solid = 0;
-    bolt->x = (int16_t)((int8_t)rng_next_byte(&game->rng) + 0xa0);
-    bolt->y = (int16_t)(((int8_t)rng_next_byte(&game->rng) >> 1) + 0x64);
-    bolt->anim = 0x0d;
+    bolt->x = (int16_t)((int8_t)rng_next_byte(&game->rng) + STORM_CENTRE_X);
+    bolt->y = (int16_t)(((int8_t)rng_next_byte(&game->rng) >> 1) + STORM_CENTRE_Y);
+    bolt->anim = ANIM_PLAIN;
     bolt->sprite = BOLT_FIRST_SPRITE;
-    bolt->storm.frame = (ByteCounter){ .period = 3, .left = 3 };
-    entity_set_type(bolt, 0x2d, 0x2d);
+    bolt->storm.frame = (ByteCounter){ .period = BOLT_FRAME_TICKS, .left = BOLT_FRAME_TICKS };
+    entity_set_type(bolt, THINK_BOLT, THINK_BOLT);
     game->enemies_alive++;
 }
 
@@ -208,7 +219,7 @@ void think_2c(GameState *game, Entity *e)
  * vanishes (without returning its slot to free_slots). game86 1000:27c4 */
 void think_2d(GameState *game, Entity *e)
 {
-    if (!pair_passed_zero(&e->storm.frame))
+    if (!counter_passed_zero(&e->storm.frame))
         return;
     int16_t sprite = (int16_t)(e->sprite + 1);
     if (sprite == BOLT_LAST_SPRITE) {
