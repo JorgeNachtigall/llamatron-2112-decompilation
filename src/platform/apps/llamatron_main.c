@@ -64,6 +64,8 @@
 #include "timing.h"
 #include "title.h"
 
+#include <errno.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -281,24 +283,43 @@ static void print_page_hashes(uint32_t tick)
            (int)gfx_display_page_id());
 }
 
+/* One decimal number of a --tap entry and the `sep` after it (0: the entry's last number, which
+ * ',', the end or, in the page address, the next '&' follows); *text moves past both. Digits
+ * only: no sign, no blanks, and small enough that frame + hold fits a long. */
+static bool parse_tap_number(const char **text, char sep, unsigned long *out)
+{
+    const char *start = *text;
+    char *end;
+    if (*start < '0' || *start > '9')
+        return false;
+    errno = 0;
+    *out = strtoul(start, &end, 10);
+    if (errno == ERANGE || *out > LONG_MAX / 2)
+        return false;
+    if (sep ? *end != sep : *end != ',' && *end != '&' && *end != '\0')
+        return false;
+    *text = sep ? end + 1 : end;
+    return true;
+}
+
 /* --tap F:SC:N,...: live key presses of make code SC (decimal) on host frame F, each released
  * N host frames later (0 = in the same batch, like keydown + keyup in one rAF). */
 static bool parse_taps(const char *text, App *app)
 {
     app->tap_count = 0;
     for (;;) {
+        const char *entry = text;
         unsigned long frame, code, hold;
-        int used = 0;
-        if (sscanf(text, "%lu:%lu:%lu%n", &frame, &code, &hold, &used) != 3 || code == 0 ||
-            code > 0x7f || app->tap_count == sizeof app->taps / sizeof app->taps[0]) {
-            fprintf(stderr, "llamatron: bad --tap near \"%s\" (F:SC:N,...)\n", text);
+        if (!parse_tap_number(&text, ':', &frame) || !parse_tap_number(&text, ':', &code) ||
+            !parse_tap_number(&text, 0, &hold) || code == 0 || code > 0x7f ||
+            app->tap_count == sizeof app->taps / sizeof app->taps[0]) {
+            fprintf(stderr, "llamatron: bad --tap near \"%s\" (F:SC:N,...)\n", entry);
             return false;
         }
         app->taps[app->tap_count].frame = (long)frame;
         app->taps[app->tap_count].code = (uint8_t)code;
         app->taps[app->tap_count].release = (long)(frame + hold);
         app->tap_count++;
-        text += used;
         if (*text != ',')
             return true;
         text++;
@@ -338,6 +359,8 @@ static uint16_t parse_phase(const char *text)
     double f = strtod(text, NULL);
     if (!(f > 0))
         return 0;
+    /* f > 0 here, so + 0.5 and truncation round to nearest.
+     * NOLINTNEXTLINE(bugprone-incorrect-roundings) */
     return f * 65536.0 >= 65535.0 ? 65535u : (uint16_t)(f * 65536.0 + 0.5);
 }
 
@@ -442,7 +465,6 @@ static void update_pads(App *app)
         input_set_stick(i, sticks[i].x, sticks[i].y, sticks[i].button_a, sticks[i].button_b);
 }
 
-static void run_retrace_ticks(App *app);
 
 /* game86 1000:5e89: store the table after a name entry. A failed write only loses the scores,
  * like the original, which ignores the DOS error. */

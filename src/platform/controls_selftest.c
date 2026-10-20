@@ -64,13 +64,18 @@ static void test_pad_keys(void)
     pad.x = -0.8f;                                           /* left */
     CHECK(strcmp(keys(&map, pad), "+4b ") == 0);
     CHECK(strcmp(keys(&map, pad), "") == 0);                 /* held: no repeat */
-    pad.x = 0.3f, pad.y = 0.9f;                              /* inside the dead zone, down */
+    pad.x = 0.3f;                                            /* inside the dead zone, down */
+    pad.y = 0.9f;
     CHECK(strcmp(keys(&map, pad), "-4b +50 ") == 0);
-    pad.y = 0, pad.buttons = PLAT_PAD_BUTTON_X;              /* face button fires */
+    pad.y = 0;                                               /* face button fires */
+    pad.buttons = PLAT_PAD_BUTTON_X;
     CHECK(strcmp(keys(&map, pad), "-50 +39 ") == 0);
-    pad.buttons = 0, pad.rx = -0.4f, pad.ry = -0.4f;         /* right stick deflection fires */
+    pad.buttons = 0;                                         /* right stick deflection fires */
+    pad.rx = -0.4f;
+    pad.ry = -0.4f;
     CHECK(strcmp(keys(&map, pad), "") == 0);
-    pad.rx = 0.1f, pad.ry = 0.2f;
+    pad.rx = 0.1f;
+    pad.ry = 0.2f;
     CHECK(strcmp(keys(&map, pad), "-39 ") == 0);
     pad.buttons = PLAT_PAD_BUTTON_START | PLAT_PAD_BUTTON_BACK;
     CHECK(strcmp(keys(&map, pad), "+19 +1f ") == 0);

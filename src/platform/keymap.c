@@ -39,10 +39,8 @@ uint8_t keymap_sdl_to_pc(SDL_Scancode sc)
     case SDL_SCANCODE_P: return 0x19;
     case SDL_SCANCODE_LEFTBRACKET: return 0x1a;
     case SDL_SCANCODE_RIGHTBRACKET: return 0x1b;
-    case SDL_SCANCODE_RETURN: return 0x1c;
-    case SDL_SCANCODE_KP_ENTER: return 0x1c;
-    case SDL_SCANCODE_LCTRL: return 0x1d;
-    case SDL_SCANCODE_RCTRL: return 0x1d;
+    case SDL_SCANCODE_RETURN: case SDL_SCANCODE_KP_ENTER: return 0x1c;
+    case SDL_SCANCODE_LCTRL: case SDL_SCANCODE_RCTRL: return 0x1d;
     case SDL_SCANCODE_A: return 0x1e;
     case SDL_SCANCODE_S: return 0x1f;
     case SDL_SCANCODE_D: return 0x20;
@@ -66,12 +64,10 @@ uint8_t keymap_sdl_to_pc(SDL_Scancode sc)
     case SDL_SCANCODE_M: return 0x32;
     case SDL_SCANCODE_COMMA: return 0x33;
     case SDL_SCANCODE_PERIOD: return 0x34;
-    case SDL_SCANCODE_SLASH: return 0x35;
-    case SDL_SCANCODE_KP_DIVIDE: return 0x35;
+    case SDL_SCANCODE_SLASH: case SDL_SCANCODE_KP_DIVIDE: return 0x35;
     case SDL_SCANCODE_RSHIFT: return 0x36;
     case SDL_SCANCODE_KP_MULTIPLY: return 0x37;
-    case SDL_SCANCODE_LALT: return 0x38;
-    case SDL_SCANCODE_RALT: return 0x38;
+    case SDL_SCANCODE_LALT: case SDL_SCANCODE_RALT: return 0x38;
     case SDL_SCANCODE_SPACE: return 0x39;
     case SDL_SCANCODE_CAPSLOCK: return 0x3a;
     case SDL_SCANCODE_F1: return 0x3b;

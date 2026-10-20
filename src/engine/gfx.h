@@ -108,8 +108,8 @@ void gfx_set_game_palette(const GfxGamePalette *palette);
 /* Single steps of the above, also usable on their own. */
 void gfx_set_palette_st(const uint16_t words[GFX_GAME_COLORS], const uint8_t nibble_to_dac[16]);
 void gfx_set_palette_ega(const uint8_t registers[GFX_GAME_COLORS]);
-/* Standard EGA monitor colour of a 6-bit rgbRGB value (primary = 2/3, secondary = 1/3). */
-GfxColor gfx_ega_color(uint8_t ega_rgbRGB);
+/* Standard EGA monitor colour of a 6-bit rgbRGB value v (primary = 2/3, secondary = 1/3). */
+GfxColor gfx_ega_color(uint8_t v);
 
 /* ---- Drawing ------------------------------------------------------------------------ */
 

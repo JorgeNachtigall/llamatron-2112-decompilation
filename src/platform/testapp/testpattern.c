@@ -304,7 +304,8 @@ int main(int argc, char **argv)
     }
 #endif
 
-    PlatConfig config = { "Llamatron platform test pattern", 3, false, true, 0 };
+    PlatConfig config = { .window_title = "Llamatron platform test pattern", .window_scale = 3,
+                           .vsync = true };
     if (app->frames_left > 0)
         config.web_timer_fps = 70;   /* deterministic frame pacing for test runs */
     if (!plat_init(&config))
