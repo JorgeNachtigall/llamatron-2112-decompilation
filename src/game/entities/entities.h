@@ -149,12 +149,13 @@ static inline void entity_vanish(Entity *e)
     entity_set_type(e, ENTITY_FREE, ENTITY_FREE);
 }
 
-/* Callback ids stored in aux1c by some inits and called by think_25. The values are the
- * original's code addresses, kept as ids so the test adapter stays a plain copy. */
+/* What think_25's spawns become, stored in aux1c by the charger inits. The values are the
+ * original's code addresses (game86 1000:3119 / 32d7 / 33e3), kept so the test adapter
+ * stays a plain copy until the entity view conversion. */
 enum {
-    ENTITY_CALLBACK_3119 = 0x3119,  /* enemy_init_20 */
-    ENTITY_CALLBACK_32D7 = 0x32d7,  /* enemy_init_1e */
-    ENTITY_CALLBACK_33E3 = 0x33e3,  /* enemy_init_1b */
+    SPAWN_AS_DEADLY_PICKUP = 0x3119,    /* enemy_init_20 */
+    SPAWN_AS_PAIR = 0x32d7,             /* enemy_init_1e */
+    SPAWN_AS_TYPE_1A = 0x33e3,          /* enemy_init_1b */
 };
 
 /* Random spawn position at least 0x20 away from the ships (see spawn.c for the y quirk).

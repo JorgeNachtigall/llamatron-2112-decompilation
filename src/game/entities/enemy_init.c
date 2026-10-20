@@ -765,7 +765,7 @@ static void enemy_init_19(GameState *game, Entity *e)
 
 /* ---- 1a, 27: type 0x24 ----------------------------------------------------------------- */
 
-/* game86 1000:33e3 (also think_25's ENTITY_CALLBACK_33E3) */
+/* game86 1000:33e3 (also think_25's SPAWN_AS_TYPE_1A) */
 void enemy_setup_1a(GameState *game, Entity *e)
 {
     e->sprite = SPRITE_TYPE_1A;
@@ -845,19 +845,19 @@ static void init_think25(GameState *game, Entity *e, int16_t sprite, int16_t hp,
 /* game86 1000:3178 */
 static void enemy_init_1b(GameState *game, Entity *e)
 {
-    init_think25(game, e, SPRITE_TYPE_1B, 0x1010, 0x808, ENTITY_CALLBACK_33E3, 0x7070);
+    init_think25(game, e, SPRITE_TYPE_1B, 0x1010, 0x808, SPAWN_AS_TYPE_1A, 0x7070);
 }
 
 /* game86 1000:3155 */
 static void enemy_init_1e(GameState *game, Entity *e)
 {
-    init_think25(game, e, SPRITE_TYPE_1E, 0x808, 0x707, ENTITY_CALLBACK_32D7, (int16_t)0x8080);
+    init_think25(game, e, SPRITE_TYPE_1E, 0x808, 0x707, SPAWN_AS_PAIR, (int16_t)0x8080);
 }
 
 /* game86 1000:30c3 */
 static void enemy_init_20(GameState *game, Entity *e)
 {
-    init_think25(game, e, SPRITE_TYPE_20, 0x202, 0x202, ENTITY_CALLBACK_3119, 0x3030);
+    init_think25(game, e, SPRITE_TYPE_20, 0x202, 0x202, SPAWN_AS_DEADLY_PICKUP, 0x3030);
     entity_set_type(e, 0x29, 0x29);
     e->hit_handler = 0;
     set_death_sound(e, SAMPLE_ID_NONE, 2);

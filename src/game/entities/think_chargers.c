@@ -91,9 +91,9 @@ static void charger_spawn(GameState *game, const Entity *parent)
     spawn->x = parent->x;
     spawn->y = parent->y;
     switch (parent->aux1c) {
-    case ENTITY_CALLBACK_3119: spawn_deadly_pickup(game, spawn, parent); break;
-    case ENTITY_CALLBACK_32D7: spawn_pair(game, spawn, parent); break;
-    case ENTITY_CALLBACK_33E3: enemy_setup_1a(game, spawn); break;
+    case SPAWN_AS_DEADLY_PICKUP: spawn_deadly_pickup(game, spawn, parent); break;
+    case SPAWN_AS_PAIR: spawn_pair(game, spawn, parent); break;
+    case SPAWN_AS_TYPE_1A: enemy_setup_1a(game, spawn); break;
     default: break;     /* no other callback is ever stored */
     }
     spawn->kind = -1;
