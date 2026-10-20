@@ -151,19 +151,75 @@ RUNS["level_50"]["input_shift"] = [(1059, 1, None)]
 # Triage of the real divergences (compare.py's first ones per run and those after them that are
 # not consequences): (run, tick, field, owner, status). Printed under each run's report; update
 # when a re-run after a fix moves them.
-TRIAGE = [
-    ("level_50", 1150, "entities[2] killed in the port only: from the respawn at ~1058 the port's "
-     "state is a tick behind the original's while tick_count (39E6) agrees at each IRQ, so shot 0 "
-     "is fired on an even count in the port, odd in the original, and shots_update's parity turn "
-     "(1000:0cd1) tests it in the port only", "Keel",
-     "explained: DEVIATIONS #20 (timing shift); the unicorn lockstep matches all 3010 ticks"),
-]
+TRIAGE: list[tuple[str, int, str, str, str]] = []
+
+
+# Expected differences, pinned: a run is green only if each happens exactly as listed and
+# nothing else. "divergence": the run's first real divergence is at `tick`, with exactly
+# these differing offsets (consequences after it are accepted). "frame_phase": the ticks and
+# bytes compare.py classed as overlay.frames frame phase (OVERLAY_FRAMES). "chain_tail": the
+# ticks it skipped chain_tail as read past the trail rings (DEVIATIONS #14). A frame_phase or
+# chain_tail use in a run or at a tick not listed fails as well, so neither rule widens
+# unseen.
+EXPECTED = {
+    "level_50": [
+        # kills_toward_bonus, scores[0]+06, entities[2]+00 +01 +06 +0e +10 +14 +15, shots[0]+00
+        ("divergence", 1150, frozenset({0x063A, 0x4447, 0x4941, 0x4942, 0x4947, 0x494F, 0x4951,
+                                        0x4955, 0x4956, 0x68C9, 0x68CA}),
+         "entities[2] killed in the port only by the tick-parity turn of shots_update (1000:0cd1) "
+         "under the port's one-tick lag after the respawn at ~1058 (DEVIATIONS #20, Keel). "
+         "Lockstep: tests/oracle/whole_game.py level_50 matches all 3010 ticks (Thorn's unicorn "
+         "oracle, one frame schedule on both sides; Keel 2026-10-19)"),
+    ],
+    "level_99": [
+        ("frame_phase", 700, frozenset({0x48C1 + 0x40 * 51 + 0x38}),
+         "entities[51]+38 overlay.frames of a rescued llama, one frame apart (DEVIATIONS #24 "
+         "class; Prism, Moss). Lockstep: whole_game.py sweep --one 99 --ticks 3000 ok (6ca6b19)"),
+        ("frame_phase", 2800, frozenset({0x48C1 + 0x40 * 47 + 0x38}),
+         "entities[47]+38 overlay.frames, as at 700"),
+        *[("chain_tail", t, frozenset(range(0x06A4, 0x06A8)),
+           "chain_tail read past P2's ring (DEVIATIONS #14, Moss); lockstep as above")
+          for t in (2250, 2400, 2600, 2750, 2900)],
+    ],
+}
+
+
+def expected_check(name: str, diffs, input_shift=()) -> list[str]:
+    """What differs from EXPECTED[name] (empty: the run is as pinned)."""
+    import compare
+    want = {(kind, tick): offs for kind, tick, offs, _ in EXPECTED.get(name, ())}
+    got = {}
+    for d in diffs:
+        if d.frame_phase:
+            got[("frame_phase", d.tick)] = frozenset(d.frame_phase)
+        if any("DEVIATIONS #14" in why for _, why in d.ignored):
+            got[("chain_tail", d.tick)] = frozenset(range(0x06A4, 0x06A8))
+    first = compare.first_divergence(diffs, input_shift)
+    if first is not None:
+        at = next((d for d in diffs if d.tick == first), None)
+        got[("divergence", first)] = frozenset(at.offsets) if at else frozenset()
+    problems = []
+    for key in sorted(set(want) | set(got), key=lambda k: (k[1], k[0])):
+        if key not in got:
+            problems.append(f"expected {key[0]} at tick {key[1]} did not happen")
+        elif key not in want:
+            problems.append(f"{key[0]} at tick {key[1]} is not expected: "
+                            + ", ".join(f"{o:04X}" for o in sorted(got[key])))
+        elif got[key] != want[key]:
+            problems.append(f"{key[0]} at tick {key[1]} moved: offsets "
+                            + ", ".join(f"{o:04X}" for o in sorted(got[key])) + " (pinned "
+                            + ", ".join(f"{o:04X}" for o in sorted(want[key])) + ")")
+    return problems
 
 
 def triage(name: str) -> str:
     rows = [r for r in TRIAGE if r[0] == name]
-    return "\n".join(["triage (run, tick, field, owner, status):"]
-                     + [f"  {r} {t:5d}  {f}  [{o}: {st}]" for r, t, f, o, st in rows]) if rows else ""
+    lines = (["triage (run, tick, field, owner, status):"]
+             + [f"  {r} {t:5d}  {f}  [{o}: {st}]" for r, t, f, o, st in rows]) if rows else []
+    if EXPECTED.get(name):
+        lines += ["expected (pinned, EXPECTED):"] + [
+            f"  {kind:11s} {tick:5d}  {why}" for kind, tick, _, why in EXPECTED[name]]
+    return "\n".join(lines)
 
 
 # game86's stack: SS = DGROUP + 74Dh paragraphs, SP = 1112h (EXE header), so SS:1000..1111 =
@@ -383,5 +439,8 @@ def test_port_replay_report(reference, tmp_path):
     report_path = WORKDIR / f"replay-report-{name}.txt"
     report_path.write_text(text + "\n")
     print(f"\n{name}: {proc.stdout.strip()}\n{text}\n(report: {report_path})")
-    if os.environ.get("LLAMATRON_REPLAY_STRICT") == "1":
-        assert compare.first_divergence(diffs, shift) is None, text
+    problems = expected_check(name, diffs, shift)
+    if not EXPECTED.get(name) and os.environ.get("LLAMATRON_REPLAY_STRICT") != "1":
+        # a progress report only, but the pinned rules never fire unlisted
+        problems = [p for p in problems if not p.startswith("divergence")]
+    assert not problems, text + "\nnot as pinned in EXPECTED:\n  " + "\n  ".join(problems)

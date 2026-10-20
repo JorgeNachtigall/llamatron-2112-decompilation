@@ -194,6 +194,7 @@ class TickDiff:
     shift: int = 0
     timing: list[int] = field(default_factory=list)
     transition: bool = False    # a transition since the previous snapshot (see compare)
+    frame_phase: list[int] = field(default_factory=list)   # overlay.frames bytes in `timing`
 
     def fields(self, limit: int = 12) -> list[str]:
         seen: list[str] = []
@@ -302,7 +303,7 @@ def compare(port: PortRun, reference: dict[int, bytes], ignore=()) -> list[TickD
         prev_ref_hooks = _hooks(a)
         prev_tick, prev_counts, prev_intro = tick, counts, intro
         out.append(TickDiff(tick, offs, skipped, shift, timing,
-                            transition=jump or _hooks(a) != prev))
+                            transition=jump or _hooks(a) != prev, frame_phase=frames))
     return out
 
 
@@ -421,8 +422,7 @@ def report(diffs: list[TickDiff], input_shift=()) -> str:
                 notes.append("tick counter set one tick apart")
             if TUNE_COUNTDOWN in d.timing:
                 notes.append("tune.countdown frozen one tick apart")
-            if any((o - ENTITIES) % ENTITY_SIZE in (OVERLAY_FRAMES, OVERLAY_FRAMES + 1)
-                   and ENTITIES <= o < ENTITIES + ENTITY_COUNT * ENTITY_SIZE for o in d.timing):
+            if d.frame_phase:
                 notes.append("overlay.frames at another frame phase")
             state += f"  [timing: {', '.join(notes)}]"
         skipped = "".join(f"  [ignored {name} {r.start:04X}..{r.stop - 1:04X}]" if r else

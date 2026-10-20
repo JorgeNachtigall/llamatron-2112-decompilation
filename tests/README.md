@@ -112,8 +112,12 @@ Consequences:
   port's keys a tick later where it is a tick behind after a timing-classed switch (input at
   the same game phase); each segment must match the timing shift at its start, and the report
   has a line per segment. `TRIAGE` in
-  test_reference_golden.py lists each real divergence with its owner and status, printed
-  under the run's report.
+  test_reference_golden.py lists each open divergence with its owner and status, printed
+  under the run's report. `EXPECTED` pins each explained one exactly (run, tick, the
+  differing offsets, the reason and the lockstep run that matches): a run with entries is
+  green only if its first divergence and every overlay.frames frame-phase or DEVIATIONS #14
+  chain_tail case happen exactly as listed, and those two rules firing anywhere unlisted
+  fails any run.
 - Dev loops: `tests/replay/window.py SCENARIO FIRST [--count N]` runs a scenario with a
   snapshot after every tick from FIRST (at most 60) and the port over the same ticks, then
   prints the report and every differing byte at the first divergent tick. `--frames` adds
