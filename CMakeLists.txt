@@ -28,6 +28,7 @@ include(cmake/Extract.cmake)
 
 enable_testing()
 include(cmake/ExtractTests.cmake)
+include(cmake/SourceChecks.cmake)
 
 if(EXISTS "${PROJECT_SOURCE_DIR}/src/CMakeLists.txt")
     add_subdirectory(src)
