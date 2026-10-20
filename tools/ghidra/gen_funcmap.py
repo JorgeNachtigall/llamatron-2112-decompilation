@@ -10,7 +10,9 @@ workstreams added by hand (e.g. labels) are kept, so the file can be edited by e
 workstream and regenerated after each RE pass.
 
 Columns: program,orig_addr,size,name,c_symbol,file,status,owner,range,notes
-(docs/PLAN.md section 3.4 plus program and range).
+(docs/PLAN.md section 3.4 plus program and range). status is one of STATUSES; n/a (no
+counterpart in the port: dead code, DOS/hardware glue, the installer UI) needs notes that start
+with "not ported:". A row breaking either rule stops the script before anything is written.
 """
 import csv
 import os
@@ -20,6 +22,7 @@ ROOT = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", ".."))
 OUT = os.path.join(ROOT, "docs", "funcmap.csv")
 COLS = ["program", "orig_addr", "size", "name", "c_symbol", "file", "status", "owner", "range", "notes"]
 PROGRAMS = ["game86", "fs", "llama", "install"]
+STATUSES = ("todo", "ported", "diff-tested", "run-verified", "n/a")
 
 # Dispatch-table families owned by the enemy workstream regardless of address (PLAN section 7).
 W5_PREFIXES = ("enemy_init_", "think_", "think0e_mode_", "anim_", "ent_hit_", "pickup_effect_",
@@ -162,6 +165,12 @@ def main():
     rows.extend(dict(r, _raw=raw[k]) for k, r in old.items())
     order = {p: i for i, p in enumerate(PROGRAMS)}
     rows.sort(key=lambda r: (order[r["program"]], *(int(x, 16) for x in r["orig_addr"].split(":"))))
+    bad = [f'{r["program"]} {r["orig_addr"]}: status {r["status"]!r}' for r in rows
+           if r["status"] not in STATUSES]
+    bad += [f'{r["program"]} {r["orig_addr"]}: n/a notes must start with "not ported:"' for r in rows
+            if r["status"] == "n/a" and not r["notes"].startswith("not ported:")]
+    if bad:
+        sys.exit(f"{OUT}: not written:\n  " + "\n  ".join(bad))
     with open(OUT, "w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=COLS, lineterminator="\n", extrasaction="ignore")
         w.writeheader()
