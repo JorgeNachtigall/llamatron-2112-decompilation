@@ -10,12 +10,16 @@ bit i = 1 while one-shot i has reads left (and uses one up), and bits 4..7 = the
 
 The script is level_sweep's (the warp, the lives, a walk in a new direction every 30 ticks
 with fire in bursts) with the stick in place of the arrow keys and button A in place of
-Space; the title is started with the keyboard's Space as in the golden runs.
+Space, the title's keys included (with the joystick selected the title menu reads the
+stick, not the keyboard). With --two-controllers the title menu is stepped to a controller
+each (OPT_DOUBLE_CONTROLLER) and stick 1 walks P2's ship on a pattern of its own. Each run
+also checks that the original really plays a game once the script's play starts: no demo
+waves left, and with --two-controllers the flag in its options.
 
 Usage (from tests/):
   LLAMATRON_GAME_TESTLIB=<build>/tests/libllamatron_game_testlib.dylib \\
       ../tools/harness/.venv/bin/python oracle/whole_game_joystick.py [--levels 0,10,25]
-      [--ticks N] [-j 6] [--json FILE] [--dump DIR]
+      [--ticks N] [-j 6] [--two-controllers] [--json FILE] [--dump DIR]
 """
 
 from __future__ import annotations
@@ -32,13 +36,25 @@ TESTS = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(TESTS))
 sys.path.insert(0, str(TESTS / "oracle"))
 
-from level_sweep import (BREAK, DOWN, LEFT, ONE_PLAYER, RIGHT, SPACE, UP,  # noqa: E402
-                         StartPlan, lockstep_script, parse_levels)
+from level_sweep import (BREAK, DOWN, LEFT, LIVES, ONE_PLAYER,  # noqa: E402
+                         OTHER_PLAYER_LIVES, RIGHT, SPACE, UP, StartPlan, lockstep_script,
+                         parse_levels)
 
 STICKS = 2
 CENTRE_COUNT = 100                  # INPUT_JOYSTICK_CENTRE_COUNT
 SAMPLE_LEVELS = "0,1,5,10,25,50,75,99"
 DEFAULT_TICKS = 1500
+TWO_CONTROLLER_TICKS = 2600
+OPTIONS = 0x2CF6                    # DGROUP byte (tests/adapters/dgroup_map.c DS_OPTIONS)
+DEMO_MODE = 0x06C4                  # DGROUP word: demo waves left (DS_DEMO_MODE)
+OPT_DOUBLE_CONTROLLER = 0x02        # src/game/state.h
+P2_PATTERN_SHIFT = 4                # P2 walks level_sweep's pattern of level + 4
+
+# The title menu's Right twice: two players -> a controller each (level_sweep.TWO_PLAYERS'
+# timing), then fire; both players' lives are topped up.
+TWO_CONTROLLERS = StartPlan(((1150, RIGHT), (1156, RIGHT | BREAK), (1170, RIGHT),
+                             (1176, RIGHT | BREAK), (1200, SPACE), (1210, SPACE | BREAK)),
+                            1350, 1370, (LIVES, OTHER_PLAYER_LIVES))
 
 # Scan code -> (x, y) of the stick for it.
 DIRECTION = {UP: (0, -1), DOWN: (0, 1), LEFT: (-1, 0), RIGHT: (1, 0)}
@@ -75,50 +91,73 @@ class JoystickPort:
 
 
 def stick_script(level: int, ticks: int, start: StartPlan = ONE_PLAYER, stick: int = 0):
-    """whole_game.Script(keys, pokes, sticks) parts: level_sweep.lockstep_script with its play
-    keys turned into stick 0 positions and button A (the start keys stay keys)."""
+    """whole_game.Script(keys, pokes, sticks) parts: level_sweep.lockstep_script with all its
+    keys turned into the stick's position (the arrows held) and button A (Space held)."""
     keys, pokes = lockstep_script(level, ticks, start)
-    start_keys: dict[int, list[int]] = {}
-    for t, code in start.keys:
-        start_keys.setdefault(t, []).append(code)
     sticks: dict[int, list[tuple[int, float, float, bool, bool]]] = {}
-    fire = False
+    held: set[int] = set()
     for t in sorted(keys):
-        if t < start.play_from:
-            continue
-        x = y = 0
         for code in keys[t]:
-            if code == SPACE:
-                fire = True
-            elif code == SPACE | BREAK:
-                fire = False
-            elif code in DIRECTION:
-                dx, dy = DIRECTION[code]
-                x, y = x + dx, y + dy
-        sticks[t] = [(stick, float(x), float(y), fire, False)]
-    return start_keys, pokes, sticks
+            if code & BREAK:
+                held.discard(code & ~BREAK)
+            else:
+                held.add(code)
+        x = sum(DIRECTION[c][0] for c in held if c in DIRECTION)
+        y = sum(DIRECTION[c][1] for c in held if c in DIRECTION)
+        sticks[t] = [(stick, float(x), float(y), SPACE in held, False)]
+    return {}, pokes, sticks
 
 
-def run_one(level: int, ticks: int, dump: Path | None, machine: str = "vga") -> dict:
+def two_controller_script(level: int, ticks: int):
+    """stick_script for TWO_CONTROLLERS, with stick 1 walking its own pattern."""
+    keys, pokes, sticks = stick_script(level, ticks, TWO_CONTROLLERS)
+    _, _, p2 = stick_script(level + P2_PATTERN_SHIFT, ticks, TWO_CONTROLLERS, stick=1)
+    for t, moves in p2.items():
+        sticks.setdefault(t, []).extend(moves)
+    return keys, pokes, sticks
+
+
+def run_one(level: int, ticks: int, dump: Path | None, two_controllers: bool = False,
+            machine: str = "vga") -> dict:
     import whole_game as W
     from adapters.cport import load_testlib
     from whole_game_pages import PageComparer
     lib = load_testlib()
-    keys, pokes, sticks = stick_script(level, ticks)
-    pages = PageComparer(lib, dump_dir=dump / f"joystick_level{level:02d}" if dump else None)
+    config = "joystick_two_controllers" if two_controllers else "joystick"
+    start = TWO_CONTROLLERS if two_controllers else ONE_PLAYER
+    keys, pokes, sticks = (two_controller_script if two_controllers else stick_script)(
+        level, ticks)
+    pages = PageComparer(lib, dump_dir=dump / f"{config}_level{level:02d}" if dump else None)
+    at_play = {}
+
+    def on_frame(orig, port, tick, frame):
+        if tick >= start.play_from and not at_play:
+            dg = orig.dgroup()
+            at_play.update(options=dg[OPTIONS],
+                           demo=int.from_bytes(dg[DEMO_MODE:DEMO_MODE + 2], "little", signed=True))
+        return pages.hook(orig, port, tick, frame)
     res = W.run_lockstep(lib, W.Script(keys, pokes, sticks), ticks, W.SWEEP_SEED, machine,
-                         on_frame=pages.hook, joystick=JoystickPort())
-    out = {"config": "joystick", "level": level, "ok": res.ok, "tick": res.tick,
+                         on_frame=on_frame, joystick=JoystickPort())
+    out = {"config": config, "level": level, "ok": res.ok, "tick": res.tick,
            "frame": res.frame, "where": res.where,
            "report": res.detail if res.where == "pages" else W.describe(res)}
+    out.update(at_play)
+    if res.ok and (at_play.get("demo", 1) != 0
+                   or two_controllers and not at_play["options"] & OPT_DOUBLE_CONTROLLER):
+        out["ok"] = False
+        out["report"] = f"matched, but the original does not play the scripted game at tick " \
+                        f"{start.play_from}: {at_play}"
     if res.offsets:
         out["fields"] = sorted({W.field_of(o) for o in res.offsets[:64]})
         out["report"] += " -- " + ", ".join(out["fields"][:6])
     return out
 
 
-def run_child(level: int, ticks: int, dump: Path | None, timeout: float = 7200) -> dict:
+def run_child(level: int, ticks: int, dump: Path | None, two_controllers: bool = False,
+              timeout: float = 7200) -> dict:
     cmd = [sys.executable, __file__, "--one", str(level), "--ticks", str(ticks)]
+    if two_controllers:
+        cmd.append("--two-controllers")
     if dump:
         cmd += ["--dump", str(dump)]
     try:
@@ -135,25 +174,29 @@ def run_child(level: int, ticks: int, dump: Path | None, timeout: float = 7200) 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--levels", default=SAMPLE_LEVELS)
-    ap.add_argument("--ticks", type=int, default=DEFAULT_TICKS)
+    ap.add_argument("--ticks", type=int)
+    ap.add_argument("--two-controllers", action="store_true",
+                    help="the title's double controller: a stick per player")
     ap.add_argument("-j", type=int, default=1)
     ap.add_argument("--one", type=int, help="run this level here and print its result as JSON")
     ap.add_argument("--json", type=Path, help="also write the results here")
     ap.add_argument("--dump", type=Path, help="PNGs of the first page difference per level")
     args = ap.parse_args()
+    ticks = args.ticks or (TWO_CONTROLLER_TICKS if args.two_controllers else DEFAULT_TICKS)
     if args.one is not None:
-        print(json.dumps(run_one(args.one, args.ticks, args.dump)), flush=True)
+        print(json.dumps(run_one(args.one, ticks, args.dump, args.two_controllers)), flush=True)
         return 0
     results = []
     with ThreadPoolExecutor(max_workers=max(1, args.j)) as pool:
-        for r in pool.map(lambda lv: run_child(lv, args.ticks, args.dump),
+        for r in pool.map(lambda lv: run_child(lv, ticks, args.dump, args.two_controllers),
                           parse_levels(args.levels)):
             results.append(r)
-            print(f"joystick level {r['level']}: {r['report']}", flush=True)
+            print(f"{r.get('config', 'joystick')} level {r['level']}: {r['report']}", flush=True)
     if args.json:
         args.json.write_text(json.dumps(results, indent=1))
     bad = [r for r in results if not r["ok"]]
-    print(f"joystick: {len(results) - len(bad)}/{len(results)} levels match")
+    print(f"{'joystick_two_controllers' if args.two_controllers else 'joystick'}: "
+          f"{len(results) - len(bad)}/{len(results)} levels match")
     return 1 if bad else 0
 
 
