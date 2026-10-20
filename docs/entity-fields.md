@@ -198,7 +198,10 @@ Hit handlers on this family:
   velocity, and `start_delay` to 5.
 - **`ent_hit_0a`** restarts the mover:
   - `velocity_x.frac` = 4 x the shot's **y**;
-  - `velocity_y.frac` = 4 x the shot's vx (as the port reads 2da7; worth a second look);
+  - `velocity_y.frac` = 4 x the shot's vx. That is the original's own choice (Thorn, from the
+    listing): 2da7 stores [SI+2] (shot y) x 4 to +14 and [SI+4] (shot vx) x 4 to +18, probably
+    meaning +4/+6 (vx/vy). Both land in the fraction words, so the knock-back is under
+    1 px/tick. Diff-tested by test_hit and test_w5a_types;
   - both accelerations = 0x200;
   - +24 = 0x14 (flash).
 - **`ent_hit_0e`** clears every word of the left-behind segment and stores the family in +2e.
@@ -266,7 +269,10 @@ other variable state.
 |-----|------|---------|
 | +14/+16 | `height` | 16.16, whole part = y (`timer`, `aux16`) |
 | +18/+1a | `fall_speed` | 16.16 (`hp`, `aux1a`), + gravity 0x2000 per tick |
-| +1c | `state` | DROPPER_FALLING / RISING / WAITING |
+| +1c | `state` | DROPPER_FALLING / RISING / WAITING; any value other than FALLING and WAITING counts as rising |
+
+On ticks that `tuning.p0830` masks out, the dropper also creeps one pixel towards the target's
+x, except when `height.whole` == 1.
 
 ### 5.13 edge spawner (think 27; think_w5a.c)
 
@@ -312,9 +318,12 @@ Type 01 also keeps the llama frame's bank offset in `sprite_ref` (§7.4).
 
 - **Enemy shots** (`enemy_shot_init`, spawn.c; also types 05..07). They use the homing view
   with think 10:
-  - `EnemyShot.aim_y` goes to +16 = `velocity_x.whole`, and `aim_x` to +1a =
-    `velocity_y.whole`. The template's names look swapped against what the mover does with
-    them, which needs checking.
+  - `EnemyShot.aim_y` (0419) goes to +16 = `velocity_x.whole`, and `aim_x` (041B) to +1a =
+    `velocity_y.whole`. The names describe the source, not where the mover uses them:
+    `fire_back` (1108/11e2) stores the shot's vy x 2 in 0419 and its vx x 2 in 041B, so a
+    fire-back shot flies with its axes transposed (the original reflects across the
+    diagonal). Thorn renames them to `velocity_x` / `velocity_y` and comments the swap in
+    `fire_back`, together with his view conversion.
   - `speed` goes to both accelerations' low words, and `sprite` to +24 (`sprite_base`).
   - `start_delay` = 3..10.
   - `enemy_shot_drop` (think 13) makes the same record.
@@ -501,7 +510,10 @@ this change, but it touches the same field.
 
 - **Keel** (state.h owner; review only): the anonymous-union shape, the new header
   `entity_views.h`, the little-endian `#error`, `unused_0a`/`unused_0e` in `Shot`.
-- **Thorn, Moss** (main users): the view split and the names of §5. In particular:
+- **Thorn**: agreed (§5.5, 5.10, 5.12..5.14 checked against the listing; one HomingView with
+  per-think unions; the +08 views). He converts enemy_init.c, spawn.c, hit.c, kill_actions.c,
+  pickups.c, think_w5a.c and bullets.c.
+- **Moss** (main user): the view split and the names of §5. In particular:
   - one `HomingView` with per-think unions at +24/+2e, rather than one view per think;
   - the +08 views;
   - who converts which file.
@@ -509,8 +521,6 @@ this change, but it touches the same field.
   now. When the aux names are scheduled to go, Sentinel switches to `raw_motion.words[]` /
   `raw.words[]` in the same series, with `test_dgroup_map` and the golden replays as the net.
   llama_residue.py's labels get the view names when the header lands.
-- **Open points in the code**, from the census:
-  - `EnemyShot.aim_x`/`aim_y` naming against the mover's axes (§6);
-  - `ent_hit_0a` taking the shot's y for `velocity_x` (§5.5).
-
-  Neither blocks the header change.
+- **Open points** from the census, both settled by Thorn from the listing:
+  - `ent_hit_0a` is the original's own choice (§5.5);
+  - the `EnemyShot` field names get renamed (§6).
