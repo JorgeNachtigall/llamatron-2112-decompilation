@@ -36,7 +36,7 @@ enum {
     THINK_LLAMA = 0x05,
 };
 
-static const SoundRequest SOUND_FIRE = { 0x0e, 0, 1 };     /* 1000:0ad1, 0bf7 */
+static const SoundRequest SOUND_FIRE = { SAMPLE_ID_FIRE, 0, 1 };     /* 1000:0ad1, 0bf7 */
 
 static int16_t wrap16(int v) { return (int16_t)(uint16_t)v; }
 
@@ -218,7 +218,8 @@ static const TrailPoint *trail_entry(const GameState *game, unsigned index)
 }
 
 /* Appends the ship's position to its trail unless it has not moved. game86 1000:1961..198e
- * (P1), 1999..19ce (P2: see DEVIATIONS #10 for the original's first compare after load) */
+ * (P1), 1999..19ce (P2; the loaded head [2CF9] = 2 is zeroed by wave_start 04ef before this
+ * can run, DEVIATIONS #10) */
 static void trail_record(GameState *game, int player, int16_t flag)
 {
     const Point16 *ship = &game->ship[player];
