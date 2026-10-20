@@ -285,7 +285,8 @@ layout lives only in `tests/adapters/dgroup_map.c`, which converts `GameState` <
 - Audio check: compare the sequence of driver calls (function, AL/CL/CH, tick number) logged by both.
 
 ### 3.4 Acceptance per function (tracked in `docs/funcmap.csv`)
-`program, orig_addr, size, name, c_symbol, file, status(todo|ported|diff-tested|run-verified), owner, range, notes`.
+`program, orig_addr, size, name, c_symbol, file, status(todo|ported|diff-tested|run-verified|n/a), owner, range, notes`.
+`n/a` marks a routine with no counterpart in the port: dead code (no callers), DOS/hardware glue, or the installer UI. Its notes start with `not ported:` and the reason.
 A function is "done" only when diff-tested; a milestone is done when its run-verified set passes.
 
 ## 4. RE / decompilation workflow for hand-written asm
