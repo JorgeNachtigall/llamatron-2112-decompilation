@@ -23,7 +23,9 @@ The original's surroundings, all inside this file:
 Usage (from tests/, with the testlib built):
   LLAMATRON_GAME_TESTLIB=<build>/tests/libllamatron_game_testlib.dylib \\
       ../tools/harness/.venv/bin/python oracle/whole_game.py walk_vga
-  ... oracle/whole_game.py sweep --levels 0-99:5 [--ticks N]
+  ... oracle/whole_game.py sweep --levels 0-99:5 [--ticks N] [--pages] [--json FILE]
+(sweep: every level through the warp poke with level_sweep.lockstep_script's play, seed
+0x12ABCD, one child process per level; prints the first divergence and its fields per level)
 """
 
 from __future__ import annotations
@@ -631,6 +633,72 @@ def describe(res: Result, orig_img: bytes | None = None, port_img: bytes | None 
             f"DS offset=original/port {offs}{more} ({res.detail})")
 
 
+SWEEP_SEED = 0x12ABCD          # as the golden runs (tools/harness/dosbox)
+SWEEP_TICKS = 3000
+
+
+def parse_levels(text: str) -> list[int]:
+    """'0-99:5' (every 5th), '3,7,10-12'."""
+    out: list[int] = []
+    for part in text.split(","):
+        part, _, step = part.partition(":")
+        lo, _, hi = part.partition("-")
+        out += range(int(lo), int(hi or lo) + 1, int(step or 1))
+    return out
+
+
+def field_of(off: int) -> str:
+    """The DGROUP field at `off`, as tests/replay/compare.py names it."""
+    sys.path.insert(0, str(TESTS / "replay"))
+    try:
+        from compare import describe as name
+        return name(off)
+    except Exception:          # noqa: BLE001 (a name is a convenience)
+        return f"DS:{off:04x}"
+
+
+def sweep_level(lib, level: int, ticks: int, pages: bool, game86=None, ignore=()) -> dict:
+    """Level `level` through the warp poke with scripted play (level_sweep.lockstep_script),
+    original against port."""
+    from level_sweep import lockstep_script
+    on_frame = None
+    if pages:
+        from whole_game_pages import PageComparer
+        on_frame = PageComparer(lib).hook
+    keys, pokes = lockstep_script(level, ticks)
+    res = run_lockstep(lib, Script(keys, pokes), ticks, SWEEP_SEED, game86=game86,
+                       ignore=ignore, on_frame=on_frame)
+    out = {"level": level, "ok": res.ok, "tick": res.tick, "frame": res.frame,
+           "where": res.where, "report": describe(res)}
+    if res.offsets:
+        out["fields"] = sorted({field_of(o) for o in res.offsets[:64]})
+        out["report"] += " -- " + ", ".join(out["fields"][:6])
+    return out
+
+
+def sweep_child(level: int, ticks: int, pages: bool, game86, ignore: str,
+                timeout: float = 3600) -> dict:
+    """sweep_level in a process of its own (the port keeps static state): a crash or a hang is
+    the level's result."""
+    import subprocess
+    cmd = [sys.executable, __file__, "sweep", "--one", str(level), "--ticks", str(ticks)]
+    if pages:
+        cmd.append("--pages")
+    if game86:
+        cmd += ["--game86", str(game86)]
+    if ignore:
+        cmd += ["--ignore", ignore]
+    try:
+        out = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, env=os.environ)
+    except subprocess.TimeoutExpired:
+        return {"level": level, "ok": False, "report": f"hung (> {timeout:.0f} s)"}
+    for line in reversed(out.stdout.splitlines()):
+        if line.startswith("{"):
+            return json.loads(line)
+    tail = (out.stderr.strip().splitlines() or ["no output"])[-1]
+    return {"level": level, "ok": False, "report": f"crashed (exit {out.returncode}): {tail}"}
+
+
 def load_reference_run(name: str) -> tuple[Script, int, dict]:
     runs = json.loads((TESTS / "golden" / "reference_runs.json").read_text())
     cfg = runs[name]["config"]
@@ -651,6 +719,10 @@ def main() -> int:
                     help="tick phase (fraction of a tick, as llamatron_replay --tick-phase)")
     ap.add_argument("--levels", default="0-99:5")
     ap.add_argument("--game86", default=os.environ.get("LLAMATRON_GAME86_IMAGE"))
+    ap.add_argument("--one", type=int, help="sweep: run this level here, print JSON")
+    ap.add_argument("--pages", action="store_true",
+                    help="also compare the pages each frame (tests/oracle/whole_game_pages.py)")
+    ap.add_argument("--json", help="sweep: also write the results here")
     ap.add_argument("--dump", type=Path,
                     help="write the original's and the port's DGROUP at the divergence here")
     ap.add_argument("--ignore", default="",
@@ -665,7 +737,7 @@ def main() -> int:
         print("LLAMATRON_GAME_TESTLIB is not set or not built", file=sys.stderr)
         return 2
     phase = min(65535, int(args.phase * 65536 + 0.5)) if args.phase > 0 else 0
-    if args.run != "sweep":
+    if args.run != "sweep" and args.one is None:
         script, ticks, cfg = load_reference_run(args.run)
         res = run_lockstep(lib, script, args.ticks or ticks,
                            args.seed if args.seed is not None else cfg["ticks"],
@@ -677,8 +749,20 @@ def main() -> int:
             for side, img in zip(("original", "port"), res.images):
                 (args.dump / f"{args.run}_{res.tick}_{res.frame}_{side}.bin").write_bytes(img)
         return 0 if res.ok else 1
-    print("sweep: not yet", file=sys.stderr)
-    return 2
+    if args.one is not None:
+        print(json.dumps(sweep_level(lib, args.one, args.ticks or SWEEP_TICKS, args.pages,
+                                     args.game86, ignore)), flush=True)
+        return 0
+    results = []
+    for level in parse_levels(args.levels):
+        r = sweep_child(level, args.ticks or SWEEP_TICKS, args.pages, args.game86, args.ignore)
+        results.append(r)
+        print(f"level {level}: {r['report']}", flush=True)
+    if args.json:
+        Path(args.json).write_text(json.dumps(results, indent=1))
+    bad = [r for r in results if not r["ok"]]
+    print(f"{len(results) - len(bad)}/{len(results)} levels match")
+    return 1 if bad else 0
 
 
 if __name__ == "__main__":
