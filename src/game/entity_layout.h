@@ -118,6 +118,7 @@ ENTITY_AT(orbit.fire, 0x18);
 ENTITY_AT(orbit.hit_frames, 0x1a);
 
 ENTITY_AT(edge_runner.axis, 0x14);
+ENTITY_AT(edge_runner.hits_left, 0x16);
 ENTITY_AT(edge_runner.backwards, 0x18);
 ENTITY_AT(edge_runner.intro_frames, 0x1a);
 ENTITY_AT(edge_runner.position_x, 0x1c);
@@ -152,6 +153,7 @@ ENTITY_AT(pickup.life, 0x18);
 ENTITY_AT(segment.steps_behind, 0x14);
 ENTITY_AT(segment.flash_frames, 0x18);
 
+ENTITY_AT(storm.unused_14, 0x14);
 ENTITY_AT(storm.strikes_left, 0x14);
 ENTITY_AT(storm.frame, 0x14);
 ENTITY_AT(storm.hits_left, 0x16);

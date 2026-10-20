@@ -235,6 +235,7 @@ other variable state.
 | off | name | meaning |
 |-----|------|---------|
 | +14 | `axis` | 0 = moving in x, 1 = in y (`timer ^= 1`) |
+| +16 | `hits_left` | `ent_hit_0b` (2ae1): dies when it goes below 0; `enemy_init_17` (27e7) starts it at 1, so a runner dies on its second hit. The same hit restarts `intro_frames` (0x10) |
 | +18 | `backwards` | 0 = towards larger coordinates (`hp`) |
 | +1a | `intro_frames` | counts down while >= 0 |
 | +1c/+1e | `position_x` | 16.16 (`kill_action` = whole x; `enemy_init_17` sets x there) |
@@ -298,7 +299,7 @@ between children.
 
 | off | name | meaning |
 |-----|------|---------|
-| +14 | `strikes_left` (2c) / `frame` (2d) | 2c: strikes until the storm ends (0x96 from `ent_hit_11`). 2d: byte counter, one sprite step per period |
+| +14 | `unused_14` (2b) / `strikes_left` (2c) / `frame` (2d) | 2b: `enemy_init_28` (26c5) writes 0x2828, never read (think 2b is a bare RET and `ent_hit_11` overwrites it). 2c: strikes until the storm ends (0x96 from `ent_hit_11`). 2d: byte counter, one sprite step per period |
 | +16 | `hits_left` (2b) then `strike` (2c) | 2b: hits until it becomes a storm. 2c: byte counter between strikes (0x404) |
 
 ### 5.17 the rest

@@ -187,7 +187,7 @@ typedef struct OrbitView {          /* think 20 core, 21 satellite */
 typedef struct EdgeRunnerView {     /* think 22 */
     int16_t unused_12;          /* +12 */
     int16_t axis;               /* +14 0 = x, 1 = y */
-    int16_t unused_16;          /* +16 */
+    int16_t hits_left;          /* +16 ent_hit_0b: dies when it goes below 0 (enemy_init_17 starts it at 1) */
     int16_t backwards;          /* +18 0 = towards larger coordinates */
     int16_t intro_frames;       /* +1a counts down while >= 0 */
     Fixed16 position_x;         /* +1c */
@@ -253,6 +253,7 @@ typedef struct SegmentView {        /* think 1e, the snake's body */
 typedef struct StormView {          /* think 2b -> 2c storm, 2d bolt */
     int16_t unused_12;          /* +12 */
     union {                     /* +14 */
+        int16_t unused_14;      /*     2b: set at init, overwritten before 2c reads it */
         int16_t strikes_left;   /*     2c */
         ByteCounter frame;      /*     2d: one sprite step per period */
     };
