@@ -149,9 +149,9 @@ static inline void entity_vanish(Entity *e)
     entity_set_type(e, ENTITY_FREE, ENTITY_FREE);
 }
 
-/* What think_25's spawns become, stored in aux1c by the charger inits. The values are the
- * original's code addresses (game86 1000:3119 / 32d7 / 33e3), kept so the test adapter
- * stays a plain copy until the entity view conversion. */
+/* What think_25's spawns become, stored in charger.callback (+1c, entity_views.h) by the
+ * charger inits. The values are the original's code addresses (game86 1000:3119 / 32d7 /
+ * 33e3): the adapter copies +1c as a raw word, so the port holds what the original holds. */
 enum {
     SPAWN_AS_DEADLY_PICKUP = 0x3119,    /* enemy_init_20 */
     SPAWN_AS_PAIR = 0x32d7,             /* enemy_init_1e */
