@@ -42,6 +42,8 @@ const GfxSprite *asset_sprite_number_gfx(unsigned number);
  * loaded) or its gfx view. Pause picture i is SPRITE_ID_PAUSE_FIRST + i. */
 int asset_sprite_id_index(SpriteId id);
 const GfxSprite *asset_sprite_id_gfx(SpriteId id);
+/* A g3 title shape by name (formats.h TitleShapeId); NULL if not loaded. */
+const GfxSprite *asset_title_shape(TitleShapeId id);
 
 /* ---- Font, sine ---- */
 

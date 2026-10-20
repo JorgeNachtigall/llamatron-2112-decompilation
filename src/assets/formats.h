@@ -102,6 +102,28 @@ typedef enum SpriteId {
 
 enum { PAUSE_PICTURE_COUNT = SPRITE_ID_COUNT - SPRITE_ID_PAUSE_FIRST };
 
+/* The 16 shapes of g3.bin (g3.cmp, segment 30EB: shape n through the word at 30EB:2n), named
+ * after where the game draws them. */
+typedef enum TitleShapeId {
+    TITLE_SHAPE_NAME_CURSOR,        /* the name entry's letter cursor */
+    TITLE_SHAPE_GAME_OVER,          /* game over banner */
+    TITLE_SHAPE_CONTINUE,           /* continue prompt */
+    TITLE_SHAPE_WAVE_HEADING,       /* above the wave number */
+    TITLE_SHAPE_BOB_A,              /* title menu, bobbing (1000:4130) */
+    TITLE_SHAPE_BOB_B,
+    TITLE_SHAPE_FOOTER_SIGN,        /* title footer, third row (1000:41c3) */
+    TITLE_SHAPE_ONE_PLAYER,         /* control labels: one player (30EB:000E) */
+    TITLE_SHAPE_TWO_PLAYERS_TEAM,   /* two players, a controller each (OPT_DOUBLE_CONTROLLER) */
+    TITLE_SHAPE_TWO_PLAYERS_DROID,  /* two players, one controller */
+    TITLE_SHAPE_DIGIT_1,            /* player 1's turn; on the title: separate start */
+    TITLE_SHAPE_DIGIT_2,            /* player 2's turn; on the title: shared start */
+    TITLE_SHAPE_FOOTER_BEAST,       /* title footer, first row */
+    TITLE_SHAPE_FOOTER_CREDIT,      /* title footer, second row */
+    TITLE_SHAPE_LOGO_RIGHT,
+    TITLE_SHAPE_LOGO_LEFT,
+    TITLE_SHAPE_COUNT,
+} TitleShapeId;
+
 typedef struct NamedSprites {
     uint16_t bank_offset[SPRITE_ID_COUNT];  /* the original pointer (218C:offset) */
     uint16_t frame[SPRITE_ID_COUNT];        /* index into sprites.bin */
@@ -351,7 +373,10 @@ void levels_free(LevelSet *set);
  * type XX's death sound (played by the kill at 1000:0eb0). The pause screen plays the last scan
  * code & 0x1F (1000:155d, above 0x1C -> 0x1B): the only way the KEY_ samples are heard. */
 typedef enum SampleId {
-    SAMPLE_ID_KEY_01 = 0x01,           /* pause-screen keys only */
+    SAMPLE_ID_NONE = 0x00,             /* not a sample: the driver takes a request for it as a
+                                        * stop (pending request, or the current one at no lower
+                                        * priority); e.g. death_sample of a silent death */
+    SAMPLE_ID_KEY_01 = 0x01,          /* pause-screen keys only */
     SAMPLE_ID_LETTER_LANDS = 0x02,     /* title letter lands 3f97; death of 04 */
     SAMPLE_ID_KEY_03 = 0x03,           /* pause-screen keys only */
     SAMPLE_ID_HIT_0B = 0x04,           /* hit handler 0b 2afc */

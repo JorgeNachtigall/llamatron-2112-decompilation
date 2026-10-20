@@ -25,6 +25,7 @@ _Static_assert(LLAMA_FMT_LNSP_VERSION == FORMAT_LNSP_VERSION, "named_sprites.dat
 _Static_assert(LLAMA_NAMED_SPRITE_COUNT == SPRITE_ID_COUNT, "named_sprites.dat names");
 _Static_assert(LLAMA_PAUSE_PICTURE_COUNT == PAUSE_PICTURE_COUNT, "pause pictures");
 _Static_assert(LLAMA_SAMPLE_COUNT == SAMPLE_ID_HIT_0F, "SampleId names every sample");
+_Static_assert(LLAMA_G3_SHAPE_COUNT == TITLE_SHAPE_COUNT, "TitleShapeId names every g3 shape");
 
 static struct {
     bool loaded;
@@ -184,6 +185,11 @@ const GfxSprite *asset_sprite_id_gfx(SpriteId id)
 {
     int frame = asset_sprite_id_index(id);
     return frame >= 0 ? asset_sprite_gfx(SPRITE_BANK_GAME, (unsigned)frame) : NULL;
+}
+
+const GfxSprite *asset_title_shape(TitleShapeId id)
+{
+    return asset_sprite_gfx(SPRITE_BANK_TITLE, (unsigned)id);
 }
 
 const AssetFont *asset_font(void)

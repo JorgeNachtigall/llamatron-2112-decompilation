@@ -71,6 +71,14 @@ static void check_sprites(void)
     CHECK(asset_sprite_id_gfx(SPRITE_ID_POWERUP_MARK) == asset_sprite_number_gfx(0xc5));
     CHECK(asset_sprite_id_index(SPRITE_ID_BEAM_HEAD) == asset_sprite_index_at(SPRITE_BANK_GAME, 0x7aa2)); /* 1000:46b6 */
     CHECK(asset_sprite_id_gfx(SPRITE_ID_COUNT) == NULL);
+    /* the hi-score marks main_sm.c drew by bank pointer (1000:5cde / 5d04) */
+    CHECK(asset_sprite_id_index(SPRITE_ID_HISCORE_MARK_1) == asset_sprite_index_at(SPRITE_BANK_GAME, 0x245A));
+    CHECK(asset_sprite_id_index(SPRITE_ID_HISCORE_MARK_2) == asset_sprite_index_at(SPRITE_BANK_GAME, 0x4268));
+
+    for (int id = 0; id < TITLE_SHAPE_COUNT; id++)
+        CHECK(asset_title_shape((TitleShapeId)id) != NULL &&
+              asset_title_shape((TitleShapeId)id) == asset_sprite_gfx(SPRITE_BANK_TITLE, (unsigned)id));
+    CHECK(asset_title_shape(TITLE_SHAPE_COUNT) == NULL);
 }
 
 static void check_font(void)
@@ -117,13 +125,13 @@ static void check_palettes(void)
     for (int id = 0; id < FLASH_LIST_COUNT; id++)
         CHECK(asset_flash_list((FlashListId)id) == asset_flash_list_at(flash_lists[id]));
     CHECK(asset_flash_list(FLASH_LIST_COUNT) == NULL);
-    const GfxGamePalette *black = asset_palette_at(0x2175);
+    const GfxGamePalette *black = asset_palette(PALETTE_ID_BLACK);
     for (int c = 0; black && c < GFX_GAME_COLORS; c++)
         CHECK(black->st_words[c] == 0);
     CHECK(asset_palette_at(0x2146) == NULL);
     for (int id = 0; id < PALETTE_ID_COUNT; id++)
         CHECK(asset_palette((PaletteId)id) == asset_palette_at(palettes[id]));
-    CHECK(asset_palette(PALETTE_ID_BLACK) == black && asset_palette(PALETTE_ID_COUNT) == NULL);
+    CHECK(asset_palette(PALETTE_ID_COUNT) == NULL);
 }
 
 static void check_texts(void)
@@ -189,7 +197,7 @@ static void check_levels(void)
 
 static void check_samples_scores_config(void)
 {
-    CHECK(asset_sample(0) == NULL && asset_sample(LLAMA_SAMPLE_COUNT + 1) == NULL);
+    CHECK(asset_sample(SAMPLE_ID_NONE) == NULL && asset_sample(LLAMA_SAMPLE_COUNT + 1) == NULL);
     for (unsigned n = 1; n <= LLAMA_SAMPLE_COUNT; n++) {
         const Sample *s = asset_sample(n);
         CHECK(s && s->pcm && s->length > 0);
@@ -197,7 +205,7 @@ static void check_samples_scores_config(void)
     /* DEVIATIONS #1: sample 30 alone runs past llatron.spl, by 96 bytes, padded with silence.
      * The file's own bytes already end in 56 silent ones, so the silent tail is 152 long. */
     CHECK(LLAMA_SAMPLES_PAST_END == 1 && LLAMA_SAMPLE_PAST_END == 30 && LLAMA_SAMPLE_PADDED_BYTES == 96);
-    const Sample *s30 = asset_sample(30);
+    const Sample *s30 = asset_sample(LLAMA_SAMPLE_PAST_END);
     if (s30 && s30->length > 96) {
         unsigned silent = 0;
         while (silent < s30->length && s30->pcm[s30->length - 1 - silent] == 0x80)
@@ -276,7 +284,7 @@ static void check_samples_scores_config(void)
     static const uint16_t hiscore_texts[] = {0x094B, 0x09B5, 0x0AAE};
     for (size_t i = 0; i < sizeof hiscore_texts / sizeof *hiscore_texts; i++)
         CHECK(asset_text_raw(hiscore_texts[i]) != NULL);
-    const GameText *prompt = asset_text_at(0x09B5);
+    const GameText *prompt = asset_text(TEXT_ID_HISCORE_NAME);
     CHECK(prompt && prompt->raw_length >= 3 && prompt->raw[prompt->raw_length - 3] == '\0');
     const HudGlyphs *hud = asset_hud_glyphs();
     CHECK(hud != NULL);
