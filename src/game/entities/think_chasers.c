@@ -12,6 +12,12 @@ enum {
     COLUMN_Y_MIN = 0x10, COLUMN_Y_END = 0xb8,
     FLIP_CHANCE = 5,                    /* out of 256 per tick */
     RELEASE_CHANCE = 0x14,
+    CHASER_SPRITE = 0xab,               /* + 4-frame animation */
+    COLUMN_SPRITE = 0xb3,               /* + 1 in the second phase */
+    BOUNCER_SPRITE = 0xb5,              /* think_19's first frame */
+    ANIM_PLAIN = 0x0d,
+    THINK_BOUNCER = 0x19,
+    CHASER_SPEED_PARAM = 4,             /* the level script's parameter for the chaser speed */
 };
 
 static const SoundRequest SOUND_RELEASE = { SAMPLE_ID_RELEASE, 1, 4 };   /* 1000:20ea */
@@ -24,9 +30,10 @@ void think_17(GameState *game, Entity *e)
 {
     if (entity_check_touch(game, e))
         return;
-    e->sprite = (int16_t)(0xab + ((game->tick_count >> 1) & 3));
-    int16_t newest = (int16_t)((e->chaser.newest + 4) & 0xc);
-    e->chaser.trail[newest / 4] = (Point16){ e->x, e->y };
+    e->sprite = (int16_t)(CHASER_SPRITE + ((game->tick_count >> 1) & 3));
+    int16_t newest = (int16_t)((e->chaser.newest + sizeof(Point16))
+                               & ((TRAIL_POINTS - 1) * sizeof(Point16)));
+    e->chaser.trail[newest / sizeof(Point16)] = (Point16){ e->x, e->y };
     e->chaser.newest = newest;
 
     int8_t axis = e->chaser.steer.axis;
@@ -39,7 +46,7 @@ void think_17(GameState *game, Entity *e)
     axis ^= 1;
     e->chaser.steer.axis = axis;
 
-    int16_t speed = game->player.script_param[4];
+    int16_t speed = game->player.script_param[CHASER_SPEED_PARAM];
     if (axis) {
         e->vy = 0;
         e->vx = (int16_t)(uint16_t)(game->target.x - e->x) < 0 ? (int16_t)(uint16_t)-speed : speed;
@@ -65,7 +72,7 @@ static int16_t random_step(GameState *game)
 void think_18(GameState *game, Entity *e)
 {
     e->x = COLUMN_X;
-    e->sprite = (int16_t)(e->timer + 0xb3);
+    e->sprite = (int16_t)(e->timer + COLUMN_SPRITE);
     if (rng_next_byte(&game->rng) < FLIP_CHANCE)
         e->timer ^= 1;
 
@@ -83,10 +90,10 @@ void think_18(GameState *game, Entity *e)
             continue;
         s->x = e->x;
         s->y = e->y;
-        s->anim = 0x0d;
+        s->anim = ANIM_PLAIN;
         s->scale = 0;
         s->vx = random_step(game);
-        s->sprite = 0xb5;
+        s->sprite = BOUNCER_SPRITE;
         s->vy = (int16_t)((rng_next_byte(&game->rng) & 3) - 1);
         s->scale = 1;
         s->solid = 1;
@@ -94,7 +101,7 @@ void think_18(GameState *game, Entity *e)
         s->death_sample = SAMPLE_ID_POP;
         s->death_rate = 0;
         s->kind = -1;
-        entity_set_type(s, 0x19, 0x19);
+        entity_set_type(s, THINK_BOUNCER, THINK_BOUNCER);
         game->enemies_alive++;
         game_sound_play(SOUND_RELEASE.sample, SOUND_RELEASE.rate_index, SOUND_RELEASE.priority);
         return;
