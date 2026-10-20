@@ -146,13 +146,15 @@ RUNS["level_40_two_player"] = level_run(40, start="TWO_PLAYERS", long=True)
 # 0.69 on 2300's player+00 lands a tick off, at 0.45 an overlay count does)
 RUNS["level_40_two_player"].update(tick_phase=0.68, start_delay=4)
 RUNS["level_80"]["tick_phase"] = 0.62
-# After a death the respawn path (hook_nop 3fde) ends an IRQ earlier in the original than in the
-# port (DEVIATIONS #20, CPU-time phase of its retraces; Keel): from there the port is a tick
-# behind, so its keys come a tick later (per-tick windows: level_30 843 vs 844, level_25_ega
-# 2486 vs 2487)
-RUNS["level_30"]["input_shift"] = [(843, 1, None)]
+# After a death or a cleared wave the respawn / wave start path (playfield draw, page copies,
+# HUD) can end an IRQ earlier in the original than in the port (DEVIATIONS #20, CPU-time phase
+# of its retraces; Keel): from there the port is a tick behind, so its keys come a tick later.
+# Whether it happens depends on the original's timer phase since start-up, so on refrun's
+# fixed mount line too: with it, level_30's death at 838 no longer does and level_50's at ~1058
+# neither, while level_50's wave clear at 2159 does (per-tick windows: level_50 play resumes a
+# tick behind from 2162, level_25_ega 2486 vs 2487)
 RUNS["level_25_ega"]["input_shift"] = [(2486, 1, None)]
-RUNS["level_50"]["input_shift"] = [(1059, 1, None)]
+RUNS["level_50"]["input_shift"] = [(2162, 1, None)]
 
 # input_shift [(start, ticks, end)]: the port replay's keys from `start` to `end` (exclusive,
 # None = the end) come `ticks` later, where the port is a tick behind after a timing-classed
@@ -166,7 +168,7 @@ RUNS["level_50"]["input_shift"] = [(1059, 1, None)]
 # player index, also stale in a reused slot (adapters.gamestate.follower_trail_equal). The
 # title llamas' leftover in slots 0..8 (+20 read in play, DEVIATIONS #26): Keel's 7b4ed95
 # (attract_end at new_game) keeps it in the port, compare.py no longer skips any of it.
-# level_99 700 / 2800 overlay.frames: frame phase (compare.py OVERLAY_FRAMES; Prism, Moss),
+# level_99 700 / 2400 / 2800 overlay.frames: frame phase (compare.py OVERLAY_FRAMES; Prism, Moss),
 # level_99 2250..2900 chain_tail: DEVIATIONS #14 (adapters.gamestate.chain_tail_past_rings).
 #
 # Triage of the real divergences (compare.py's first ones per run and those after them that are
@@ -184,52 +186,41 @@ TRIAGE: list[tuple[str, int, str, str, str]] = []
 # unseen.
 EXPECTED = {
     "level_50": [
-        # kills_toward_bonus, scores[0]+06, entities[2]+00 +01 +06 +0e +10 +14 +15, shots[0]+00
-        ("divergence", 1150, frozenset({0x063A, 0x4447, 0x4941, 0x4942, 0x4947, 0x494F, 0x4951,
-                                        0x4955, 0x4956, 0x68C9, 0x68CA}),
-         "entities[2] killed in the port only by the tick-parity turn of shots_update (1000:0cd1) "
-         "under the port's one-tick lag after the respawn at ~1058 (DEVIATIONS #20, Keel). "
-         "Lockstep: tests/oracle/whole_game.py level_50 matches all 3010 ticks (Thorn's unicorn "
-         "oracle, one frame schedule on both sides; Keel 2026-10-19)"),
+        # entities[39] and [41] x (+02/+03): think_05 llamas
+        ("divergence", 2250, frozenset({0x5283, 0x5285, 0x5303, 0x5305}),
+         "as level_25_ega 2550: the wave cleared at IRQ 2159 (wave_start's intro timer 50), play "
+         "resumes a tick earlier in the original than in the port (DEVIATIONS #20, per-tick "
+         "window 2140..2199: the port a tick behind from 2162 on), input_shift from 2162, then "
+         "think_05's even-tick move (1000:4c46) on the other parity. Lockstep: "
+         "tests/oracle/whole_game.py level_50 matches all 3010 ticks"),
     ],
     "level_20": [
         ("frame_phase", 1450, frozenset({0x48C1 + 0x40 * 11 + 0x38}),
          "entities[11]+38 overlay.frames, one frame apart (as level_99 700). Lockstep: "
          "whole_game.py sweep (level 20)"),
     ],
-    "level_30": [
-        # entities[8]/[9] x (+02/+03) and sprite (+0c), both think_05 llamas
-        ("divergence", 900, frozenset({0x4AC3, 0x4AC5, 0x4B03, 0x4B05, 0x4B0D}),
-         "per-tick window 820..879: a death at IRQ 838 (wave_result 1, tick hook 3fde) runs the "
-         "respawn path (player_died, wave_spawn_enemies, wave_start's playfield draw, "
-         "screen_reveal_bg's page copies, HUD; 7 retraces in both, Keel) and play resumes at IRQ "
-         "843 in the original, 844 in the port: where wait_vsync's retraces fall depends on the "
-         "original's drawing cost (DEVIATIONS #20, CPU-time phase, not reproducible from frame "
-         "or tick counts), so the original is a game tick ahead of its tick_count from then "
-         "on; with input_shift every byte matches to 878, then think_05 llamas (move on even "
-         "tick_count only, 1000:4c46) step on the other parity. Lockstep: whole_game.py sweep "
-         "--one 30 --ticks 3000 matches"),
-    ],
     "level_25_ega": [
         # entities[39], [41], [42], [43] x/sprite, [45] y: all think_05 llamas
         ("divergence", 2550, frozenset({0x5283, 0x5285, 0x5303, 0x530D, 0x5343, 0x5345, 0x5383,
                                         0x5385, 0x5405, 0x540D}),
-         "as level_30 900: a death at IRQ 2480 (wave_result 1, wave_start's intro timer 50 at "
+         "a death at IRQ 2480 (wave_result 1, wave_start's intro timer 50 at "
          "2482), play resumes at IRQ 2486 in the original, 2487 in the port (per-tick window "
          "2460..2519), input_shift from 2486, then think_05's even-tick move on the other "
-         "parity. Lockstep: lockstep_configs.py ega --one 25 --ticks 3000 matches"),
+         "parity (the respawn path's retraces as RUNS' input_shift comment; think_05 llamas "
+         "move on even tick_count only, 1000:4c46). Lockstep: lockstep_configs.py ega --one 25 "
+         "--ticks 3000 matches"),
     ],
     "level_40_two_player": [
-        ("frame_phase", 1300, frozenset({0x48C1 + 0x40 * 8 + 0x38}),
-         "entities[8]+38 overlay.frames, one frame apart. Lockstep: lockstep_configs.py "
-         "two_players --one 40 --ticks 3000 matches"),
         ("frame_phase", 1550, frozenset({0x48C1 + 0x40 * 42 + 0x38}),
-         "entities[42]+38 overlay.frames, as at 1300"),
+         "entities[42]+38 overlay.frames, one frame apart. Lockstep: lockstep_configs.py "
+         "two_players --one 40 --ticks 3000 matches"),
     ],
     "level_99": [
         ("frame_phase", 700, frozenset({0x48C1 + 0x40 * 51 + 0x38}),
          "entities[51]+38 overlay.frames of a rescued llama, one frame apart (DEVIATIONS #24 "
          "class; Prism, Moss). Lockstep: whole_game.py sweep --one 99 --ticks 3000 ok (6ca6b19)"),
+        ("frame_phase", 2400, frozenset({0x48C1 + 0x40 * 22 + 0x38}),
+         "entities[22]+38 overlay.frames, as at 700"),
         ("frame_phase", 2800, frozenset({0x48C1 + 0x40 * 47 + 0x38}),
          "entities[47]+38 overlay.frames, as at 700"),
         *[("chain_tail", t, frozenset(range(0x06A4, 0x06A8)),
@@ -405,10 +396,10 @@ def reference(request):
     result = refrun.probe(original=ORIGINAL, workdir=WORKDIR / f"golden-{name}",
                           time_limit=RUNS[name].get("time_limit", 90), **cfg)
     if not settled_like_golden(name, result):
-        # Under very heavy host load (load average ~90, a parallel fresh-clone ctest) one
-        # game_over_hiscore run fell a step behind from IRQ 825 on, DGROUP included; two reruns
-        # matched the golden again. Run once more and check that run: a stale golden or a real
-        # change still fails, since the second run disagrees as well.
+        # A guard against a one-off disturbed run (the reference is deterministic for a given
+        # probe and autoexec; the one shift seen so far, first put down to host load, was
+        # refrun's workdir-length mount line, now fixed). Run once more and check that run: a
+        # stale golden or a real change still fails, since the second run disagrees as well.
         # a warning, not a print: pytest lists it in the warnings summary of a passing run too
         # (ctest's LastTest.log, or -V), so a rerun never goes unreported
         warnings.warn(f"{name}: settled snapshots differ from the golden, ran it once more "

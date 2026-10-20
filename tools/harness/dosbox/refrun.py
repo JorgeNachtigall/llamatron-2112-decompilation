@@ -150,7 +150,12 @@ def write_conf(path: Path, drive: Path, machine: str, cycles: int, keys: str,
         "[sblaster]", "sbtype=none",
         "[speaker]", "pcspeaker=false",
         "[autoexec]",
-        f'mount c "{drive}"',
+        # relative to the workdir, which DOSBox-X runs in: the shell handles this line in
+        # emulated time, so with an absolute path game86's start, and every timer phase after
+        # it, depended on the workdir's length (game_over_hiscore moved from IRQ 825 on, level_50
+        # from 1950, in a deeper build tree; mount paths of 121/161/201 characters matched the
+        # old golden, 41/81/181 did not). A fixed line makes the reference the same everywhere.
+        f'mount c "{drive.name}"',
         "c:",
     ]
     if keys:
@@ -168,6 +173,7 @@ def run(original: Path = DEFAULT_ORIGINAL, workdir: Path = DEFAULT_WORKDIR,
     exe = find_dosbox()
     if not exe:
         raise FileNotFoundError("dosbox-x not found (brew install dosbox-x)")
+    workdir = Path(workdir).resolve()    # DOSBox-X runs in it (write_conf's mount)
     workdir.mkdir(parents=True, exist_ok=True)
     drive = workdir / "c"
     prepare_drive(original, drive, machine, flash)
@@ -177,7 +183,7 @@ def run(original: Path = DEFAULT_ORIGINAL, workdir: Path = DEFAULT_WORKDIR,
            "-time-limit", str(time_limit)]
     cmd += ["-nomenu"] if window else ["-silent"]
     proc = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                          timeout=time_limit + 30)
+                          timeout=time_limit + 30, cwd=workdir)
     clean = any(p.name.upper() == MARKER for p in drive.iterdir())
     return RunResult(proc.returncode, clean, str(workdir), str(conf))
 
@@ -202,6 +208,7 @@ def probe(ticks: int, original: Path = DEFAULT_ORIGINAL, workdir: Path = DEFAULT
     exe = find_dosbox()
     if not exe:
         raise FileNotFoundError("dosbox-x not found (brew install dosbox-x)")
+    workdir = Path(workdir).resolve()    # DOSBox-X runs in it (write_conf's mount)
     workdir.mkdir(parents=True, exist_ok=True)
     drive = workdir / "c"
     prepare_drive(original, drive, machine, flash)
@@ -230,7 +237,7 @@ def probe(ticks: int, original: Path = DEFAULT_ORIGINAL, workdir: Path = DEFAULT
     proc = subprocess.run([exe, "-defaultconf", "-conf", str(conf), "-nolog", "-fastlaunch",
                            "-silent", "-time-limit", str(time_limit)],
                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                          timeout=time_limit + 30)
+                          timeout=time_limit + 30, cwd=workdir)
     files = {p.name.upper(): p for p in drive.iterdir()}
     if "PROBE.HDR" not in files:
         raise RuntimeError(f"probe wrote no PROBE.HDR (dosbox-x rc {proc.returncode}); "
