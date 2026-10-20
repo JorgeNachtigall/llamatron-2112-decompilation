@@ -14,6 +14,7 @@ enum {
     HOMING_Y_MIN = 0x10, HOMING_Y_END = 0xb7,
     BEAM_RANGE = 10,
     THINK28_SPRITE = 0x118,         /* + 4-frame animation */
+    DROPPER_SPRITE = 0x89,          /* think_13, + 8-frame animation */
     THINK2A_CHILD_SPRITE = 0x12a,
 };
 
@@ -177,7 +178,7 @@ void think_11(GameState *game, Entity *e)
  * game86 1000:256e */
 void think_13(GameState *game, Entity *e)
 {
-    e->sprite = (int16_t)(0x89 + ((game->tick_count >> 2) & 7));
+    e->sprite = (int16_t)(DROPPER_SPRITE + ((game->tick_count >> 2) & 7));
     HomingView *h = &e->homing;
     if (h->start_delay < 0) {
         if ((int8_t)--h->drop.left < 0 && --h->drops_left >= 0) {

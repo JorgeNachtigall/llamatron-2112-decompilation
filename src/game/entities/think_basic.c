@@ -15,6 +15,11 @@ enum {
     HATCH_STEP = 2,
     FADE_TICKS = 15,                /* think_02 */
     BONUS_COUNTDOWN_RESET = 2,      /* a death restarts the bonus countdown (1000:441d) */
+    /* first sprites of the animations below */
+    ENEMY_SHOT_SPRITE = 0x41,       /* think_0d, 4 frames */
+    THINK14_SPRITE = 0x95,          /* 4 frames */
+    THINK19_SPRITE = 0xb5,          /* 2 frames */
+    THINK1A_SPRITE = 0xb7,          /* 4 frames */
 };
 
 /* Death sounds (1000:4435..4450) */
@@ -159,7 +164,7 @@ void think_0d(GameState *game, Entity *e)
 {
     if (entity_check_touch(game, e))
         return;
-    e->sprite = (int16_t)(0x41 + ((game->tick_count >> 2) & 3));
+    e->sprite = (int16_t)(ENEMY_SHOT_SPRITE + ((game->tick_count >> 2) & 3));
     int16_t x = (int16_t)(uint16_t)(e->x + e->vx);
     if (x > BOUNCE_X_MIN && x < BOUNCE_X_MAX) {
         e->x = x;
@@ -191,7 +196,7 @@ void think_14(GameState *game, Entity *e)
 {
     if (game->wave_intro_timer != 0)
         return;
-    e->sprite = (int16_t)(0x95 + ((game->tick_count >> 1) & 3));
+    e->sprite = (int16_t)(THINK14_SPRITE + ((game->tick_count >> 1) & 3));
     if (entity_check_touch(game, e))
         return;
     entity_move_bounce(game, e);
@@ -202,7 +207,7 @@ void think_19(GameState *game, Entity *e)
 {
     if (entity_check_touch(game, e))
         return;
-    e->sprite = (int16_t)(0xb5 + ((game->tick_count >> 2) & 1));
+    e->sprite = (int16_t)(THINK19_SPRITE + ((game->tick_count >> 2) & 1));
     think_0f(game, e);
 }
 
@@ -211,7 +216,7 @@ void think_1a(GameState *game, Entity *e)
 {
     if (entity_check_touch(game, e))
         return;
-    e->sprite = (int16_t)(0xb7 + ((game->tick_count >> 2) & 3));
+    e->sprite = (int16_t)(THINK1A_SPRITE + ((game->tick_count >> 2) & 3));
     entity_move_bounce(game, e);
 }
 
