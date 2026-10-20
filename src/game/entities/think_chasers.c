@@ -15,7 +15,6 @@ enum {
     CHASER_SPRITE = 0xab,               /* + 4-frame animation */
     COLUMN_SPRITE = 0xb3,               /* + 1 in the second phase */
     BOUNCER_SPRITE = 0xb5,              /* think_19's first frame */
-    ANIM_PLAIN = 0x0d,
     THINK_BOUNCER = 0x19,
     CHASER_SPEED_PARAM = 4,             /* the level script's parameter for the chaser speed */
 };

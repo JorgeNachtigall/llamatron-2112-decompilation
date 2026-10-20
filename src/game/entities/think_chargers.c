@@ -37,7 +37,7 @@ static void spawn_deadly_pickup(GameState *game, Entity *spawn, const Entity *pa
     spawn->solid = 0;
     spawn->vx = 0;
     spawn->vy = 0;
-    spawn->anim = 0x0d;
+    spawn->anim = ANIM_PLAIN;
     spawn->kind = -1;
     entity_set_type(spawn, 0x1c, 0x1c);
     spawn->pickup.sprite_base = spawn->sprite;

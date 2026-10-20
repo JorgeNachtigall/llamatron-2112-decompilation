@@ -22,7 +22,6 @@ enum {
     SATELLITE_SPRITE = 0xe0, SATELLITE_HIT_SPRITE = 0xe4,  /* + 4-frame animation */
     SATELLITE_SHOT_SPRITE = 0xe5,       /* + 1 when flying left */
     RUNNER_SPRITE = 0xe7,               /* + 1 horizontal, + 2 forwards; intro: 4-frame anim */
-    ANIM_PLAIN = 0x0d,
     THINK_BOLT = 0x2d,
 };
 

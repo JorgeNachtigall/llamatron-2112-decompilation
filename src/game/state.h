@@ -46,6 +46,8 @@ enum {
 #define ENTITY_FREE (-1)
 /* Animate handler index of an entity that only stands there (hook_nop), game86 1000:3d61. */
 #define ANIM_IDLE 0x12
+/* Animate handler index of an entity drawn as its plain sprite (anim_plain), game86 1000:4802. */
+#define ANIM_PLAIN 0x0d
 
 typedef struct Entity {
     /* +00 type word. The original tests the sign of the whole word in the think/animate/alloc
