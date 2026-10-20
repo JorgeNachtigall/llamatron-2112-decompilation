@@ -88,13 +88,6 @@ static void stand_still(Entity *e)
     e->vy = 0;
 }
 
-/* The +22/+23 byte pair written as one word, as several inits do. */
-static void set_reload_pair(Entity *e, int16_t value)
-{
-    e->reload = (uint8_t)(value & 0xff);
-    e->countdown = (uint8_t)((uint16_t)value >> 8);
-}
-
 /* A random step of -1, 0, 1 or 2 (rng & 3, minus 1). */
 static int16_t random_step(GameState *game)
 {
@@ -124,13 +117,13 @@ void enemy_setup_00(GameState *game, Entity *e, bool hatch_fast)
     e->sprite = game->spawn_sprite;
     e->scale = hatch_fast ? 2 : 0x32;      /* hatch countdown */
     e->solid = 0;
-    e->hp = 0;
-    e->aux1a = 0;
-    e->timer = 0;
-    e->aux16 = 0;
+    e->llama.claimed = 0;
+    e->llama.unused_1a_1c[0] = 0;
+    e->llama.turn_timer = 0;
+    e->llama.facing = 0;
     e->hit_handler = 0;
     set_death_sound(e, SAMPLE_ID_ENEMY_DEATH, 0);
-    e->aux30 = game->spawn_sprite;
+    e->llama.sprite_base = game->spawn_sprite;
     entity_set_type(e, 0x04, 0x05);
     game->unhatched++;
     game->eggs_spawned++;
@@ -195,8 +188,8 @@ static void enemy_init_02(GameState *game, Entity *e)
     stand_still(e);
     e->sprite = SPRITE_TYPE_02;
     e->scale = 2;
-    e->timer = -1;
-    e->aux16 = 0;
+    e->hunter.quarry = -1;                  /* pick a llama */
+    e->hunter.hit_frames = 0;
     e->solid = 1;
     entity_set_type(e, 0x07, 0x08);
     e->hit_handler = 1;
@@ -213,33 +206,33 @@ static void enemy_init_04(GameState *game, Entity *e)
     e->scale = 2;
     e->solid = 1;
     entity_set_type(e, 0x07, 0x0e);
-    e->timer = -2;
-    e->aux16 = 0;
-    e->hp = 1;
-    e->aux1a = game->player.level_loops != 0 ? 0x202 : 0x505;
-    e->aux1c = e->sprite;
-    e->kill_action = 1;
+    e->herder.target = -2;                  /* HERDER_RETURN */
+    e->herder.unused_16 = 0;
+    e->herder.hp = 1;
+    e->herder.step = game->player.level_loops != 0 ? byte_counter(2, 2) : byte_counter(5, 5);
+    e->herder.sprite_base = e->sprite;
+    e->herder.kill_action = 1;
     e->hit_handler = 3;
     game->enemies_alive++;
 }
 
 /* ---- 03, 21: hatching spawns (think 0a) ------------------------------------------------ */
 
-static void init_think0a_spawn(GameState *game, Entity *e, int16_t sprite, int16_t aux16,
-                               int16_t hp, int16_t aux1a)
+static void init_think0a_spawn(GameState *game, Entity *e, int16_t sprite, int16_t start_delay,
+                               uint8_t drop_period, int16_t drops)
 {
     enemy_random_spawn_pos(game, e);
     e->anim = 0x0c;
     e->vx = random_step(game);
     e->vy = random_step(game);
     e->sprite = sprite;
-    e->aux1c = sprite;
+    e->mother.sprite_base = sprite;
     e->scale = 0x32;
     e->solid = 0;
-    e->timer = 0x64;
-    e->aux16 = aux16;
-    e->hp = hp;
-    e->aux1a = aux1a;
+    e->mother.turn_timer = 0x64;
+    e->mother.start_delay = start_delay;
+    e->mother.drop = byte_counter(drop_period, 0);
+    e->mother.drops_left = drops;
     e->hit_handler = 2;
     set_death_sound(e, SAMPLE_ID_LETTER_LANDS, 0);
     entity_set_type(e, 0x0a, 0x0b);
@@ -373,12 +366,12 @@ void enemy_setup_0c(GameState *game, Entity *e)
     e->solid = 1;
     e->sprite = SPRITE_TYPE_0C;
     entity_set_type(e, 0x07, 0x15);
-    e->timer = -2;
-    e->aux16 = 0;
-    e->hp = 0;
-    e->aux1a = 0x101;
-    e->aux1c = e->sprite;
-    e->kill_action = 2;
+    e->herder.target = -2;                  /* HERDER_RETURN */
+    e->herder.unused_16 = 0;
+    e->herder.hp = 0;
+    e->herder.step = byte_counter(1, 1);
+    e->herder.sprite_base = e->sprite;
+    e->herder.kill_action = 2;
     e->hit_handler = 3;
     game->enemies_alive++;
 }
@@ -401,19 +394,19 @@ static void enemy_init_0d(GameState *game, Entity *e)
     e->scale = 0x28;
     e->solid = 1;
     entity_set_type(e, 0x07, 0x16);
-    e->timer = -1;
-    e->aux16 = 0;
-    e->hp = game->tuning.init0d_hp;
-    e->aux1a = game->player.script_param[6];
-    e->aux1c = e->sprite;
-    e->kill_action = 0;
-    e->sub_mode = 1;
-    set_reload_pair(e, game->player.script_param[5]);
+    e->herder.target = -1;                  /* HERDER_SEEK */
+    e->herder.unused_16 = 0;
+    e->herder.hp = game->tuning.init0d_hp;
+    e->herder.step = counter_from_word(game->player.script_param[6]);
+    e->herder.sprite_base = e->sprite;
+    e->herder.kill_action = 0;
+    e->herder.mode = 1;
+    e->herder.spawn = counter_from_word(game->player.script_param[5]);
     e->hit_handler = 3;
     game->enemies_alive++;
 }
 
-/* game86 1000:21af: the spawn position is copied into four position histories. */
+/* game86 1000:21af: the spawn position fills the chaser's four-point trail. */
 void enemy_setup_0e(GameState *game, Entity *e)
 {
     set_death_sound(e, SAMPLE_ID_ENEMY_DEATH, 0);
@@ -422,16 +415,10 @@ void enemy_setup_0e(GameState *game, Entity *e)
     e->sprite = SPRITE_TYPE_0E;
     e->scale = 0;
     e->solid = 1;
-    e->aux12 = 0x0aff;
-    e->timer = 0;
-    e->aux16 = e->x;
-    e->aux1a = e->x;
-    e->kill_action = e->x;
-    set_reload_pair(e, e->x);
-    e->hp = e->y;
-    e->aux1c = e->y;
-    e->sub_mode = e->y;
-    e->aux24 = e->y;
+    e->chaser.steer = (ChaserSteer){ .axis = -1, .keep_chance = 0x0a };
+    e->chaser.newest = 0;
+    for (int i = 0; i < 4; i++)
+        e->chaser.trail[i] = (Point16){ e->x, e->y };
     entity_set_type(e, 0x17, 0x17);
     e->hit_handler = 0;
     game->enemies_alive++;
@@ -517,9 +504,9 @@ static void enemy_init_10(GameState *game, Entity *e)
         s->scale = 0;
         s->solid = 1;
         s->kind = -1;
-        s->timer = delay;
-        s->aux16 = -4;
-        s->hp = -1;
+        s->segment.steps_behind = delay;
+        s->segment.unused_16 = -4;
+        s->segment.flash_frames = -1;
         s->hit_handler = 9;
         entity_set_type(s, 0x1e, 0x1e);
         s++;
@@ -595,9 +582,9 @@ static void enemy_init_1f(GameState *game, Entity *e)
 /* ---- 15, 16: orbiters placed on a circle around the centre ----------------------------- */
 
 /* game86 1000:29af: position on the circle of radius 63 around (0xa0, 0x6e) at sine phase
- * `phase`; the timer word holds the phase (low byte) and its step (high byte). */
-static void init_orbiter(GameState *game, Entity *e, int16_t phase, int16_t sprite, int16_t aux16,
-                         int16_t step)
+ * `phase`, which the orbit angle starts from, turning by `step` per tick. */
+static void init_orbiter(GameState *game, Entity *e, int16_t phase, int16_t sprite,
+                         int16_t hits, int16_t step)
 {
     const SineTables *sine = asset_sine();
     uint8_t at = (uint8_t)phase;
@@ -610,10 +597,10 @@ static void init_orbiter(GameState *game, Entity *e, int16_t phase, int16_t spri
     e->sprite = sprite;
     e->scale = 0;
     e->solid = 1;
-    e->timer = (int16_t)((uint16_t)(step & 0xff) << 8 | at);
-    e->aux16 = aux16;
-    e->hp = 0x3030;
-    e->aux1a = -1;
+    e->orbit.orbit = (OrbitAngle){ .angle = at, .speed = (uint8_t)step };
+    e->orbit.hits_left = hits;
+    e->orbit.launch = byte_counter(0x30, 0x30);
+    e->orbit.hit_frames = -1;
     set_death_sound(e, SAMPLE_ID_BEAM, 0);
     e->hit_handler = 0x0b;
     game->orbit_next_phase = (int16_t)(game->orbit_next_phase + game->tuning.orbit_phase_step);
@@ -635,7 +622,7 @@ static void enemy_init_15(GameState *game, Entity *e)
 static void enemy_init_16(GameState *game, Entity *e)
 {
     init_orbiter(game, e, 0, 0xe0, 0x14, 1);
-    e->hp = 0x0f0f;
+    e->orbit.fire = byte_counter(0x0f, 0x0f);
     entity_set_type(e, 0x21, 0x21);
 }
 
@@ -650,16 +637,15 @@ static void enemy_init_17(GameState *game, Entity *e)
     e->scale = 0;
     e->solid = 1;
     e->sprite = SPRITE_TYPE_17;
-    e->aux16 = 1;
-    e->hp = rng_next_byte(&game->rng) & 1;
-    e->timer = 0;
-    e->kill_action = e->x;                  /* x and y as 16.16 positions, fraction 0 */
-    e->aux1c = 0;
-    set_reload_pair(e, e->y);
-    e->sub_mode = 0;
-    e->aux26 = (int16_t)((rng_next_byte(&game->rng) & 1) + 1);
-    e->aux24 = (int16_t)((uint16_t)rng_next_byte(&game->rng) << 8);
-    e->anim_toggle = (int16_t)((rng_next_byte(&game->rng) + 1) << 4);
+    EdgeRunnerView *r = &e->edge_runner;
+    r->hits_left = 1;
+    r->backwards = rng_next_byte(&game->rng) & 1;
+    r->axis = 0;
+    r->position_x = (Fixed16){ .frac = 0, .whole = e->x };
+    r->position_y = (Fixed16){ .frac = 0, .whole = e->y };
+    r->speed.whole = (int16_t)((rng_next_byte(&game->rng) & 1) + 1);
+    r->speed.frac = (uint16_t)(rng_next_byte(&game->rng) << 8);
+    r->decel = (int16_t)((rng_next_byte(&game->rng) + 1) << 4);
     e->hit_handler = 0x0b;
     set_death_sound(e, SAMPLE_ID_DROP, 4);
     entity_set_type(e, 0x22, 0x22);
@@ -669,7 +655,7 @@ static void enemy_init_17(GameState *game, Entity *e)
 /* ---- 18, 26: think 0e types ------------------------------------------------------------ */
 
 static void init_think0e(GameState *game, Entity *e, uint8_t death_rate, int16_t sprite,
-                         int16_t aux1a, int16_t mode)
+                         ByteCounter step, int16_t mode)
 {
     enemy_random_spawn_pos(game, e);
     set_death_sound(e, SAMPLE_ID_ENEMY_DEATH, death_rate);
@@ -679,14 +665,14 @@ static void init_think0e(GameState *game, Entity *e, uint8_t death_rate, int16_t
     stand_still(e);
     e->sprite = sprite;
     e->scale = 0;
-    e->timer = -1;
-    e->aux16 = 0;
-    e->hp = 4;
-    e->aux1a = aux1a;
-    e->kill_action = 0;
-    e->sub_mode = mode;
-    e->aux1c = e->sprite;
-    set_reload_pair(e, game->player.script_param[5]);
+    e->herder.target = -1;                  /* HERDER_SEEK */
+    e->herder.unused_16 = 0;
+    e->herder.hp = 4;
+    e->herder.step = step;
+    e->herder.kill_action = 0;
+    e->herder.mode = mode;
+    e->herder.sprite_base = e->sprite;
+    e->herder.spawn = counter_from_word(game->player.script_param[5]);
     e->hit_handler = 3;
     game->enemies_alive++;
 }
@@ -694,13 +680,13 @@ static void init_think0e(GameState *game, Entity *e, uint8_t death_rate, int16_t
 /* game86 1000:228b */
 static void enemy_init_18(GameState *game, Entity *e)
 {
-    init_think0e(game, e, 0, SPRITE_TYPE_18, 0x202, 2);
+    init_think0e(game, e, 0, SPRITE_TYPE_18, byte_counter(2, 2), 2);
 }
 
 /* game86 1000:22e9 */
 static void enemy_init_26(GameState *game, Entity *e)
 {
-    init_think0e(game, e, 3, SPRITE_TYPE_26, 0x404, 3);
+    init_think0e(game, e, 3, SPRITE_TYPE_26, byte_counter(4, 4), 3);
 }
 
 /* ---- 19 -------------------------------------------------------------------------------- */
@@ -783,23 +769,24 @@ static void enemy_init_27(GameState *game, Entity *e)
 /* ---- 1b, 1e, 20: think 25 types with a callback ---------------------------------------- */
 
 /* game86 1000:3199 */
-static void init_think25(GameState *game, Entity *e, int16_t sprite, int16_t hp, int16_t aux1a,
-                         int16_t callback, int16_t reload_pair)
+static void init_think25(GameState *game, Entity *e, int16_t sprite, ByteCounter charge,
+                         ByteCounter spawn, int16_t callback, ByteCounter move)
 {
     enemy_random_spawn_pos(game, e);
     e->sprite = sprite;
-    e->aux16 = 0;
-    e->hp = hp;
-    e->aux1a = aux1a;
-    e->aux1c = callback;
-    set_reload_pair(e, reload_pair);
+    ChargerView *c = &e->charger;
+    c->dash_reach = 0;
+    c->charge = charge;
+    c->spawn = spawn;
+    c->callback = callback;
+    c->move = move;
     e->anim = 0x0d;
     stand_still(e);
     e->scale = 0;
     e->solid = 1;
-    e->timer = 1;
-    e->sub_mode = e->sprite;
-    e->aux24 = -1;
+    c->charging = 1;
+    c->sprite_base = e->sprite;
+    c->dash_frames = -1;
     set_death_sound(e, SAMPLE_ID_WARP, 3);
     e->hit_handler = 0x0d;
     entity_set_type(e, 0x25, 0x25);
@@ -809,19 +796,22 @@ static void init_think25(GameState *game, Entity *e, int16_t sprite, int16_t hp,
 /* game86 1000:3178 */
 static void enemy_init_1b(GameState *game, Entity *e)
 {
-    init_think25(game, e, SPRITE_TYPE_1B, 0x1010, 0x808, SPAWN_AS_TYPE_1A, 0x7070);
+    init_think25(game, e, SPRITE_TYPE_1B, byte_counter(0x10, 0x10), byte_counter(8, 8),
+                 SPAWN_AS_TYPE_1A, byte_counter(0x70, 0x70));
 }
 
 /* game86 1000:3155 */
 static void enemy_init_1e(GameState *game, Entity *e)
 {
-    init_think25(game, e, SPRITE_TYPE_1E, 0x808, 0x707, SPAWN_AS_PAIR, (int16_t)0x8080);
+    init_think25(game, e, SPRITE_TYPE_1E, byte_counter(8, 8), byte_counter(7, 7), SPAWN_AS_PAIR,
+                 byte_counter(0x80, 0x80));
 }
 
 /* game86 1000:30c3 */
 static void enemy_init_20(GameState *game, Entity *e)
 {
-    init_think25(game, e, SPRITE_TYPE_20, 0x202, 0x202, SPAWN_AS_DEADLY_PICKUP, 0x3030);
+    init_think25(game, e, SPRITE_TYPE_20, byte_counter(2, 2), byte_counter(2, 2),
+                 SPAWN_AS_DEADLY_PICKUP, byte_counter(0x30, 0x30));
     entity_set_type(e, 0x29, 0x29);
     e->hit_handler = 0;
     set_death_sound(e, SAMPLE_ID_NONE, 2);
@@ -904,8 +894,8 @@ static void enemy_init_28(GameState *game, Entity *e)
     set_death_sound(e, SAMPLE_ID_GAME_OVER, 4);
     e->hit_handler = 0x11;
     e->solid = 1;
-    e->timer = 0x2828;
-    e->aux16 = 0x32;
+    e->storm.unused_14 = 0x2828;
+    e->storm.hits_left = 0x32;
     e->x = 0xa0;
     e->y = 0x64;
     entity_set_type(e, 0x2b, 0x2b);
