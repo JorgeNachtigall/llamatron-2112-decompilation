@@ -1,6 +1,6 @@
 /*
  * pickups.c - the effects of the ten pickup kinds (tbl_pickup_effects, CS:0F7E), applied when
- * think_1c finds its pickup touching a ship. The kind is the pickup's timer field, set by
+ * think_1c finds its pickup touching a ship. The kind is pickup.pickup_kind, set by
  * become_pickup in hit.c.
  */
 #include "entities.h"
@@ -118,6 +118,6 @@ void pickup_collect(GameState *game, Entity *e, unsigned touched)
 {
     /* Kinds outside the table jump into whatever code follows it in the original; pickups
      * only ever get kinds 0..9 (become_pickup). */
-    if ((uint16_t)e->timer < PICKUP_EFFECT_COUNT)
-        pickup_effects[e->timer](game, touched);
+    if ((uint16_t)e->pickup.pickup_kind < PICKUP_EFFECT_COUNT)
+        pickup_effects[e->pickup.pickup_kind](game, touched);
 }

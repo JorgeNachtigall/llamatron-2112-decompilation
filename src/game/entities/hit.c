@@ -37,8 +37,8 @@ static void become_pickup(GameState *game, Entity *e)
         return;
     int16_t kind = word(game->player.pickup_pending - 1);
     game->player.pickup_pending = 0;
-    e->timer = kind;
-    e->hp = 200;                            /* ticks before it disappears */
+    e->pickup.pickup_kind = kind;
+    e->pickup.life = 200;
     const EnemyTables *tables = asset_enemy_tables();
     if (tables && kind >= 0 && kind < PICKUP_KINDS)
         e->sprite = (int16_t)tables->pickup_sprites[kind];
@@ -47,7 +47,7 @@ static void become_pickup(GameState *game, Entity *e)
     e->vx = 0;
     e->vy = 0;
     entity_set_type(e, 0x1c, 0x1c);
-    e->aux16 = e->sprite;
+    e->pickup.sprite_base = e->sprite;
     e->solid = 0;
     game->enemies_alive++;
     game_sound_play(SAMPLE_ID_ALERT, 3, 4);
@@ -121,7 +121,9 @@ static void ent_hit_01(GameState *game, Entity *e, const EntityHit *hit)
     int16_t y = word((hit->shot->vy >> 1) + e->y);
     if (y >= 0x18 && y < 0xb8)
         e->y = y;
-    e->aux16 = 5;
+    /* The hunter's (think 08) hit sprite frames; ent_hit_03 brings other kinds here, whose
+     * thinks do not read +16. */
+    e->hunter.hit_frames = 5;
     game_sound_play(SAMPLE_ID_KNOCK, 1, 3);
 }
 
@@ -237,7 +239,7 @@ static void ent_hit_09(GameState *game, Entity *e, const EntityHit *hit)
 {
     (void)game;
     (void)hit;
-    e->hp = 0x28;
+    e->segment.flash_frames = 0x28;
 }
 
 /* game86 1000:2da7 */
@@ -258,12 +260,13 @@ static void ent_hit_0a(GameState *game, Entity *e, const EntityHit *hit)
     game_sound_play(SAMPLE_ID_POP, 1, 3);
 }
 
-/* game86 1000:2ae1 */
+/* game86 1000:2ae1: the orbiters (think 20, 21) and the edge runner (think 22), whose
+ * views agree here: hits_left at +16, and +1a restarts (hit_frames, intro_frames). */
 static void ent_hit_0b(GameState *game, Entity *e, const EntityHit *hit)
 {
-    e->aux1a = 0x10;
+    e->orbit.hit_frames = 0x10;
     entity_start_flash(game, FLASH_LIST_HIT);
-    if (--e->aux16 < 0) {
+    if (--e->orbit.hits_left < 0) {
         entity_kill(game, e, hit);
         return;
     }
@@ -285,14 +288,15 @@ static void ent_hit_0c(GameState *game, Entity *e, const EntityHit *hit)
     game_sound_play(SAMPLE_ID_GAME_OVER, 1, 6);
 }
 
-/* game86 1000:31d8: only killed once the intro is over and its timer is running. */
+/* game86 1000:31d8: the chargers (think 25, 29), only killed once the intro is over and
+ * while charging. */
 static void ent_hit_0d(GameState *game, Entity *e, const EntityHit *hit)
 {
-    if (game->wave_intro_timer == 0 && e->timer != 0) {
+    if (game->wave_intro_timer == 0 && e->charger.charging != 0) {
         entity_kill(game, e, hit);
         return;
     }
-    e->aux24 = 0x0a;
+    e->charger.dash_frames = 0x0a;
     e->vx = hit->shot->vx >> 1;
     e->vy = hit->shot->vy >> 1;
     game_sound_play(SAMPLE_ID_POP, 3, 4);
@@ -351,11 +355,11 @@ static void ent_hit_11(GameState *game, Entity *e, const EntityHit *hit)
     (void)hit;
     entity_start_flash(game, FLASH_LIST_HIT_ALT);
     game_sound_play(SAMPLE_ID_GAME_OVER, 4, 4);
-    if (--e->aux16 >= 0)
+    if (--e->storm.hits_left >= 0)
         return;
     e->anim = ANIM_IDLE;
-    e->timer = 0x96;
-    e->aux16 = 0x404;
+    e->storm.strikes_left = 0x96;
+    e->storm.strike = (ByteCounter){ .period = 4, .left = 4 };
     entity_set_type(e, 0x2c, 0x2c);
 }
 
