@@ -65,7 +65,7 @@ void hud_refresh(const GameState *game);
 /* The control-method and current-player labels (g3 title shapes) drawn by the play frame and
  * the name-entry screen. `shape(id)` returns the TitleShapeId `id` (asset_title_shape, or a
  * test's own pictures). game86 1000:59ab */
-typedef const GfxSprite *(*HudShapeLookup)(unsigned g3_index);
+typedef const GfxSprite *(*HudShapeLookup)(TitleShapeId id);
 void hud_draw_control_labels(const DrawTarget *target, uint8_t options,
                              HudShapeLookup shape);
 

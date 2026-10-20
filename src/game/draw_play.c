@@ -31,12 +31,6 @@ static void draw_plain(const DrawTarget *target, const GfxSprite *sprite, int x,
         draw_sprite(target, sprite, x, y);
 }
 
-/* hud_draw_control_labels' lookup (its id is a TitleShapeId) */
-static const GfxSprite *title_shape(unsigned id)
-{
-    return asset_title_shape((TitleShapeId)id);
-}
-
 /* The ship's frame: sprite number first_sprite + |facing| + (coordinate / 2) % 4, where the
  * coordinate is x while facing >= 0 and y otherwise. game86 1000:1a93..1ab1, 1b5d..1b7b */
 static const GfxSprite *ship_sprite(Point16 at, int16_t facing, int16_t first_sprite)
@@ -93,7 +87,7 @@ void play_draw_hook(GameState *game, const DrawTarget *target)
 {
     game->frame_drawn = true;
     if (game->wave_start_delay != 0)
-        hud_draw_control_labels(target, game->options, title_shape);
+        hud_draw_control_labels(target, game->options, asset_title_shape);
     shots_draw(game, target);
     entities_animate_all(game, target);
     if (game->pause_message != 0)

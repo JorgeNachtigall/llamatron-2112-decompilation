@@ -214,12 +214,6 @@ static ScrollerStatus scroller_step(void)
 }
 
 /* The pictures and texts of the hi-score screens. */
-/* hud_draw_control_labels' lookup (HudShapeLookup takes the TitleShapeId as unsigned). */
-static const GfxSprite *control_label_shape(unsigned id)
-{
-    return asset_title_shape((TitleShapeId)id);
-}
-
 static const HiscoreArt *hiscore_art(void)
 {
     static HiscoreArt art;
@@ -231,7 +225,7 @@ static const HiscoreArt *hiscore_art(void)
             .cursor = asset_title_shape(TITLE_SHAPE_NAME_CURSOR),
             .marker = { asset_sprite_id_gfx(SPRITE_ID_HISCORE_MARK_1),
                         asset_sprite_id_gfx(SPRITE_ID_HISCORE_MARK_2) },
-            .control_labels = control_label_shape,
+            .control_labels = asset_title_shape,
             .table_heading = text_of(TEXT_ID_HISCORE_TITLE),
             .entry_heading = text_of(TEXT_ID_HISCORE_ENTRY),
             .entry_prompt = text_of(TEXT_ID_HISCORE_NAME),
