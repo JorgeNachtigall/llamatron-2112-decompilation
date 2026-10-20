@@ -24,40 +24,21 @@ enum {
     EDGE_SPAWNER_CHILD_SPRITE = 0x112,
 };
 
-/* think_26's fall: state in aux1c. */
+/* think_26's fall: dropper.state. */
 enum { DROPPER_FALLING, DROPPER_RISING, DROPPER_WAITING };
 
 static const SoundRequest SOUND_DROPPER_LANDS = { SAMPLE_ID_EXPLOSION, 3, 5 };     /* 1000:30b6 */
 
-static uint8_t high_byte(int16_t w) { return (uint8_t)((uint16_t)w >> 8); }
-static uint8_t low_byte(int16_t w) { return (uint8_t)w; }
-
-static void set_high_byte(int16_t *w, uint8_t v)
+/* Counts `left` down and restarts it from `period` when it goes negative; true on that
+ * tick. */
+static bool counter_expired(ByteCounter *c)
 {
-    *w = (int16_t)(uint16_t)(((uint16_t)*w & 0x00ff) | (uint16_t)v << 8);
-}
-
-/* Counts the high byte of a byte pair down and reloads it from the low byte when it goes
- * negative; true on that tick. */
-static bool byte_pair_expired(int16_t *pair)
-{
-    int8_t count = (int8_t)(high_byte(*pair) - 1);
-    set_high_byte(pair, (uint8_t)count);
-    if (count >= 0)
+    int8_t left = (int8_t)(c->left - 1);
+    c->left = (uint8_t)left;
+    if (left >= 0)
         return false;
-    set_high_byte(pair, low_byte(*pair));
+    c->left = c->period;
     return true;
-}
-
-static int32_t join32(int16_t low, int16_t high)
-{
-    return (int32_t)(uint32_t)((uint32_t)(uint16_t)high << 16 | (uint16_t)low);
-}
-
-static void split32(int32_t value, int16_t *low, int16_t *high)
-{
-    *low = (int16_t)(uint16_t)((uint32_t)value & 0xffff);
-    *high = (int16_t)(uint16_t)((uint32_t)value >> 16);
 }
 
 static bool left_of(int16_t a, int16_t b) { return (int16_t)(a - b) < 0; }
@@ -75,8 +56,8 @@ static int16_t turn_towards(int16_t dir, int wanted)
     return (int16_t)((dir + (diff < 0 ? -1 : 1)) & (ENEMY_DIRECTIONS - 1));
 }
 
-/* Seeker: every reload period (low byte of hp, counted in the high byte) it turns one of
- * eight directions (aux16) towards the target's quadrant, then flies that way.
+/* Seeker: every turn period it turns one of eight directions towards the target's
+ * quadrant, then flies that way.
  * game86 1000:3490 */
 void think_24(GameState *game, Entity *e)
 {
@@ -85,14 +66,15 @@ void think_24(GameState *game, Entity *e)
     if (entity_check_touch(game, e))
         return;
     const EnemyTables *tables = asset_enemy_tables();
-    if (byte_pair_expired(&e->hp) && tables) {
+    if (counter_expired(&e->seeker.turn) && tables) {
         unsigned quadrant = (left_of(e->x, game->target.x) ? 1u : 0u) |
                             (left_of(e->y, game->target.y) ? 2u : 0u);
-        e->aux16 = turn_towards(e->aux16, (uint8_t)tables->seek_dir_by_quadrant[quadrant]);
+        e->seeker.direction = turn_towards(e->seeker.direction,
+                                           (uint8_t)tables->seek_dir_by_quadrant[quadrant]);
     }
-    /* aux16 is always a direction 0..7: enemy_setup_type24 and the turn above set it. */
-    int dir = e->aux16 & (ENEMY_DIRECTIONS - 1);
-    e->sprite = (int16_t)(e->aux16 + e->aux1a);
+    /* Always 0..7: enemy_setup_type24 and the turn above set it. */
+    int dir = e->seeker.direction & (ENEMY_DIRECTIONS - 1);
+    e->sprite = (int16_t)(e->seeker.direction + e->seeker.sprite_base);
     if (tables) {
         e->vx = tables->seek_vx[dir];
         e->vy = tables->seek_vy[dir];
@@ -102,7 +84,7 @@ void think_24(GameState *game, Entity *e)
 
 /* ---- think_23 ----------------------------------------------------------------------------- */
 
-/* Walker on the homing mover, facing its target. Every period of the byte pair in vx it
+/* Walker on the homing mover, facing its target. Every walker.fire period it
  * fires a child sideways or, from level 0x32 on, lays a type-0x24 seeker. The tick it does,
  * it skips the move. game86 1000:35b4 */
 void think_23(GameState *game, Entity *e)
@@ -111,7 +93,7 @@ void think_23(GameState *game, Entity *e)
         return;
     bool facing_left = !left_of(e->x, game->target.x);
     e->sprite = (int16_t)(WALKER_SPRITE + (facing_left ? 0 : 1));
-    if (byte_pair_expired(&e->vx)) {
+    if (counter_expired(&e->walker.fire)) {
         if (game->wave_intro_timer != 0)
             return;
         if (game->player.level < WALKER_LAYS_FROM_LEVEL) {
@@ -135,8 +117,7 @@ void think_23(GameState *game, Entity *e)
 
 /* ---- think_26 ----------------------------------------------------------------------------- */
 
-/* Dropper: falls with gravity (height 16.16 in timer/aux16, speed 16.16 in hp/aux1a) to the
- * floor, then rises one pixel per tick to the top and waits there; whenever the ship is
+/* Dropper: falls with gravity to the floor, then rises one pixel per tick to the top and waits there; whenever the ship is
  * below it and within reach in x it falls again. Meanwhile it creeps towards the ship's x
  * every tick that tuning.p0830 masks out, except at height 1. game86 1000:3014 */
 void think_26(GameState *game, Entity *e)
@@ -145,58 +126,57 @@ void think_26(GameState *game, Entity *e)
         return;
     if (entity_check_touch(game, e))
         return;
-    if ((game->tick_count & (uint16_t)game->tuning.p0830) == 0 && e->aux16 != 1)
+    if ((game->tick_count & (uint16_t)game->tuning.p0830) == 0 && e->dropper.height.whole != 1)
         e->x = (int16_t)(e->x + (left_of(game->target.x, e->x) ? -1 : 1));
 
-    if (e->aux1c != DROPPER_FALLING) {
+    DropperView *d = &e->dropper;
+    if (d->state != DROPPER_FALLING) {
         int16_t dx = (int16_t)(game->target.x - e->x);
         if (dx < 0)
             dx = (int16_t)-dx;
         if (dx <= DROPPER_REACH && e->y <= game->target.y) {
-            e->hp = 0;
-            e->aux1a = 0;
-            e->aux1c = DROPPER_FALLING;
+            fixed16_set(&d->fall_speed, 0);
+            d->state = DROPPER_FALLING;
         }
-        if (e->aux1c == DROPPER_WAITING)
+        if (d->state == DROPPER_WAITING)
             return;
-        if (e->aux1c != DROPPER_FALLING) {          /* rising (any other state counts) */
-            e->aux16--;
-            if (e->aux16 <= DROPPER_TOP)
-                e->aux1c = DROPPER_WAITING;
-            e->y = e->aux16;
+        if (d->state != DROPPER_FALLING) {          /* rising (any other state counts) */
+            d->height.whole--;
+            if (d->height.whole <= DROPPER_TOP)
+                d->state = DROPPER_WAITING;
+            e->y = d->height.whole;
             return;
         }
     }
-    int32_t speed = join32(e->hp, e->aux1a);
-    int32_t height = (int32_t)((uint32_t)join32(e->timer, e->aux16) + (uint32_t)speed);
-    split32(height, &e->timer, &e->aux16);
-    split32((int32_t)((uint32_t)speed + DROPPER_GRAVITY), &e->hp, &e->aux1a);
-    if (e->aux16 < DROPPER_FLOOR) {
-        e->y = e->aux16;
+    int32_t speed = fixed16_get(d->fall_speed);
+    fixed16_set(&d->height, (int32_t)((uint32_t)fixed16_get(d->height) + (uint32_t)speed));
+    fixed16_set(&d->fall_speed, (int32_t)((uint32_t)speed + DROPPER_GRAVITY));
+    if (d->height.whole < DROPPER_FLOOR) {
+        e->y = d->height.whole;
         return;
     }
-    e->aux1c = DROPPER_RISING;
+    d->state = DROPPER_RISING;
     game_sound_play(SOUND_DROPPER_LANDS.sample, SOUND_DROPPER_LANDS.rate_index,
                     SOUND_DROPPER_LANDS.priority);
 }
 
 /* ---- think_27 ----------------------------------------------------------------------------- */
 
-/* Edge spawner: bounces around and every period of the byte pair in aux16 throws a child
+/* Edge spawner: bounces around and every throw_child period throws a child
  * (sprite 0x112, moving down-left) in from a random point of the right or top edge. Touching
- * a ship does not kill: it stops (timer set) and shows its dead sprite. game86 1000:2f87 */
+ * a ship does not kill: it stops and shows its dead sprite. game86 1000:2f87 */
 void think_27(GameState *game, Entity *e)
 {
-    if (e->timer != 0)
+    if (e->edge_spawner.stopped != 0)
         return;
     if (entity_hits_player(game, e)) {
-        e->timer = 1;
+        e->edge_spawner.stopped = 1;
         e->sprite = EDGE_SPAWNER_DEAD_SPRITE;
         game->enemies_alive--;
         return;
     }
     entity_move_bounce(game, e);
-    if (!byte_pair_expired(&e->aux16))
+    if (!counter_expired(&e->edge_spawner.throw_child))
         return;
     /* The child starts where the spawner is, so it is moved there for the call. */
     Point16 home = { e->x, e->y };
