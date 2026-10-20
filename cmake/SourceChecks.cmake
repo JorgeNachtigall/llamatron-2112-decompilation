@@ -23,4 +23,4 @@ add_test(NAME configure_without_originals
     COMMAND ${CMAKE_COMMAND} -S "${PROJECT_SOURCE_DIR}" -B "${CMAKE_BINARY_DIR}/tests/no-originals"
         "-DLLAMATRON_ORIGINAL_DIR=${CMAKE_BINARY_DIR}/tests/no-originals/none")
 set_tests_properties(configure_without_originals PROPERTIES LABELS guard
-    PASS_REGULAR_EXPRESSION "is not a directory.*game86\\.exe.*/original.*LLAMATRON_ORIGINAL_DIR=/path.*web-emscripten")
+    PASS_REGULAR_EXPRESSION "is not a directory.*game86\\.exe.*/original.*export LLAMATRON_ORIGINAL_DIR=.*-DLLAMATRON_ORIGINAL_DIR=/path.*web-emscripten")

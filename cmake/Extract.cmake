@@ -45,14 +45,21 @@ function(_llamatron_need_originals problem)
         "this repository. It needs (tools/manifest/original-files.json, any letter case):\n"
         "  ${_required}\n"
         "and uses these when present: ${_optional}\n"
-        "Either copy them into ${PROJECT_SOURCE_DIR}/original (the presets' default), or point "
-        "the build at the folder that holds them:\n"
+        "Either copy them into ${PROJECT_SOURCE_DIR}/original (the default), or point the build "
+        "at the folder that holds them, in the environment or on the command line:\n"
+        "  export LLAMATRON_ORIGINAL_DIR=/path/to/llamatron\n"
         "  cmake --preset macos-native -DLLAMATRON_ORIGINAL_DIR=/path/to/llamatron\n"
         "  emcmake cmake --preset web-emscripten -DLLAMATRON_ORIGINAL_DIR=/path/to/llamatron")
 endfunction()
 
+# Where the originals are: -DLLAMATRON_ORIGINAL_DIR, else the LLAMATRON_ORIGINAL_DIR environment
+# variable (the presets pass $penv{LLAMATRON_ORIGINAL_DIR}, empty when it is not set), else
+# <repo>/original. Only a -D value is kept in the cache.
+if(NOT LLAMATRON_ORIGINAL_DIR AND NOT "$ENV{LLAMATRON_ORIGINAL_DIR}" STREQUAL "")
+    set(LLAMATRON_ORIGINAL_DIR "$ENV{LLAMATRON_ORIGINAL_DIR}")
+endif()
 if(NOT LLAMATRON_ORIGINAL_DIR)
-    _llamatron_need_originals("LLAMATRON_ORIGINAL_DIR is not set.")
+    set(LLAMATRON_ORIGINAL_DIR "${PROJECT_SOURCE_DIR}/original")
 endif()
 get_filename_component(LLAMATRON_ORIGINAL_DIR "${LLAMATRON_ORIGINAL_DIR}" ABSOLUTE)
 if(NOT IS_DIRECTORY "${LLAMATRON_ORIGINAL_DIR}")
@@ -90,12 +97,16 @@ get_property(_multi_config GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
 set(_host_args
     -S "${_extract_src}" -B "${_host_dir}" -G "${CMAKE_GENERATOR}"
     -DCMAKE_BUILD_TYPE=Release
+    "-DLLAMATRON_WERROR=${LLAMATRON_WERROR}"
     "-DCMAKE_RUNTIME_OUTPUT_DIRECTORY=${_host_bin}"
     "-DCMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE=${_host_bin}")
 if(CMAKE_MAKE_PROGRAM AND NOT _multi_config)
     list(APPEND _host_args "-DCMAKE_MAKE_PROGRAM=${CMAKE_MAKE_PROGRAM}")
 endif()
-set(_host_env ${CMAKE_COMMAND} -E env --unset=CC --unset=CFLAGS --unset=LDFLAGS --unset=CMAKE_TOOLCHAIN_FILE)
+# MAKEFLAGS too: under a make build the parent's jobserver is not handed down, and make would
+# say so ("jobserver unavailable") on every build.
+set(_host_env ${CMAKE_COMMAND} -E env --unset=CC --unset=CFLAGS --unset=LDFLAGS --unset=CMAKE_TOOLCHAIN_FILE
+    --unset=MAKEFLAGS)
 
 execute_process(COMMAND ${_host_env} ${CMAKE_COMMAND} ${_host_args}
     RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _out)

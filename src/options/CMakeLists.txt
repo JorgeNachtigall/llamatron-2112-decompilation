@@ -4,8 +4,6 @@ add_library(llamatron_options STATIC options_screen.c)
 target_include_directories(llamatron_options PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
     ${PROJECT_SOURCE_DIR}/src/platform)
 target_link_libraries(llamatron_options PUBLIC llamatron_game)
-target_compile_options(llamatron_options PRIVATE
-    $<$<C_COMPILER_ID:Clang,AppleClang,GNU>:-Wall -Wextra -Wpedantic>)
 
 if(NOT EMSCRIPTEN)
     add_executable(options_selftest options_selftest.c ${PROJECT_SOURCE_DIR}/src/platform/settings.c)

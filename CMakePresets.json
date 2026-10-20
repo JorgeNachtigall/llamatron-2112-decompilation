@@ -7,7 +7,7 @@
       "hidden": true,
       "generator": "Ninja",
       "cacheVariables": {
-        "LLAMATRON_ORIGINAL_DIR": "${sourceDir}/original"
+        "LLAMATRON_ORIGINAL_DIR": "$penv{LLAMATRON_ORIGINAL_DIR}"
       }
     },
     {
@@ -45,6 +45,28 @@
       "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Linux" }
     },
     {
+      "name": "ci-native",
+      "displayName": "CI check, native: compiler warnings are errors (build-ci)",
+      "inherits": "base",
+      "binaryDir": "${sourceDir}/build-ci",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "LLAMATRON_TARGET": "native",
+        "LLAMATRON_WERROR": "ON"
+      }
+    },
+    {
+      "name": "ci-web",
+      "displayName": "CI check, browser: compiler warnings are errors (build-ci-web) - configure via emcmake",
+      "inherits": "base",
+      "binaryDir": "${sourceDir}/build-ci-web",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "LLAMATRON_TARGET": "web",
+        "LLAMATRON_WERROR": "ON"
+      }
+    },
+    {
       "name": "web-emscripten",
       "displayName": "Browser (Emscripten, SDL2 port) - configure via emcmake",
       "inherits": "base",
@@ -59,16 +81,29 @@
     { "name": "macos-native", "configurePreset": "macos-native" },
     { "name": "macos-app", "configurePreset": "macos-app", "targets": ["llamatron_macos_app"] },
     { "name": "linux-native", "configurePreset": "linux-native" },
-    { "name": "web-emscripten", "configurePreset": "web-emscripten" }
+    { "name": "web-emscripten", "configurePreset": "web-emscripten" },
+    { "name": "ci-native", "configurePreset": "ci-native" },
+    { "name": "ci-web", "configurePreset": "ci-web" }
   ],
   "testPresets": [
     { "name": "macos-native", "configurePreset": "macos-native", "output": { "outputOnFailure": true } },
     { "name": "macos-app", "configurePreset": "macos-app", "output": { "outputOnFailure": true },
       "filter": { "include": { "name": "^(macos_app_|app_icon_from_title$)" } } },
     { "name": "linux-native", "configurePreset": "linux-native", "output": { "outputOnFailure": true } },
-    { "name": "web-emscripten", "configurePreset": "web-emscripten", "output": { "outputOnFailure": true } }
+    { "name": "web-emscripten", "configurePreset": "web-emscripten", "output": { "outputOnFailure": true } },
+    { "name": "ci-native", "configurePreset": "ci-native", "output": { "outputOnFailure": true },
+      "filter": { "exclude": { "label": "dosbox" } } }
   ],
   "workflowPresets": [
+    {
+      "name": "ci-native",
+      "displayName": "Build with warnings as errors and run the tests (build-ci)",
+      "steps": [
+        { "type": "configure", "name": "ci-native" },
+        { "type": "build", "name": "ci-native" },
+        { "type": "test", "name": "ci-native" }
+      ]
+    },
     {
       "name": "macos-app",
       "displayName": "Build and check build-app/Llamatron.app",

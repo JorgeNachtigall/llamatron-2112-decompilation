@@ -15,8 +15,6 @@ target_include_directories(llamatron_assets PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
     PRIVATE ${LLAMATRON_GENERATED_DIR})
 target_link_libraries(llamatron_assets PUBLIC llama_engine llama_assets_api)
 add_dependencies(llamatron_assets llamatron_generated)
-target_compile_options(llamatron_assets PRIVATE
-    $<$<C_COMPILER_ID:Clang,AppleClang,GNU>:-Wall -Wextra -Wpedantic -Wshadow -Wconversion -Wno-sign-conversion>)
 
 add_executable(assets_formats_test test_formats.c)
 target_link_libraries(assets_formats_test PRIVATE llamatron_assets llama_assets_files)
