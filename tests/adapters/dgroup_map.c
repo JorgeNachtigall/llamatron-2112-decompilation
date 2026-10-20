@@ -213,6 +213,10 @@ static void putflag16(Writer w, unsigned off, bool v) { put16(w, off, v ? 1 : 0)
 
 /* ---- pieces ----------------------------------------------------------------------------- */
 
+/* The record's +12..+31: Entity.raw.words, copied as words whatever the type's view. */
+enum { ENTITY_RAW_START = 0x12, ENTITY_RAW_WORDS = 16 };
+_Static_assert(sizeof(((Entity *)0)->raw.words) == 2 * ENTITY_RAW_WORDS, "raw view is +12..+31");
+
 static void entity_from(Entity *e, Reader r, unsigned base)
 {
     e->think = (int8_t)get8(r, base + 0x00);
@@ -225,23 +229,9 @@ static void entity_from(Entity *e, Reader r, unsigned base)
     e->sprite = gets16(r, base + 0x0C);
     e->scale = gets16(r, base + 0x0E);
     e->solid = gets16(r, base + 0x10);
-    e->aux12 = gets16(r, base + 0x12);
-    e->timer = gets16(r, base + 0x14);
-    e->aux16 = gets16(r, base + 0x16);
-    e->hp = gets16(r, base + 0x18);
-    e->aux1a = gets16(r, base + 0x1A);
-    e->aux1c = gets16(r, base + 0x1C);
-    e->kill_action = gets16(r, base + 0x1E);
-    e->sub_mode = gets16(r, base + 0x20);
-    e->reload = get8(r, base + 0x22);
-    e->countdown = get8(r, base + 0x23);
-    e->aux24 = gets16(r, base + 0x24);
-    e->aux26 = gets16(r, base + 0x26);
-    e->anim_toggle = gets16(r, base + 0x28);
-    e->aux2a = gets16(r, base + 0x2A);
-    e->sprite_ref = gets16(r, base + 0x2C);
-    e->aux2e = gets16(r, base + 0x2E);
-    e->aux30 = gets16(r, base + 0x30);
+    /* +12..+31: each type's own view of them (entity_views.h, docs/entity-fields.md 7.2) */
+    for (unsigned i = 0; i < ENTITY_RAW_WORDS; i++)
+        e->raw.words[i] = get16(r, base + ENTITY_RAW_START + 2 * i);
     e->overlay.x = gets16(r, base + 0x32);
     e->overlay.y = gets16(r, base + 0x34);
     e->overlay.sprite = gets16(r, base + 0x36);
@@ -264,23 +254,8 @@ static void entity_to(const Entity *e, Writer w, unsigned base)
     put16(w, base + 0x0C, (uint16_t)e->sprite);
     put16(w, base + 0x0E, (uint16_t)e->scale);
     put16(w, base + 0x10, (uint16_t)e->solid);
-    put16(w, base + 0x12, (uint16_t)e->aux12);
-    put16(w, base + 0x14, (uint16_t)e->timer);
-    put16(w, base + 0x16, (uint16_t)e->aux16);
-    put16(w, base + 0x18, (uint16_t)e->hp);
-    put16(w, base + 0x1A, (uint16_t)e->aux1a);
-    put16(w, base + 0x1C, (uint16_t)e->aux1c);
-    put16(w, base + 0x1E, (uint16_t)e->kill_action);
-    put16(w, base + 0x20, (uint16_t)e->sub_mode);
-    put8(w, base + 0x22, e->reload);
-    put8(w, base + 0x23, e->countdown);
-    put16(w, base + 0x24, (uint16_t)e->aux24);
-    put16(w, base + 0x26, (uint16_t)e->aux26);
-    put16(w, base + 0x28, (uint16_t)e->anim_toggle);
-    put16(w, base + 0x2A, (uint16_t)e->aux2a);
-    put16(w, base + 0x2C, (uint16_t)e->sprite_ref);
-    put16(w, base + 0x2E, (uint16_t)e->aux2e);
-    put16(w, base + 0x30, (uint16_t)e->aux30);
+    for (unsigned i = 0; i < ENTITY_RAW_WORDS; i++)
+        put16(w, base + ENTITY_RAW_START + 2 * i, e->raw.words[i]);
     put16(w, base + 0x32, (uint16_t)e->overlay.x);
     put16(w, base + 0x34, (uint16_t)e->overlay.y);
     put16(w, base + 0x36, (uint16_t)e->overlay.sprite);
