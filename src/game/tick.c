@@ -37,7 +37,7 @@ static bool play_tick_timers(GameState *game)
     if (game->wave_start_delay != 0)
         game->wave_start_delay--;
     if (game->shield_timer != 0 && --game->shield_timer == SHIELD_WARNING_TICKS)
-        game_sound_play(0x1A, 1, 0x0A);             /* 1587 */
+        game_sound_play(SAMPLE_ID_ALERT, 1, 0x0A);             /* 1587 */
 
     InputState *input = input_state();
     if (input->last_make_code == PC_KEY_P) {        /* 1595 */
@@ -64,7 +64,7 @@ static bool play_tick_timers(GameState *game)
         if (game->rescue_marker_y[p] >= 0)
             game->rescue_marker_y[p]--;
     if (game->death_sound_timer != 0 && --game->death_sound_timer == 0 && !game->rude_name)
-        game_sound_play(0x11, 3, 0x1E);             /* 1614 */
+        game_sound_play(SAMPLE_ID_EXPLOSION, 3, 0x1E);             /* 1614 */
 
     for (int p = 0; p < PLAYER_COUNT; p++)          /* 1620 */
         if (game->respawn_timer[p] != 0)
@@ -88,7 +88,7 @@ static bool play_tick_timers(GameState *game)
             game->player.level++;
             if (++game->player.wave == WAVES_PER_CYCLE)
                 game->player.wave = 0;
-            game_sound_play(0x14, 0, 0x1E);
+            game_sound_play(SAMPLE_ID_WAVE_CLEARED, 0, 0x1E);
             return false;
         }
     }

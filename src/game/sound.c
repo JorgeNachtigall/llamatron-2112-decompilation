@@ -9,10 +9,10 @@ static unsigned log_count;
 static bool status_overridden;
 static SoundStatus status_override;
 
-void game_sound_play(uint8_t sample, uint8_t rate_index, uint8_t priority)
+void game_sound_play(SampleId sample, uint8_t rate_index, uint8_t priority)
 {
     if (log_count < SOUND_LOG_SIZE)
-        log_entries[log_count] = (SoundRequest){ sample, rate_index, priority };
+        log_entries[log_count] = (SoundRequest){ (uint8_t)sample, rate_index, priority };
     log_count++;
     snd_play(sample, rate_index, priority);
 }

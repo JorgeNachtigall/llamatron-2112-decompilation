@@ -49,7 +49,7 @@ void script_run_op(GameState *game, const LevelOp *op)
         player->script_param[5] = doubled(b[0]);
         player->script_param[4] = b[1] & 0x0F;
         player->script_param[6] = doubled(b[2]);
-        game_sound_play(0x16, 0, 0x1E);
+        game_sound_play(SAMPLE_ID_LEVEL_SOUND_OP, 0, 0x1E);
         break;
     case OP_TUNING_3:       /* 1000:03e1 */
         tuning->p0826 = b[0];

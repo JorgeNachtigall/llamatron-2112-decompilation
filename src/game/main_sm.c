@@ -116,6 +116,10 @@ enum {
     LABEL_OFFSET_SHARED_P2 = 0x5E,
     CONTINUE_LIVES = 5,
     TABLE_WAIT_TICKS = 0x3E8,           /* 5d4e */
+    /* Scroller runs' last window offset (ScrollerConfig.end_offset, smc CS:582d). */
+    VERSION_SCROLL_END = 0xE800,        /* the version text at start-up, 597b.. */
+    STORY_SCROLL_END = 0,               /* unused: the story ends through its late text */
+    CREDITS_SCROLL_END = 0x8800,        /* 02f6 */
 };
 
 static void go(MainState state)
@@ -210,15 +214,10 @@ static ScrollerStatus scroller_step(void)
 }
 
 /* The pictures and texts of the hi-score screens. */
-static const GfxSprite *title_shape(unsigned index)
+/* hud_draw_control_labels' lookup (HudShapeLookup takes the TitleShapeId as unsigned). */
+static const GfxSprite *control_label_shape(unsigned id)
 {
-    return asset_sprite_gfx(SPRITE_BANK_TITLE, index);
-}
-
-static const GfxSprite *game_sprite_at(uint16_t bank_offset)
-{
-    int index = asset_sprite_index_at(SPRITE_BANK_GAME, bank_offset);
-    return index < 0 ? NULL : asset_sprite_gfx(SPRITE_BANK_GAME, (unsigned)index);
+    return asset_title_shape((TitleShapeId)id);
 }
 
 static const HiscoreArt *hiscore_art(void)
@@ -227,11 +226,12 @@ static const HiscoreArt *hiscore_art(void)
     static bool built;
     if (!built) {
         art = (HiscoreArt){
-            .logo_left = title_shape(15),
-            .logo_right = title_shape(14),
-            .cursor = title_shape(0),
-            .marker = { game_sprite_at(0x245A), game_sprite_at(0x4268) },
-            .control_labels = title_shape,
+            .logo_left = asset_title_shape(TITLE_SHAPE_LOGO_LEFT),
+            .logo_right = asset_title_shape(TITLE_SHAPE_LOGO_RIGHT),
+            .cursor = asset_title_shape(TITLE_SHAPE_NAME_CURSOR),
+            .marker = { asset_sprite_id_gfx(SPRITE_ID_HISCORE_MARK_1),
+                        asset_sprite_id_gfx(SPRITE_ID_HISCORE_MARK_2) },
+            .control_labels = control_label_shape,
             .table_heading = text_of(TEXT_ID_HISCORE_TITLE),
             .entry_heading = text_of(TEXT_ID_HISCORE_ENTRY),
             .entry_prompt = text_of(TEXT_ID_HISCORE_NAME),
@@ -275,7 +275,7 @@ static bool boot_scroll_start(GameState *game)
 {
     game->tune.fire_pressed = false;                /* 597b */
     game->pulse_enable = true;
-    scroller_run(game, TEXT_ID_VERSION_SCROLL, 0xE800, TEXT_ID_COUNT);
+    scroller_run(game, TEXT_ID_VERSION_SCROLL, VERSION_SCROLL_END, TEXT_ID_COUNT);
     go(MS_BOOT_SCROLL);
     return true;
 }
@@ -309,7 +309,7 @@ static bool attract_title(GameState *game)
 {
     game->player.wave = 0;                          /* 0106 */
     game->continues = 4;
-    game_sound_play(0x15, 1, 2);
+    game_sound_play(SAMPLE_ID_WAVE_START, 1, 2);
     title_draw(game, attract_art_default());        /* 3ee0..3f6b */
     reveal_then(MS_ATTRACT_LLAMAS);
     return true;
@@ -331,12 +331,12 @@ static bool attract_cycle(GameState *game)
     switch (flow.attract_case++ & 3) {
     case 0:                                         /* 02d4 */
         title_tune_start(game);
-        scroller_run(game, TEXT_ID_STORY_SCROLL, 0, TEXT_ID_STORY_LATE);
+        scroller_run(game, TEXT_ID_STORY_SCROLL, STORY_SCROLL_END, TEXT_ID_STORY_LATE);
         go(MS_ATTRACT_SCROLL);
         return true;
     case 2:                                         /* 02f6 */
         title_tune_start(game);
-        scroller_run(game, TEXT_ID_CREDITS_SCROLL, 0x8800, TEXT_ID_COUNT);
+        scroller_run(game, TEXT_ID_CREDITS_SCROLL, CREDITS_SCROLL_END, TEXT_ID_COUNT);
         go(MS_ATTRACT_SCROLL);
         return true;
     default:                                        /* 0287: a demo of a random level */
@@ -415,7 +415,7 @@ static bool new_game(GameState *game)
 
 static bool next_level(GameState *game)
 {
-    game_sound_play(0x15, 1, 0x1E);                 /* 01e5 */
+    game_sound_play(SAMPLE_ID_WAVE_START, 1, 0x1E);                 /* 01e5 */
     game->player.swarm_reaim_period = 0x0F;
     game->player.multi_shot = 0;
     game->powerup_0652 = 0;
@@ -514,7 +514,7 @@ static bool wave_over(GameState *game)
     case WAVE_WARP: {                               /* 063a */
         game->tick_hook = TICK_HOOK_NONE;
         wave_draw_warp_banner(game);                /* 0640 */
-        game_sound_play(6, 0, 0x0A);
+        game_sound_play(SAMPLE_ID_WARP, 0, 0x0A);
         go(MS_WARP_SOUND);
         return false;                               /* 0658 wait_vsync */
     }
@@ -711,7 +711,7 @@ static bool game_over(GameState *game)
 {
     (void)game;
     game_over_draw();                               /* 08ee..0910 */
-    game_sound_play(0x1E, 1, 8);
+    game_sound_play(SAMPLE_ID_GAME_OVER, 1, 8);
     go(MS_GAME_OVER_SOUND);
     return false;                                   /* 091f wait_vsync */
 }

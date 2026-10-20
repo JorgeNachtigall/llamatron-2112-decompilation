@@ -12,6 +12,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "formats.h" /* SampleId */
 #include "snd.h"     /* SoundStatus */
 
 #ifdef __cplusplus
@@ -27,7 +28,7 @@ typedef struct SoundRequest {
 enum { SOUND_LOG_SIZE = 64 };
 
 /* Driver AH=3. */
-void game_sound_play(uint8_t sample, uint8_t rate_index, uint8_t priority);
+void game_sound_play(SampleId sample, uint8_t rate_index, uint8_t priority);
 
 /* The S key (pause screen) and game exit: flips sound_on and swaps the driver with the stub
  * driver. game86 1000:1514 */
