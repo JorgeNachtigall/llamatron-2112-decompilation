@@ -67,6 +67,7 @@ WAIT_VSYNC_END = 0xE605              # 3DAh reads outside e5f3..e604 are another
 INT_TIMER, INT_KEYBOARD = 0x08, 0x09
 STACK = range(0x84D0, 0x85E2)        # game86's stack (interrupt frames), not state
 KEY_PORT = 0x60
+JOYSTICK_PORT = 0x201
 DRAW_HOOK, TICK_HOOK = 0x39E0, 0x39E4    # [39E0] frame draw hook, [39E4] tick hook
 DRAW_HOOK_TITLE = 0x402C
 # Known differences, as tests/replay/compare.py treats them:
@@ -128,11 +129,14 @@ class Clock:
 
 class OriginalGame:
     def __init__(self, game86: str | Path | None, original_dir: Path, seed: int,
-                 machine: str = "vga", sound_driver=None):
+                 machine: str = "vga", sound_driver=None, joystick=None):
         """sound_driver(machine) -> (seg, off), if given, loads a sound driver into the machine
         and returns its far entry; the command tail then selects it (PSP:89h = 0Ch, the
         Sound Blaster code, and PSP:8Ah..8Dh = the entry; game86 1000:5f6b..). Without it
-        PSP:89h = FFh selects game86's dummy driver 1000:e785."""
+        PSP:89h = FFh selects game86's dummy driver 1000:e785.
+
+        joystick, if given, is port 201h (tests/oracle/whole_game_joystick.py: arm() on every
+        OUT, read() on every IN) and the command tail selects the joystick (PSP:88h = 1)."""
         self.m = Machine.from_game86(game86)
         self.uc = self.m.uc
         self.dir = original_dir
@@ -154,6 +158,8 @@ class OriginalGame:
         def io_read(port: int, size: int) -> int:
             if port == KEY_PORT and self.key_byte is not None:
                 return self.key_byte
+            if port == JOYSTICK_PORT and joystick is not None:
+                return joystick.read()
             if port == 0x3DA:
                 ip = self.uc.reg_read(X.UC_X86_REG_IP)
                 cs = self.uc.reg_read(X.UC_X86_REG_CS)
@@ -161,9 +167,18 @@ class OriginalGame:
                     self.stray_waits.append((cs, ip))
             return base_io(port, size)
         m.io_read = io_read
+        if joystick is not None:
+            ega_out = m.ega.port_out
+
+            def port_out(port: int, value: int, size: int) -> bool:
+                if port == JOYSTICK_PORT:
+                    joystick.arm()
+                return ega_out(port, value, size)
+            m.ega.port_out = port_out
 
         # PSP command tail as llama.exe passes it (docs/re-notes-game86.md §1).
-        tail = bytes([0x6C, 0x6D, 0x0D, 0, 0, 1 if machine == "vga" else 0, 0, 0, 0xFF])
+        tail = bytes([0x6C, 0x6D, 0x0D, 0, 0, 1 if machine == "vga" else 0, 0,
+                      1 if joystick is not None else 0, 0xFF])
         if sound_driver:
             seg, off = sound_driver(m)
             tail = tail[:-1] + bytes([SOUND_BLASTER]) + struct.pack("<HH", off, seg)
@@ -413,20 +428,25 @@ class GameHostInput(ctypes.Structure):
 class PortGame:
     """llamatron_replay's set-up (tests/replay/replay_driver.c), in this process."""
 
-    def __init__(self, lib: ctypes.CDLL, seed: int, machine: str = "vga", sound: bool = False):
+    def __init__(self, lib: ctypes.CDLL, seed: int, machine: str = "vga", sound: bool = False,
+                 joystick: bool = False):
         self.dg = DgroupMap(lib)
         self.state = self.dg.new_state()
         self._tick = bind(lib, "game_tick", None, ctypes.c_void_p)
         self._frame = bind(lib, "game_frame", None, ctypes.c_void_p, ctypes.POINTER(GameHostInput))
         self._key = bind(lib, "input_keyboard_byte", None, ctypes.c_uint8)
-        bind(lib, "input_init", None, ctypes.c_int, ctypes.c_bool)(0, True)
+        # INPUT_DEVICE_KEYBOARD (0), or INPUT_DEVICE_JOYSTICK (1) with both sticks found
+        bind(lib, "input_init", None, ctypes.c_int, ctypes.c_bool)(1 if joystick else 0,
+                                                                   not joystick)
+        self._stick = bind(lib, "input_set_stick", None, ctypes.c_int, ctypes.c_float,
+                           ctypes.c_float, ctypes.c_bool, ctypes.c_bool)
         bind(lib, "gfx_init", None)()
         if not bind(lib, "game_data_load", ctypes.c_bool)():
             raise RuntimeError("the game data could not be loaded")
         palettes = bind(lib, "asset_palettes", ctypes.c_void_p)()
         bind(lib, "gfx_set_adapter", None, ctypes.c_int, ctypes.c_void_p)(
             1 if machine == "vga" else 0, palettes + 17)
-        launch = GameLaunch(vga=machine == "vga", joystick=False, sound=sound, flash_mode=0,
+        launch = GameLaunch(vga=machine == "vga", joystick=joystick, sound=sound, flash_mode=0,
                             bios_ticks=seed)
         if not bind(lib, "game_init", ctypes.c_bool, ctypes.c_void_p,
                     ctypes.POINTER(GameLaunch))(self.state, ctypes.byref(launch)):
@@ -435,6 +455,9 @@ class PortGame:
 
     def key(self, code: int) -> None:
         self._key(code)
+
+    def stick(self, stick: int, x: float, y: float, button_a: bool, button_b: bool) -> None:
+        self._stick(stick, x, y, button_a, button_b)
 
     def tick(self) -> None:
         self._tick(self.state)
@@ -457,6 +480,8 @@ class PortGame:
 class Script:
     keys: dict[int, list[int]] = field(default_factory=dict)        # tick -> scan codes
     pokes: dict[int, list[tuple[int, int]]] = field(default_factory=dict)   # tick -> (off, word)
+    # tick -> (stick, x, y, button_a, button_b), x / y in -1..+1 (run_lockstep's joystick)
+    sticks: dict[int, list[tuple[int, float, float, bool, bool]]] = field(default_factory=dict)
 
 
 @dataclass
@@ -503,7 +528,7 @@ def known(off: int, a: bytes, b: bytes) -> bool:
 def run_lockstep(lib, script: Script, ticks: int, seed: int, machine: str = "vga",
                  phase: int = 0, start_delay: int = 0, game86=None,
                  original_dir: Path | None = None, ignore=(), progress=None,
-                 on_frame=None, sound=None) -> Result:
+                 on_frame=None, sound=None, joystick=None) -> Result:
     """on_frame(orig, port, tick, frame), called after each frame whose DGROUP matched, may
     return a Result to stop with (e.g. a page comparison, tests/oracle/whole_game_pages.py).
 
@@ -512,14 +537,18 @@ def run_lockstep(lib, script: Script, ticks: int, seed: int, machine: str = "vga
     sound on, and sound.before_tick(orig, port, tick) / sound.before_frame(orig, port, tick,
     phase) run before every tick and frame, phase being the tick phase the shell passes to
     snd_set_phase; sound.check(orig, port, tick, frame, where) after every tick and frame
-    whose DGROUP matched may return a Result to stop with."""
+    whose DGROUP matched may return a Result to stop with.
+
+    joystick, if given, is the original's port 201h (whole_game_joystick.JoystickPort): both
+    sides start with the joystick selected, and script.sticks set both sides' sticks before
+    the tick's keys."""
     original_dir = original_dir or Path(os.environ.get("LLAMATRON_ORIGINAL_DIR", REPO / "original"))
     try:
         orig = OriginalGame(game86, original_dir, seed, machine,
-                            sound_driver=sound.load if sound else None)
+                            sound_driver=sound.load if sound else None, joystick=joystick)
     except OriginalFault as exc:
         return Result(False, 0, 0, "original", detail=f"start-up: {exc}")
-    port = PortGame(lib, seed, machine, sound=sound is not None)
+    port = PortGame(lib, seed, machine, sound=sound is not None, joystick=joystick is not None)
     cmp = Comparer(port.dg, ignore)
     clock = Clock(machine, phase)
     tick = frame = 0
@@ -552,6 +581,9 @@ def run_lockstep(lib, script: Script, ticks: int, seed: int, machine: str = "vga
             for off, value in script.pokes.get(tick, ()):
                 orig.poke(off, value)
                 port.poke(off, value)
+            for stick in script.sticks.get(tick, ()):
+                joystick.set(*stick)
+                port.stick(*stick)
             for code in script.keys.get(tick, ()):
                 orig.key(code)
                 port.key(code)
