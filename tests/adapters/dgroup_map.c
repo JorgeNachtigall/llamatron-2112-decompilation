@@ -915,8 +915,8 @@ static void write_state(const GameState *g, Writer w)
         clobber_to(g->spawn_pairs_clobbered, w);
     }
     put16(w, DS_TICK_COUNT, g->tick_count);
-    put16(w, DS_TICK_HOOK, hook_to(TICK_HOOKS, TICK_HOOK_COUNT, g->tick_hook));
-    put16(w, DS_DRAW_HOOK, hook_to(DRAW_HOOKS, DRAW_HOOK_COUNT, g->draw_hook));
+    put16(w, DS_TICK_HOOK, hook_to(TICK_HOOKS, TICK_HOOK_COUNT, (int)g->tick_hook));
+    put16(w, DS_DRAW_HOOK, hook_to(DRAW_HOOKS, DRAW_HOOK_COUNT, (int)g->draw_hook));
     put8(w, DS_FRAME_DRAWN, g->frame_drawn ? 1 : 0);
 
     for (int i = 0; i < HISCORE_COUNT; i++)

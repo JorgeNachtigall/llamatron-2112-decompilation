@@ -198,7 +198,8 @@ static uint16_t parse_phase(const char *text)
     double f = strtod(text, NULL);
     if (!(f > 0))
         return 0;
-    return f * 65536.0 >= 65535.0 ? 65535u : (uint16_t)(f * 65536.0 + 0.5);
+    /* f > 0 here, so + 0.5 then truncation rounds to nearest, as the app's parse_phase */
+    return f * 65536.0 >= 65535.0 ? 65535u : (uint16_t)(f * 65536.0 + 0.5); /* NOLINT(bugprone-incorrect-roundings) */
 }
 
 static int usage(void)
