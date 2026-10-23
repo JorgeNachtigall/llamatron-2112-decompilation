@@ -19,7 +19,7 @@ enum PadKey {
 };
 
 /* PC scan code set 1 make codes, in PadKey bit order. */
-static const uint8_t PAD_KEY_CODES[] = { 0x48, 0x50, 0x4b, 0x4d, 0x39, 0x19, 0x1f, 0x1c, 0x18 };
+static const uint8_t PAD_KEY_CODES[] = { 0x48, 0x50, 0x4b, 0x4d, 0x39, 0x19, 0x1f, 0x1c, 0x3c };
 
 static const unsigned FIRE_BUTTONS =
     PLAT_PAD_BUTTON_A | PLAT_PAD_BUTTON_B | PLAT_PAD_BUTTON_X | PLAT_PAD_BUTTON_Y;

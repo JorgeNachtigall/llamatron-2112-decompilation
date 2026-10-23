@@ -20,7 +20,7 @@ keys (or a joystick button in joystick mode) to go on. On the game's own title s
 | Space / fire | start |
 | Left / Right | 1 player, 2 players with two joysticks, 2 players with one stick (player 2 is the droid) |
 | Up / Down | shared start on / off |
-| O | options screen (below) |
+| F2 | options screen (below) |
 
 Left alone for 30 seconds, the title runs the attract mode: the story, a demo, the credits and
 another demo.
@@ -46,11 +46,11 @@ Any SDL-supported pad (Xbox, PlayStation, Switch Pro, ...) works without setup:
 | X, Y | fire | joystick 2 fire (single pad) |
 | right stick | fire while pushed | joystick 2 (single pad: twin-stick aiming) |
 | Start | pause; on the title: start (Enter) | the same |
-| Back / Select | sound toggle while paused; on the title: options (O) | the same |
+| Back / Select | sound toggle while paused; on the title: options (F2) | the same |
 
 A second pad drives joystick 2 in joystick mode.
 
-## Options (O on the title)
+## Options (F2 on the title)
 
 These are the settings the original's install program wrote to `llama.inf`:
 
@@ -62,7 +62,7 @@ These are the settings the original's install program wrote to `llama.inf`:
 | Processor | the original's CPU digit (kept for compatibility) |
 | Flashes | flashes and pulsing / pulsing only / neither (for flash-sensitive players) |
 
-Up/Down choose a line, Left/Right or Space change it, Enter saves, and Esc (or O again)
+Up/Down choose a line, Left/Right or Space change it, Enter saves, and Esc (or F2 again)
 leaves without saving. Saved settings apply from the next game.
 
 ## Picture and window

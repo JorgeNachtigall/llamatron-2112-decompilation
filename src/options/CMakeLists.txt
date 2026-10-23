@@ -20,7 +20,7 @@ if(TARGET llamatron)
     target_link_libraries(llamatron PRIVATE llamatron_options)
 endif()
 if(TARGET llamatron AND NOT EMSCRIPTEN)
-    # Through the real executable: O on the title, Right (video -> EGA), Down Down Right
+    # Through the real executable: F2 on the title, Right (video -> EGA), Down Down Right
     # (sound None -> Sound Blaster), Enter. The title is reloaded for EGA at once, llama.inf is
     # stored, and the next start reads it; Esc leaves without storing.
     set(_prefs ${CMAKE_CURRENT_BINARY_DIR}/options-prefs)
@@ -30,13 +30,13 @@ if(TARGET llamatron AND NOT EMSCRIPTEN)
         COMMAND ${CMAKE_COMMAND} -E make_directory ${_prefs})
     add_test(NAME llamatron_options_save
         COMMAND ${CMAKE_COMMAND} -E env LLAMATRON_PREF_DIR=${_prefs}
-            $<TARGET_FILE:llamatron> --frames 12 --mute --tap 2:24:0,3:77:0,4:80:0,5:80:0,6:77:0,7:28:0)
+            $<TARGET_FILE:llamatron> --frames 12 --mute --tap 2:60:0,3:77:0,4:80:0,5:80:0,6:77:0,7:28:0)
     add_test(NAME llamatron_options_reload
         COMMAND ${CMAKE_COMMAND} -E env LLAMATRON_PREF_DIR=${_prefs}
             $<TARGET_FILE:llamatron> --frames 12 --mute --start-after 3 --seed 0)
     add_test(NAME llamatron_options_cancel
         COMMAND ${CMAKE_COMMAND} -E env LLAMATRON_PREF_DIR=${_prefs}
-            $<TARGET_FILE:llamatron> --frames 12 --mute --tap 2:24:0,3:77:0,4:1:0)
+            $<TARGET_FILE:llamatron> --frames 12 --mute --tap 2:60:0,3:77:0,4:1:0)
     set_tests_properties(llamatron_options_reset PROPERTIES FIXTURES_SETUP llamatron_options)
     set_tests_properties(llamatron_options_prefs PROPERTIES FIXTURES_SETUP llamatron_options
         DEPENDS llamatron_options_reset)

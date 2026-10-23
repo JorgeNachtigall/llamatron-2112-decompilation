@@ -43,7 +43,7 @@ static void check_keys(void)
     Settings start = settings_shipped_defaults();
     OptionsScreen screen;
 
-    /* Esc and O leave without changes; Enter saves. */
+    /* Esc and F2 leave without changes; Enter saves. */
     options_open(&screen, &start);
     press(&screen, PC_KEY_RIGHT);
     press(&screen, PC_KEY_ESCAPE);
