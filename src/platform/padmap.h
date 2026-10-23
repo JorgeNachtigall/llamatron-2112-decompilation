@@ -17,7 +17,7 @@
  *     Back / Select               -> S (1Fh, sound on/off while paused, game86 1000:1500)
  *   both, on the title (PadMap.title, the host's options screen, src/options):
  *     Start                       -> Enter (1Ch: starts the game; saves the options)
- *     Back / Select               -> F2 (3Ch: opens / cancels the options screen)
+ *     Back / Select               -> O (18h: opens / cancels the options screen)
  *
  * Keys are sent as make codes when a control goes down and break codes when it comes up.
  */

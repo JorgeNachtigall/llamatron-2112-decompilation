@@ -9,7 +9,7 @@
  * settings if the player saved them (plat_settings_save -> settings_format_inf).
  *
  * Keys: Up/Down choose a line, Left/Right (or Space) change it, Enter saves, Esc or the
- * options key again leaves without saving.
+ * options key (O) again leaves without saving.
  */
 #ifndef LLAMATRON_OPTIONS_SCREEN_H
 #define LLAMATRON_OPTIONS_SCREEN_H
@@ -25,7 +25,7 @@ extern "C" {
 #endif
 
 enum {
-    OPTIONS_KEY = 0x3c,             /* F2 (make code): opens the screen from the title */
+    OPTIONS_KEY = 0x18,             /* O (make code): opens the screen from the title */
 };
 
 typedef enum OptionsLine {

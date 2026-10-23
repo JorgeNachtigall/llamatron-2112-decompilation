@@ -89,20 +89,20 @@ static void test_pad_keys(void)
     padmap_menu_keys(&menu, &stick, log_key, &log);
     CHECK(strcmp(log.text, "+19 ") == 0);
 
-    /* On the title Start is Enter and Back is F2 (the options screen); a button held across
+    /* On the title Start is Enter and Back is O (the options screen); a button held across
      * the change is released as its old key and pressed as its new one. */
     PadMap title = { .title = true };
     PlatGamepad back = { .connected = true, .buttons = PLAT_PAD_BUTTON_BACK };
-    CHECK(strcmp(keys(&title, back), "+3c ") == 0);
+    CHECK(strcmp(keys(&title, back), "+18 ") == 0);
     back.buttons = PLAT_PAD_BUTTON_START;
-    CHECK(strcmp(keys(&title, back), "-3c +1c ") == 0);
+    CHECK(strcmp(keys(&title, back), "-18 +1c ") == 0);
     title.title = false;
     CHECK(strcmp(keys(&title, back), "-1c +19 ") == 0);
     PadMap menu_title = { .title = true };
     Log log2 = { "" };
     stick.buttons = PLAT_PAD_BUTTON_BACK;
     padmap_menu_keys(&menu_title, &stick, log_key, &log2);
-    CHECK(strcmp(log2.text, "+3c ") == 0);
+    CHECK(strcmp(log2.text, "+18 ") == 0);
 }
 
 static void test_pad_sticks(void)

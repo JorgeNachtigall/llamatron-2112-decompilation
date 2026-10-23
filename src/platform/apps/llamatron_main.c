@@ -83,7 +83,7 @@ typedef struct App {
     GfxAdapter adapter;
     InputDevice device;
     TitleScreen title;
-    bool in_options;                /* the options screen (F2 on the title, src/options) */
+    bool in_options;                /* the options screen (O on the title, src/options) */
     OptionsScreen options;
     uint8_t options_pixels[GFX_HEIGHT][GFX_WIDTH];
     GfxColor options_palette[GFX_PALETTE_SIZE];
