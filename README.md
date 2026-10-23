@@ -1,7 +1,9 @@
 # Llamatron 2112 port
 
-A C11 reimplementation of Llamatron 2112 (Llamasoft, 1992, MS-DOS), built natively (macOS, SDL2)
-and for the browser (Emscripten). See `docs/PLAN.md` for goals, architecture and status.
+A C11 reimplementation of Llamatron 2112, decompiled by hand from the original DOS assembly and
+tested against it routine by routine. Llamatron 2112 is by Llamasoft (1992, MS-DOS); the port builds
+natively (macOS, SDL2) and for the browser (Emscripten). See `docs/PLAN.md` for goals, architecture
+and status.
 
 ## Personal use only
 
